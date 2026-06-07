@@ -1,0 +1,171 @@
+import numpy as np
+from sklearn.linear_model import SGDClassifier
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
+
+from data.loader import (
+    build_lr_choice,
+    build_timebin_tensor,
+    build_trial_metadata,
+    load_data,
+)
+
+LAMBDA_GRID = np.logspace(-6, -0.5, 11)
+N_CV_SPLITS = 10
+
+
+def make_sgd_classifier(alpha, random_state=0):
+    return SGDClassifier(
+        loss="log_loss",
+        penalty="l2",
+        alpha=alpha,
+        class_weight="balanced",
+        learning_rate="optimal",
+        random_state=random_state,
+        max_iter=2000,
+        tol=1e-4,
+    )
+
+
+def zscore_per_neuron(X):
+    X_out = X.copy()
+    for ni in range(X.shape[1]):
+        vals = X[:, ni, :]
+        X_out[:, ni, :] = (vals - np.nanmean(vals)) / np.nanstd(vals)
+    return X_out
+
+
+def get_endpoint_mean(X, window_bins=301):
+    valid = ~np.isnan(X)
+    cum_valid = valid.cumsum(axis=-1)
+    total_valid = cum_valid[:, :, -1]
+
+    in_window = cum_valid > (total_valid[:, :, None] - window_bins)
+    in_window = in_window & valid
+
+    window_sum = np.where(in_window, X, 0.0).sum(axis=-1)
+    window_count = in_window.sum(axis=-1)
+    endpoint = np.divide(
+        window_sum,
+        window_count,
+        out=np.full_like(window_sum, np.nan),
+        where=window_count > 0,
+    )
+    return np.nan_to_num(endpoint, nan=0.0)
+
+
+def pick_lambda(X, y, n_splits=10, random_state=0):
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    ce = np.zeros(len(LAMBDA_GRID))
+    coef_norm = np.zeros(len(LAMBDA_GRID))
+
+    for i, lam in enumerate(LAMBDA_GRID):
+        clf = make_sgd_classifier(lam, random_state)
+        ce[i] = -cross_val_score(clf, X, y, cv=skf, scoring="neg_log_loss").mean()
+        clf.fit(X, y)
+        coef_norm[i] = np.sum(np.abs(clf.coef_))
+
+    def normalize(x):
+        x = np.log10(x + 1e-12)
+        lo, hi = x.min(), x.max()
+        return np.zeros_like(x) if hi == lo else (x - lo) / (hi - lo)
+
+    score = (
+        normalize(ce)
+        + normalize(coef_norm)
+        + np.abs(normalize(ce) - normalize(coef_norm))
+    )
+    return LAMBDA_GRID[int(np.argmin(score))]
+
+
+def balance_train_indices(idx_train, y):
+    classes, counts = np.unique(y[idx_train], return_counts=True)
+    min_count = counts.min()
+    balanced_idx = np.concatenate(
+        [
+            np.random.choice(idx_train[y[idx_train] == c], min_count, replace=False)
+            for c in classes
+        ]
+    )
+    np.random.shuffle(balanced_idx)
+    return balanced_idx
+
+
+def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
+    valid = trial_mask & ~np.isnan(y)
+    X_train = get_endpoint_mean(X)[valid]
+    y_train = y[valid].astype(int)
+
+    best_lambda = (
+        alpha
+        if alpha is not None
+        else pick_lambda(X_train, y_train, random_state=random_state)
+    )
+
+    clf = make_sgd_classifier(best_lambda, random_state)
+    clf.fit(X_train, y_train)
+    return clf, valid, best_lambda
+
+
+def score_decoder(clf, X, y, trial_indices):
+    return clf.score(X[trial_indices], y[trial_indices].astype(int))
+
+
+def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
+    eligible = np.where(trial_mask & ~np.isnan(y))[0]
+    X_endpoint = get_endpoint_mean(X)
+
+    best_lambda = pick_lambda(
+        X_endpoint[eligible], y[eligible].astype(int)
+    )
+
+    accs = []
+    for i in range(n_splits):
+        idx_train, idx_test = train_test_split(
+            eligible,
+            test_size=0.5,
+            stratify=y[eligible],
+            random_state=i,
+        )
+        balanced_idx = balance_train_indices(idx_train, y)
+        clf = make_sgd_classifier(best_lambda, i)
+        clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
+        accs.append(score_decoder(clf, X_endpoint, y, idx_test))
+
+    return best_lambda, np.mean(accs)
+
+
+def prepare_decoder_data(data=None):
+    if data is None:
+        data = load_data()
+    X = zscore_per_neuron(build_timebin_tensor(data))
+    y = build_lr_choice(data)
+    geo_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(data)
+    return X, y, trial_mask, geo_type, flash2_ms, flash3_ms
+
+
+def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None):
+    clf, valid, best_lambda = fit_decoder(
+        X, y, trial_mask, random_state=random_state, alpha=alpha
+    )
+    X_valid = np.nan_to_num(X[valid], nan=0.0)
+    dv = np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
+    return clf, dv, valid, best_lambda
+
+
+def main():
+    print("Loading data...")
+    X, y, trial_mask, *_ = prepare_decoder_data()
+    n_eligible = (trial_mask & ~np.isnan(y)).sum()
+    print(f"Decoder trials: {n_eligible} (omits random geometry trials)")
+
+    print("Running cross-validation evaluation...")
+    best_lambda, cv_acc = cross_validate_decoder(X, y, trial_mask)
+    print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
+
+    print("\nFitting final decoder...")
+    _, dv, valid, _ = compute_dv_traces(X, y, trial_mask, alpha=best_lambda)
+    print(f"DV traces shape: {dv.shape}")
+
+
+if __name__ == "__main__":
+    main()
