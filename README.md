@@ -13,14 +13,16 @@ Session `.mat` files go in `data/` (paths configured in `data/loader.py`).
 
 ## Run
 
-Decoder cross-validation. Picks regularization λ and reports held-out accuracy:
+To test the model run:
 
 ```bash
 python decoder.py
 ```
 
-DV plots. Fits the decoder and saves at `figures/dv_by_maze.png`:
+To generate decision variable plots run: 
 
 ```bash
 python dv_graph.py
 ```
+
+Figures are saved at `figures/dv_by_maze.png`:
