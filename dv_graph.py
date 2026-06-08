@@ -160,7 +160,7 @@ def plot_dv_by_maze(
 
     fig, axes = plt.subplots(2, 6, figsize=(14, 5.8))
     fig.subplots_adjust(
-        left=0.06, right=0.99, top=0.9, bottom=0.12, hspace=0.42, wspace=0.3
+        left=0.03, right=0.97, top=0.9, bottom=0.12, hspace=0.42, wspace=0.3
     )
 
     for col, maze in enumerate(range(1, 7)):
