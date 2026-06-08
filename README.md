@@ -36,6 +36,8 @@ To generate decision variable plots run:
 uv run dv_graph.py
 ```
 
+or:
+
 ```bash
 python dv_graph.py
 ```
