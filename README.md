@@ -42,4 +42,4 @@ or:
 python dv_graph.py
 ```
 
-Figures are saved at `figures/dv_by_maze.png`.
+Figures are saved at `figures/dv_traces.png`.
