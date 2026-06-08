@@ -91,9 +91,8 @@ def balance_train_indices(idx_train, y):
 
 
 def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
-    valid = trial_mask & ~np.isnan(y)
-    X_train = get_endpoint_mean(X)[valid]
-    y_train = y[valid].astype(int)
+    X_train = get_endpoint_mean(X)[trial_mask]
+    y_train = y[trial_mask].astype(int)
 
     best_lambda = (
         alpha
@@ -103,7 +102,7 @@ def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
 
     clf = make_sgd_classifier(best_lambda, random_state)
     clf.fit(X_train, y_train)
-    return clf, valid, best_lambda
+    return clf, trial_mask, best_lambda
 
 
 def score_decoder(clf, X, y, trial_indices):
@@ -111,12 +110,10 @@ def score_decoder(clf, X, y, trial_indices):
 
 
 def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
-    eligible = np.where(trial_mask & ~np.isnan(y))[0]
+    eligible = np.where(trial_mask)[0]
     X_endpoint = get_endpoint_mean(X)
 
-    best_lambda = pick_lambda(
-        X_endpoint[eligible], y[eligible].astype(int)
-    )
+    best_lambda = pick_lambda(X_endpoint[eligible], y[eligible].astype(int))
 
     accs = []
     for i in range(n_splits):
@@ -134,28 +131,52 @@ def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
     return best_lambda, np.mean(accs)
 
 
-def prepare_decoder_data(data=None):
-    if data is None:
-        data = load_data()
+def prepare_decoder_data():
+    data = load_data()
     X = zscore_per_neuron(build_timebin_tensor(data))
     y = build_lr_choice(data)
-    geo_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(data)
-    return X, y, trial_mask, geo_type, flash2_ms, flash3_ms
+    geo_type, path_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(data)
+    return X, y, trial_mask, geo_type, path_type, flash2_ms, flash3_ms
 
 
-def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None):
-    clf, valid, best_lambda = fit_decoder(
-        X, y, trial_mask, random_state=random_state, alpha=alpha
-    )
-    X_valid = np.nan_to_num(X[valid], nan=0.0)
-    dv = np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
-    return clf, dv, valid, best_lambda
+def sigmoid_dv(dv):
+    return 1.0 / (1.0 + np.exp(-dv))
+
+
+def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0):
+    if n_shuffles == 0:
+        clf, trial_mask, best_lambda = fit_decoder(
+            X, y, trial_mask, random_state=random_state, alpha=alpha
+        )
+        X_valid = np.nan_to_num(X[trial_mask], nan=0.0)
+        dv = np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
+        return clf, dv, trial_mask, best_lambda
+
+    eligible = np.where(trial_mask)[0]
+    shuffled_traces = []
+    rng = np.random.default_rng(random_state)
+
+    for i in range(n_shuffles):
+        y_shuf = y.copy()
+        y_shuf[eligible] = rng.permutation(y[eligible])
+
+        _, dv, _, _ = compute_dv_traces(
+            X,
+            y_shuf,
+            trial_mask,
+            random_state=random_state + i + 1,
+            alpha=alpha,
+            n_shuffles=0,
+        )
+        shuffled_traces.append(sigmoid_dv(dv))
+
+    return np.nanmean(np.stack(shuffled_traces, axis=0), axis=0)
 
 
 def main():
     print("Loading data...")
     X, y, trial_mask, *_ = prepare_decoder_data()
-    n_eligible = (trial_mask & ~np.isnan(y)).sum()
+    n_eligible = trial_mask.sum()
     print(f"Decoder trials: {n_eligible} (omits random geometry trials)")
 
     print("Running cross-validation evaluation...")
@@ -163,7 +184,7 @@ def main():
     print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
 
     print("\nFitting final decoder...")
-    _, dv, valid, _ = compute_dv_traces(X, y, trial_mask, alpha=best_lambda)
+    _, dv, _, _ = compute_dv_traces(X, y, trial_mask, alpha=best_lambda)
     print(f"DV traces shape: {dv.shape}")
 
 

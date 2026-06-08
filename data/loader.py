@@ -89,6 +89,86 @@ def load_mat_field(f, dataset):
 
 ########## Data Processing
 
+# Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24.
+FIRST_LEN_MS = [
+    500,
+    500,
+    1000,
+    1000,
+    500,
+    500,
+    1000,
+    1000,
+    500,
+    500,
+    750,
+    750,
+    500,
+    500,
+    750,
+    750,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+    500,
+]
+SECOND_LEN_MS = [
+    900,
+    1100,
+    700,
+    500,
+    700,
+    1100,
+    900,
+    500,
+    900,
+    1100,
+    700,
+    500,
+    700,
+    1100,
+    900,
+    500,
+    900,
+    1100,
+    700,
+    500,
+    700,
+    1100,
+    900,
+    500,
+]
+STOP_LEN_MS = [
+    1700,
+    1900,
+    2000,
+    1800,
+    1500,
+    1900,
+    2200,
+    1800,
+    1700,
+    1900,
+    1750,
+    1550,
+    1500,
+    1900,
+    1950,
+    1550,
+    1700,
+    1900,
+    1500,
+    1300,
+    1500,
+    1900,
+    1700,
+    1300,
+]
+
 
 def build_timebin_tensor(data):
     trials = data["trial_indices_all"].astype(int)
@@ -112,7 +192,6 @@ def build_timebin_tensor(data):
     for k in range(len(nrns)):
         ti = trials[k] - 1
         ni = nrns[k] - 1
-
         segment = fr_raw[k, start_bins[k] : end_bins[k]]
         tensor[ti, ni, : len(segment)] = segment
 
@@ -159,5 +238,5 @@ def build_trial_metadata(data):
         flash2_ms[ti] = (data["flash_two"][k] - data["flash_one"][k]) * 1000
         flash3_ms[ti] = (data["flash_three"][k] - data["flash_one"][k]) * 1000
 
-    decoder_mask = (path_type != -99) & ~np.isnan(path_type)
-    return geo_type, flash2_ms, flash3_ms, decoder_mask
+    trial_mask = path_type != -99
+    return geo_type, path_type, flash2_ms, flash3_ms, trial_mask
