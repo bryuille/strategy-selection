@@ -190,7 +190,7 @@ def build_timebin_tensor(data):
     tensor = np.full((n_trials, n_neurons, max_length), np.nan)
 
     for k in range(len(nrns)):
-        ti = trials[k] - 1
+        ti = trials[k] - 1  # matlab indexing correction
         ni = nrns[k] - 1
         segment = fr_raw[k, start_bins[k] : end_bins[k]]
         tensor[ti, ni, : len(segment)] = segment
@@ -208,6 +208,7 @@ def build_lr_choice(data):
         ti = trials[k] - 1
         lr = LR[k]
 
+        # LR variable specifies when trial data should be flipped
         if lr == -1:
             if bool(data["trial_answer1"][k]) or bool(data["trial_answer2"][k]):
                 lr_choices[ti] = 0

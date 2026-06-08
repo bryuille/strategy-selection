@@ -34,6 +34,7 @@ def zscore_per_neuron(X):
     return X_out
 
 
+# average firing rate in 300 ms window after third flash
 def get_endpoint_mean(X, window_bins=301):
     valid = ~np.isnan(X)
     cum_valid = valid.cumsum(axis=-1)
@@ -77,6 +78,7 @@ def pick_lambda(X, y, n_splits=10, random_state=0):
     return LAMBDA_GRID[int(np.argmin(score))]
 
 
+# used for cases when class counts are not equal
 def balance_train_indices(idx_train, y):
     classes, counts = np.unique(y[idx_train], return_counts=True)
     min_count = counts.min()
@@ -109,6 +111,7 @@ def score_decoder(clf, X, y, trial_indices):
     return clf.score(X[trial_indices], y[trial_indices].astype(int))
 
 
+# for testing model performance
 def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
     eligible = np.where(trial_mask)[0]
     X_endpoint = get_endpoint_mean(X)
@@ -139,10 +142,8 @@ def prepare_decoder_data():
     return X, y, trial_mask, geo_type, path_type, flash2_ms, flash3_ms
 
 
-def sigmoid_dv(dv):
-    return 1.0 / (1.0 + np.exp(-dv))
-
-
+# returns raw decision variable in normal case
+# returns probability for random noise baseline
 def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0):
     if n_shuffles == 0:
         clf, trial_mask, best_lambda = fit_decoder(
@@ -152,6 +153,7 @@ def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0
         dv = np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
         return clf, dv, trial_mask, best_lambda
 
+    # for random noise baseline
     eligible = np.where(trial_mask)[0]
     shuffled_traces = []
     rng = np.random.default_rng(random_state)
@@ -168,7 +170,7 @@ def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0
             alpha=alpha,
             n_shuffles=0,
         )
-        shuffled_traces.append(sigmoid_dv(dv))
+        shuffled_traces.append(dv)
 
     return np.nanmean(np.stack(shuffled_traces, axis=0), axis=0)
 
@@ -182,10 +184,6 @@ def main():
     print("Running cross-validation evaluation...")
     best_lambda, cv_acc = cross_validate_decoder(X, y, trial_mask)
     print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
-
-    print("\nFitting final decoder...")
-    _, dv, _, _ = compute_dv_traces(X, y, trial_mask, alpha=best_lambda)
-    print(f"DV traces shape: {dv.shape}")
 
 
 if __name__ == "__main__":

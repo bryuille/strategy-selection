@@ -6,7 +6,6 @@ import numpy as np
 from decoder import (
     compute_dv_traces,
     prepare_decoder_data,
-    sigmoid_dv,
 )
 
 OUTPUT_PATH = Path("figures/dv_traces.png")
@@ -18,9 +17,16 @@ TRACE_COLORS = {
     BG_HIERARCHICAL: ("#E04838", "#E07820"),
     BG_SEQUENTIAL: ("#5EB0E8", "#1E4088"),
 }
+
+PANEL_EXITS = ((1, 3), (2, 4))
+
+# used for comparing hierarchical and sequential strategies
 GAP_THRESHOLD = 0.3
 TIME_THRESHOLD = 200
-PANEL_EXITS = ((1, 3), (2, 4))
+
+
+def sigmoid_dv(dv):
+    return 1.0 / (1.0 + np.exp(-dv))
 
 
 def path_type_for(maze, exit_idx):
@@ -67,8 +73,8 @@ def plot_maze_column(
     shuffle_traces,
 ):
     for ax, exits, flip in (
-        (ax_top, PANEL_EXITS[0], False),
-        (ax_bottom, PANEL_EXITS[1], True),
+        (ax_top, (1, 3), False),
+        (ax_bottom, (2, 4), True),
     ):
         pt_a, pt_b = path_type_for(maze, exits[0]), path_type_for(maze, exits[1])
         mask_a, mask_b = path_type_by_row == pt_a, path_type_by_row == pt_b
@@ -172,7 +178,7 @@ def plot_dv_by_maze(
             flash2_by_row,
             flash3_by_row,
             maze,
-            shuffle_traces,
+            sigmoid_dv(shuffle_traces),
         )
 
     axes[0, 0].set_ylabel("Time (ms)", fontsize=8)
@@ -183,6 +189,7 @@ def plot_dv_by_maze(
 
 
 def main():
+    print("Loading graph...")
     X, labels, trial_mask, _geo, path_type, flash2_ms, flash3_ms = (
         prepare_decoder_data()
     )
