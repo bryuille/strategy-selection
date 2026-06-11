@@ -1,7 +1,3 @@
-import numpy as np
-from sklearn.linear_model import SGDClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
-
 from decoders.common import (
     N_CV_SPLITS,
     cross_validate_decoder,

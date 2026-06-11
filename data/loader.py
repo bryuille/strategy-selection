@@ -72,6 +72,6 @@ def load_trial_strategies():
     if os.path.exists(TRIAL_STRATEGIES_PATH):
         return np.load(TRIAL_STRATEGIES_PATH)["trial_strategies"]
 
-    trial_strategies = build_trial_strategies()
+    trial_strategies = build_trial_strategies(load_data())
     np.savez(TRIAL_STRATEGIES_PATH, trial_strategies=trial_strategies)
     return trial_strategies

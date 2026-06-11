@@ -1,5 +1,3 @@
-import numpy as np
-
 from decoders.common import (
     N_CV_SPLITS,
     cross_validate_decoder,
@@ -12,9 +10,8 @@ from decoders.common import (
 
 def prepare_decoder_data():
     X = zscore_per_neuron(load_timebins())
+    y = load_trial_strategies()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()
-    y = np.full(trial_mask.shape, np.nan)
-    y[trial_mask] = load_trial_strategies()
     return X, y, trial_mask, path_type, flash2_ms, flash3_ms
 
 

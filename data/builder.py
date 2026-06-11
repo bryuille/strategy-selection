@@ -249,26 +249,30 @@ GAP_THRESHOLD = 0.3
 TIME_THRESHOLD = 200
 
 
-def build_trial_strategies():
-    from decoders.common import compute_dv_traces
-    from decoders.lr import prepare_decoder_data
+def build_trial_strategies(data):
+    from decoders.common import compute_dv_traces, zscore_per_neuron
 
-    X, labels, trial_mask, path_type, _, flash3_ms = prepare_decoder_data()
-    path_type = path_type[trial_mask]
-    flash3_ms = flash3_ms[trial_mask]
+    X = zscore_per_neuron(build_timebins(data))
+    labels = build_lr_choices(data)
+    path_type, _, flash3_ms, trial_mask = build_trial_metadata(data)
 
     _, dv, _, _ = compute_dv_traces(X, labels, trial_mask)
     dv_prob = sigmoid_dv(dv)
 
+    path_type_eligible = path_type[trial_mask]
+    flash3_eligible = flash3_ms[trial_mask]
+
     dv_means = np.array(
-        [np.nanmean(dv_prob[path_type == p], axis=0) for p in range(1, 25)]
+        [np.nanmean(dv_prob[path_type_eligible == p], axis=0) for p in range(1, 25)]
     )
 
     strategy = np.full(6, np.nan)
 
     for maze in range(1, 7):
         pt = path_type_for(maze, 1)
-        cutoff = int(np.nanmedian(flash3_ms[path_type == pt]) - TIME_THRESHOLD)
+        cutoff = int(
+            np.nanmedian(flash3_eligible[path_type_eligible == pt]) - TIME_THRESHOLD
+        )
 
         mean_lu = dv_means[path_type_for(maze, 1) - 1]
         mean_ru = dv_means[path_type_for(maze, 3) - 1]
@@ -283,6 +287,8 @@ def build_trial_strategies():
             np.nanmax(gap_u) <= GAP_THRESHOLD and np.nanmax(gap_d) <= GAP_THRESHOLD
         )
 
-    trial_maze = ((path_type - 1) // 4).astype(int)
-    trial_strategies = strategy[trial_maze].astype(int)
+    n_trials = len(path_type)
+    trial_strategies = np.full(n_trials, np.nan)
+    trial_maze = ((path_type[trial_mask] - 1) // 4).astype(int)
+    trial_strategies[trial_mask] = strategy[trial_maze]
     return trial_strategies
