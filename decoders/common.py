@@ -3,10 +3,11 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
 from data.loader import (
-    build_lr_choice,
-    build_timebin_tensor,
-    build_trial_metadata,
     load_data,
+    load_lr_choices,
+    load_timebins,
+    load_trial_metadata,
+    load_trial_strategies,
 )
 
 LAMBDA_GRID = np.logspace(-6, -0.5, 11)
@@ -107,41 +108,6 @@ def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
     return clf, trial_mask, best_lambda
 
 
-def score_decoder(clf, X, y, trial_indices):
-    return clf.score(X[trial_indices], y[trial_indices].astype(int))
-
-
-# for testing model performance
-def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
-    eligible = np.where(trial_mask)[0]
-    X_endpoint = get_endpoint_mean(X)
-
-    best_lambda = pick_lambda(X_endpoint[eligible], y[eligible].astype(int))
-
-    accs = []
-    for i in range(n_splits):
-        idx_train, idx_test = train_test_split(
-            eligible,
-            test_size=0.5,
-            stratify=y[eligible],
-            random_state=i,
-        )
-        balanced_idx = balance_train_indices(idx_train, y)
-        clf = make_sgd_classifier(best_lambda, i)
-        clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
-        accs.append(score_decoder(clf, X_endpoint, y, idx_test))
-
-    return best_lambda, np.mean(accs)
-
-
-def prepare_decoder_data():
-    data = load_data()
-    X = zscore_per_neuron(build_timebin_tensor(data))
-    y = build_lr_choice(data)
-    geo_type, path_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(data)
-    return X, y, trial_mask, geo_type, path_type, flash2_ms, flash3_ms
-
-
 # returns raw decision variable in normal case
 # returns probability for random noise baseline
 def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0):
@@ -175,16 +141,28 @@ def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0
     return np.nanmean(np.stack(shuffled_traces, axis=0), axis=0)
 
 
-def main():
-    print("Loading data...")
-    X, y, trial_mask, *_ = prepare_decoder_data()
-    n_eligible = trial_mask.sum()
-    print(f"Decoder trials: {n_eligible} (omits random geometry trials)")
-
-    print("Running cross-validation evaluation...")
-    best_lambda, cv_acc = cross_validate_decoder(X, y, trial_mask)
-    print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
+def score_decoder(clf, X, y, trial_indices):
+    return clf.score(X[trial_indices], y[trial_indices].astype(int))
 
 
-if __name__ == "__main__":
-    main()
+# for testing model performance
+def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
+    eligible = np.where(trial_mask)[0]
+    X_endpoint = get_endpoint_mean(X)
+
+    best_lambda = pick_lambda(X_endpoint[eligible], y[eligible].astype(int))
+
+    accs = []
+    for i in range(n_splits):
+        idx_train, idx_test = train_test_split(
+            eligible,
+            test_size=0.5,
+            stratify=y[eligible],
+            random_state=i,
+        )
+        balanced_idx = balance_train_indices(idx_train, y)
+        clf = make_sgd_classifier(best_lambda, i)
+        clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
+        accs.append(score_decoder(clf, X_endpoint, y, idx_test))
+
+    return best_lambda, np.mean(accs)

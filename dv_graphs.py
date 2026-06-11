@@ -3,12 +3,13 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from decoder import (
-    compute_dv_traces,
-    prepare_decoder_data,
-)
+from decoders.common import compute_dv_traces
+from decoders.lr import prepare_decoder_data as lr_prepare_decoder_data
+from decoders.strategy import prepare_decoder_data as strategy_prepare_decoder_data
+from utils import path_type_for, sigmoid_dv
 
-OUTPUT_PATH = Path("figures/dv_traces.png")
+LR_OUTPUT_PATH = Path("figures/lr_traces.png")
+STRATEGY_OUTPUT_PATH = Path("figures/strategy_traces.png")
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
@@ -18,19 +19,14 @@ TRACE_COLORS = {
     BG_SEQUENTIAL: ("#5EB0E8", "#1E4088"),
 }
 
-PANEL_EXITS = ((1, 3), (2, 4))
-
 # used for comparing hierarchical and sequential strategies
 GAP_THRESHOLD = 0.3
 TIME_THRESHOLD = 200
 
-
-def sigmoid_dv(dv):
-    return 1.0 / (1.0 + np.exp(-dv))
-
-
-def path_type_for(maze, exit_idx):
-    return (maze - 1) * 4 + exit_idx
+DECODER_CONFIGS = (
+    ("LR", lr_prepare_decoder_data, LR_OUTPUT_PATH),
+    ("strategy", strategy_prepare_decoder_data, STRATEGY_OUTPUT_PATH),
+)
 
 
 def exit_color(bg, exit_idx):
@@ -156,7 +152,7 @@ def plot_dv_by_maze(
     flash2_ms,
     flash3_ms,
     shuffle_traces=None,
-    save_path=OUTPUT_PATH,
+    save_path=LR_OUTPUT_PATH,
 ):
     eligible = np.where(trial_mask)[0]
     path_type_by_row = path_type[eligible]
@@ -178,7 +174,7 @@ def plot_dv_by_maze(
             flash2_by_row,
             flash3_by_row,
             maze,
-            sigmoid_dv(shuffle_traces),
+            sigmoid_dv(shuffle_traces) if shuffle_traces is not None else None,
         )
 
     axes[0, 0].set_ylabel("Time (ms)", fontsize=8)
@@ -188,16 +184,30 @@ def plot_dv_by_maze(
     print(f"Saved {save_path}")
 
 
-def main():
-    print("Loading graph...")
-    X, labels, trial_mask, _geo, path_type, flash2_ms, flash3_ms = (
-        prepare_decoder_data()
-    )
+def compute_decoder_dv(prepare_decoder_data):
+    X, labels, trial_mask, path_type, flash2_ms, flash3_ms = prepare_decoder_data()
     _, dv, _, best_lambda = compute_dv_traces(X, labels, trial_mask)
     shuffle_traces = compute_dv_traces(
         X, labels, trial_mask, random_state=0, alpha=best_lambda, n_shuffles=3
     )
-    plot_dv_by_maze(dv, trial_mask, path_type, flash2_ms, flash3_ms, shuffle_traces)
+    return dv, trial_mask, path_type, flash2_ms, flash3_ms, shuffle_traces
+
+
+def main():
+    for name, prepare_decoder_data, save_path in DECODER_CONFIGS:
+        print(f"Generating {name} traces...")
+        dv, trial_mask, path_type, flash2_ms, flash3_ms, shuffle_traces = (
+            compute_decoder_dv(prepare_decoder_data)
+        )
+        plot_dv_by_maze(
+            dv,
+            trial_mask,
+            path_type,
+            flash2_ms,
+            flash3_ms,
+            shuffle_traces,
+            save_path=save_path,
+        )
 
 
 if __name__ == "__main__":

@@ -14,20 +14,20 @@ or:
 python -m venv .venv && pip install -e .
 ```
 
-Session `.mat` files go in `data/` (paths configured in `data/loader.py`).
+Session `.mat` files go in `data/raw/` (paths configured in `data/builder.py`). Processed `.npz` caches are written to `data/processed/` on first load.
 
 ## Run
 
-To test the model run:
+To test the lr dv model run:
 
 ```bash
-uv run decoder.py
+uv run decoders/lr.py
 ```
 
 or:
 
 ```bash
-python decoder.py
+python decoder/lr.py
 ```
 
 To generate decision variable plots run: 
@@ -42,4 +42,4 @@ or:
 python dv_graph.py
 ```
 
-Figures are saved at `figures/dv_traces.png`.
+Figures are saved at `figures/lr_traces.png` and `figures/strategy_traces.png`.
