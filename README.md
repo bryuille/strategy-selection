@@ -33,13 +33,13 @@ python decoder/lr.py
 To generate decision variable plots run: 
 
 ```bash
-uv run dv_graph.py
+uv run dv_graphs.py
 ```
 
 or:
 
 ```bash
-python dv_graph.py
+python dv_graphs.py
 ```
 
 Figures are saved at `figures/lr_traces.png` and `figures/strategy_traces.png`.

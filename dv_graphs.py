@@ -62,9 +62,9 @@ def plot_maze_column(
     ax_top,
     ax_bottom,
     dv_prob,
-    path_type_by_row,
-    flash2_by_row,
-    flash3_by_row,
+    path_type_eligible,
+    flash2_eligible,
+    flash3_eligible,
     maze,
     shuffle_traces,
 ):
@@ -73,10 +73,10 @@ def plot_maze_column(
         (ax_bottom, (2, 4), True),
     ):
         pt_a, pt_b = path_type_for(maze, exits[0]), path_type_for(maze, exits[1])
-        mask_a, mask_b = path_type_by_row == pt_a, path_type_by_row == pt_b
+        mask_a, mask_b = path_type_eligible == pt_a, path_type_eligible == pt_b
 
-        end_a = min(int(np.nanmax(flash3_by_row[mask_a]) + 200), dv_prob.shape[1])
-        end_b = min(int(np.nanmax(flash3_by_row[mask_b]) + 200), dv_prob.shape[1])
+        end_a = min(int(np.nanmax(flash3_eligible[mask_a]) + 200), dv_prob.shape[1])
+        end_b = min(int(np.nanmax(flash3_eligible[mask_b]) + 200), dv_prob.shape[1])
         t_max = max(end_a, end_b)
 
         mean_a = np.nanmean(dv_prob[mask_a], axis=0)
@@ -84,8 +84,8 @@ def plot_maze_column(
         pre_flash_early = (
             int(
                 min(
-                    np.nanmedian(flash3_by_row[mask_a]),
-                    np.nanmedian(flash3_by_row[mask_b]),
+                    np.nanmedian(flash3_eligible[mask_a]),
+                    np.nanmedian(flash3_eligible[mask_b]),
                 )
             )
             - TIME_THRESHOLD
@@ -104,8 +104,8 @@ def plot_maze_column(
 
             xmin, xmax = (0.0, 0.5) if exit_idx in (1, 2) else (0.5, 1.0)
             for flash_t in (
-                np.nanmedian(flash2_by_row[mask]),
-                np.nanmedian(flash3_by_row[mask]),
+                np.nanmedian(flash2_eligible[mask]),
+                np.nanmedian(flash3_eligible[mask]),
             ):
                 ax.hlines(
                     flash_t,
@@ -155,9 +155,9 @@ def plot_dv_by_maze(
     save_path=LR_OUTPUT_PATH,
 ):
     eligible = np.where(trial_mask)[0]
-    path_type_by_row = path_type[eligible]
-    flash2_by_row = flash2_ms[eligible]
-    flash3_by_row = flash3_ms[eligible]
+    path_type_eligible = path_type[eligible]
+    flash2_eligible = flash2_ms[eligible]
+    flash3_eligible = flash3_ms[eligible]
     dv_prob = sigmoid_dv(dv)
 
     fig, axes = plt.subplots(2, 6, figsize=(14, 5.8))
@@ -170,9 +170,9 @@ def plot_dv_by_maze(
             axes[0, col],
             axes[1, col],
             dv_prob,
-            path_type_by_row,
-            flash2_by_row,
-            flash3_by_row,
+            path_type_eligible,
+            flash2_eligible,
+            flash3_eligible,
             maze,
             sigmoid_dv(shuffle_traces) if shuffle_traces is not None else None,
         )
