@@ -4,17 +4,21 @@ import numpy as np
 
 from data.builder import (
     build_lr_choices,
-    build_timebins,
+    build_pre_flash_metadata,
+    build_pre_flash_timebins,
+    build_strategy_choices,
     build_trial_metadata,
-    build_trial_strategies,
+    build_trial_timebins,
     import_data,
 )
 
 RAW_PATH = "./data/processed/raw.npz"
-TIMEBINS_PATH = "./data/processed/timebins.npz"
+TRIAL_TIMEBINS_PATH = "./data/processed/trial_timebins.npz"
+PRE_FLASH_TIMEBINS_PATH = "./data/processed/pre_flash_timebins.npz"
 LR_CHOICES_PATH = "./data/processed/lr_choices.npz"
-METADATA_PATH = "./data/processed/trial_metadata.npz"
-TRIAL_STRATEGIES_PATH = "./data/processed/trial_strategies.npz"
+TRIAL_METADATA_PATH = "./data/processed/trial_metadata.npz"
+PRE_FLASH_METADATA_PATH = "./data/processed/pre_flash_metadata.npz"
+STRATEGY_CHOICES_PATH = "./data/processed/strategy_choices.npz"
 
 
 def load_data():
@@ -26,13 +30,22 @@ def load_data():
     return data
 
 
-def load_timebins():
-    if os.path.exists(TIMEBINS_PATH):
-        return np.load(TIMEBINS_PATH)["timebins"]
+def load_trial_timebins():
+    if os.path.exists(TRIAL_TIMEBINS_PATH):
+        return np.load(TRIAL_TIMEBINS_PATH)["trial_timebins"]
 
-    timebins = build_timebins(load_data())
-    np.savez(TIMEBINS_PATH, timebins=timebins)
-    return timebins
+    trial_timebins = build_trial_timebins(load_data())
+    np.savez(TRIAL_TIMEBINS_PATH, trial_timebins=trial_timebins)
+    return trial_timebins
+
+
+def load_pre_flash_timebins():
+    if os.path.exists(PRE_FLASH_TIMEBINS_PATH):
+        return np.load(PRE_FLASH_TIMEBINS_PATH)["pre_flash_timebins"]
+
+    pre_flash_timebins = build_pre_flash_timebins(load_data())
+    np.savez(PRE_FLASH_TIMEBINS_PATH, pre_flash_timebins=pre_flash_timebins)
+    return pre_flash_timebins
 
 
 def load_lr_choices():
@@ -45,8 +58,8 @@ def load_lr_choices():
 
 
 def load_trial_metadata():
-    if os.path.exists(METADATA_PATH):
-        loaded = np.load(METADATA_PATH)
+    if os.path.exists(TRIAL_METADATA_PATH):
+        loaded = np.load(TRIAL_METADATA_PATH)
         return (
             loaded["path_type"],
             loaded["flash2_ms"],
@@ -56,7 +69,7 @@ def load_trial_metadata():
 
     path_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(load_data())
     np.savez(
-        METADATA_PATH,
+        TRIAL_METADATA_PATH,
         path_type=path_type,
         flash2_ms=flash2_ms,
         flash3_ms=flash3_ms,
@@ -65,13 +78,28 @@ def load_trial_metadata():
     return path_type, flash2_ms, flash3_ms, trial_mask
 
 
+def load_pre_flash_metadata():
+    if os.path.exists(PRE_FLASH_METADATA_PATH):
+        loaded = np.load(PRE_FLASH_METADATA_PATH)
+        return loaded["path_type"], loaded["flash1_ms"], loaded["trial_mask"]
+
+    path_type, flash1_ms, trial_mask = build_pre_flash_metadata(load_data())
+    np.savez(
+        PRE_FLASH_METADATA_PATH,
+        path_type=path_type,
+        flash1_ms=flash1_ms,
+        trial_mask=trial_mask,
+    )
+    return path_type, flash1_ms, trial_mask
+
+
 ########## Custom data
 
 
-def load_trial_strategies():
-    if os.path.exists(TRIAL_STRATEGIES_PATH):
-        return np.load(TRIAL_STRATEGIES_PATH)["trial_strategies"]
+def load_strategy_choices():
+    if os.path.exists(STRATEGY_CHOICES_PATH):
+        return np.load(STRATEGY_CHOICES_PATH)["strategy_choices"]
 
-    trial_strategies = build_trial_strategies(load_data())
-    np.savez(TRIAL_STRATEGIES_PATH, trial_strategies=trial_strategies)
-    return trial_strategies
+    strategy_choices = build_strategy_choices(load_data())
+    np.savez(STRATEGY_CHOICES_PATH, strategy_choices=strategy_choices)
+    return strategy_choices

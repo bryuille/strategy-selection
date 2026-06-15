@@ -5,9 +5,9 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test
 from data.loader import (
     load_data,
     load_lr_choices,
-    load_timebins,
+    load_strategy_choices,
     load_trial_metadata,
-    load_trial_strategies,
+    load_trial_timebins,
 )
 
 LAMBDA_GRID = np.logspace(-6, -0.5, 11)
@@ -94,8 +94,10 @@ def balance_train_indices(idx_train, y):
 
 
 def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
-    X_train = get_endpoint_mean(X)[trial_mask]
-    y_train = y[trial_mask].astype(int)
+    eligible = np.where(trial_mask)[0]
+    X_endpoint = get_endpoint_mean(X)
+    X_train = X_endpoint[eligible]
+    y_train = y[eligible].astype(int)
 
     best_lambda = (
         alpha
@@ -103,23 +105,20 @@ def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
         else pick_lambda(X_train, y_train, random_state=random_state)
     )
 
+    balanced_idx = balance_train_indices(eligible, y)
     clf = make_sgd_classifier(best_lambda, random_state)
-    clf.fit(X_train, y_train)
+    clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
     return clf, trial_mask, best_lambda
 
 
-# returns raw decision variable in normal case
-# returns probability for random noise baseline
-def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0):
-    if n_shuffles == 0:
-        clf, trial_mask, best_lambda = fit_decoder(
-            X, y, trial_mask, random_state=random_state, alpha=alpha
-        )
-        X_valid = np.nan_to_num(X[trial_mask], nan=0.0)
-        dv = np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
-        return clf, dv, trial_mask, best_lambda
+def compute_dv_traces(clf, X, trial_mask):
+    X_valid = np.nan_to_num(X[trial_mask], nan=0.0)
+    return np.einsum("tnb,n->tb", X_valid, clf.coef_[0]) + clf.intercept_[0]
 
-    # for random noise baseline
+
+def compute_shuffle_dv_traces(
+    X, y, trial_mask, random_state=0, alpha=None, n_shuffles=5
+):
     eligible = np.where(trial_mask)[0]
     shuffled_traces = []
     rng = np.random.default_rng(random_state)
@@ -127,22 +126,12 @@ def compute_dv_traces(X, y, trial_mask, random_state=0, alpha=None, n_shuffles=0
     for i in range(n_shuffles):
         y_shuf = y.copy()
         y_shuf[eligible] = rng.permutation(y[eligible])
-
-        _, dv, _, _ = compute_dv_traces(
-            X,
-            y_shuf,
-            trial_mask,
-            random_state=random_state + i + 1,
-            alpha=alpha,
-            n_shuffles=0,
+        clf, _, _ = fit_decoder(
+            X, y_shuf, trial_mask, random_state=random_state + i + 1, alpha=alpha
         )
-        shuffled_traces.append(dv)
+        shuffled_traces.append(compute_dv_traces(clf, X, trial_mask))
 
     return np.nanmean(np.stack(shuffled_traces, axis=0), axis=0)
-
-
-def score_decoder(clf, X, y, trial_indices):
-    return clf.score(X[trial_indices], y[trial_indices].astype(int))
 
 
 # for testing model performance
@@ -163,6 +152,7 @@ def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
         balanced_idx = balance_train_indices(idx_train, y)
         clf = make_sgd_classifier(best_lambda, i)
         clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
-        accs.append(score_decoder(clf, X_endpoint, y, idx_test))
+        score = clf.score(X_endpoint[idx_test], y[idx_test].astype(int))
+        accs.append(score)
 
     return best_lambda, np.mean(accs)

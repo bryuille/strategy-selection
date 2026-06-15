@@ -1,18 +1,24 @@
-from decoders.common import (
-    N_CV_SPLITS,
-    cross_validate_decoder,
+from data.loader import (
     load_lr_choices,
-    load_timebins,
+    load_pre_flash_metadata,
+    load_pre_flash_timebins,
     load_trial_metadata,
-    zscore_per_neuron,
+    load_trial_timebins,
 )
+from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neuron
 
 
 def prepare_decoder_data():
-    X = zscore_per_neuron(load_timebins())
+    X = zscore_per_neuron(load_trial_timebins())
     y = load_lr_choices()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()
     return X, y, trial_mask, path_type, flash2_ms, flash3_ms
+
+
+def prepare_pre_flash_data():
+    X = zscore_per_neuron(load_pre_flash_timebins())
+    path_type, flash1_ms, trial_mask = load_pre_flash_metadata()
+    return X, path_type, flash1_ms, trial_mask
 
 
 def main():

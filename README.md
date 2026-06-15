@@ -21,25 +21,22 @@ Session `.mat` files go in `data/raw/` (paths configured in `data/builder.py`). 
 To test the lr dv model run:
 
 ```bash
-uv run decoders/lr.py
+uv run -m decoders.lr
 ```
 
 or:
 
 ```bash
-python decoder/lr.py
+python -m decoder.lr
 ```
 
-To generate decision variable plots run: 
+To generate decision variable plots run:
 
 ```bash
-uv run dv_graphs.py
+uv run -m plotting.lr_trial_traces
+uv run -m plotting.lr_pre_flash_traces
 ```
 
-or:
+### Plotting
 
-```bash
-python dv_graphs.py
-```
-
-Figures are saved at `figures/lr_traces.png` and `figures/strategy_traces.png`.
+Trial traces use neural activity from flash 1 through ~200 ms after flash 3. Pre-flash traces use activity from fixation onset (`fix_start`) through flash 1 (700 ms on the y-axis).

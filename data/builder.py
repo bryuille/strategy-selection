@@ -18,7 +18,7 @@ FIELDS = {
     # "cids",
     # "date_of_recording",
     # "feedback_time",
-    # "fix_start",
+    "fix_start",
     # "fixation_cue_present",
     # "fixation_off",
     "flash_one",
@@ -92,87 +92,36 @@ def convert_mat_field(f, dataset):
 ########## Data Processing
 
 # Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24.
-FIRST_LEN_MS = [
-    500,
-    500,
-    1000,
-    1000,
-    500,
-    500,
-    1000,
-    1000,
-    500,
-    500,
-    750,
-    750,
-    500,
-    500,
-    750,
-    750,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-    500,
-]
-SECOND_LEN_MS = [
-    900,
-    1100,
-    700,
-    500,
-    700,
-    1100,
-    900,
-    500,
-    900,
-    1100,
-    700,
-    500,
-    700,
-    1100,
-    900,
-    500,
-    900,
-    1100,
-    700,
-    500,
-    700,
-    1100,
-    900,
-    500,
-]
-STOP_LEN_MS = [
-    1700,
-    1900,
-    2000,
-    1800,
-    1500,
-    1900,
-    2200,
-    1800,
-    1700,
-    1900,
-    1750,
-    1550,
-    1500,
-    1900,
-    1950,
-    1550,
-    1700,
-    1900,
-    1500,
-    1300,
-    1500,
-    1900,
-    1700,
-    1300,
+# (first length, second length, stop condition length)
+PATH_TYPE_LEN_MS = [
+    (500, 900, 1700),
+    (500, 1100, 1900),
+    (1000, 700, 2000),
+    (1000, 500, 1800),
+    (500, 700, 1500),
+    (500, 1100, 1900),
+    (1000, 900, 2200),
+    (1000, 500, 1800),
+    (500, 900, 1700),
+    (500, 1100, 1900),
+    (750, 700, 1750),
+    (750, 500, 1550),
+    (500, 700, 1500),
+    (500, 1100, 1900),
+    (750, 900, 1950),
+    (750, 500, 1550),
+    (500, 900, 1700),
+    (500, 1100, 1900),
+    (500, 700, 1500),
+    (500, 500, 1300),
+    (500, 700, 1500),
+    (500, 1100, 1900),
+    (500, 900, 1700),
+    (500, 500, 1300),
 ]
 
 
-def build_timebins(data):
+def build_trial_timebins(data):
     trials = data["trial_indices_all"].astype(int)
     nrns = data["nrns"].astype(int)
 
@@ -186,6 +135,34 @@ def build_timebins(data):
 
     start_bins = np.floor((flash_one - geo_present) * 1000).astype(int)
     end_bins = np.floor((flash_three - geo_present) * 1000).astype(int) + 300
+
+    max_length = np.max(end_bins - start_bins)
+
+    tensor = np.full((n_trials, n_neurons, max_length), np.nan)
+
+    for k in range(len(nrns)):
+        ti = trials[k] - 1  # matlab indexing correction
+        ni = nrns[k] - 1
+        segment = fr_raw[k, start_bins[k] : end_bins[k]]
+        tensor[ti, ni, : len(segment)] = segment
+
+    return tensor
+
+
+def build_pre_flash_timebins(data):
+    trials = data["trial_indices_all"].astype(int)
+    nrns = data["nrns"].astype(int)
+
+    n_trials = np.max(trials)
+    n_neurons = np.max(nrns)
+
+    geo_present = data["geo_present"]
+    fix_start = data["fix_start"]
+    flash_one = data["flash_one"]
+    fr_raw = data["FR_WH"].T
+
+    start_bins = np.floor((fix_start - geo_present) * 1000).astype(int)
+    end_bins = np.floor((flash_one - geo_present) * 1000).astype(int)
 
     max_length = np.max(end_bins - start_bins)
 
@@ -243,20 +220,38 @@ def build_trial_metadata(data):
     return path_type, flash2_ms, flash3_ms, trial_mask
 
 
+def build_pre_flash_metadata(data):
+    trials = data["trial_indices_all"].astype(int)
+    n_trials = np.max(trials)
+
+    path_type = np.full(n_trials, np.nan)
+    fix_start = data["fix_start"]
+    flash1_ms = np.full(n_trials, np.nan)
+
+    for k in range(len(trials)):
+        ti = trials[k] - 1
+        path_type[ti] = data["path_type"][k]
+        flash1_ms[ti] = (data["flash_one"][k] - data["fix_start"][k]) * 1000
+
+    trial_mask = path_type != -99
+    return path_type, flash1_ms, trial_mask
+
+
 ########## Custom Data
 
 GAP_THRESHOLD = 0.3
 TIME_THRESHOLD = 200
 
 
-def build_trial_strategies(data):
-    from decoders.common import compute_dv_traces, zscore_per_neuron
+def build_strategy_choices(data):
+    from decoders.common import compute_dv_traces, fit_decoder, zscore_per_neuron
 
-    X = zscore_per_neuron(build_timebins(data))
+    X = zscore_per_neuron(build_trial_timebins(data))
     labels = build_lr_choices(data)
     path_type, _, flash3_ms, trial_mask = build_trial_metadata(data)
 
-    _, dv, _, _ = compute_dv_traces(X, labels, trial_mask)
+    clf, _, _ = fit_decoder(X, labels, trial_mask)
+    dv = compute_dv_traces(clf, X, trial_mask)
     dv_prob = sigmoid_dv(dv)
 
     path_type_eligible = path_type[trial_mask]
@@ -288,7 +283,7 @@ def build_trial_strategies(data):
         )
 
     n_trials = len(path_type)
-    trial_strategies = np.full(n_trials, np.nan)
+    strategy_choices = np.full(n_trials, np.nan)
     trial_maze = ((path_type[trial_mask] - 1) // 4).astype(int)
-    trial_strategies[trial_mask] = strategy[trial_maze]
-    return trial_strategies
+    strategy_choices[trial_mask] = strategy[trial_maze]
+    return strategy_choices
