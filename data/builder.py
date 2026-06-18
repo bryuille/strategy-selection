@@ -1,8 +1,6 @@
 import h5py
 import numpy as np
 
-from utils import path_type_for, sigmoid_dv
-
 ############ Data Input
 
 DATA_PATH = "./data/raw/june_24_g0_good_trials_concat.mat"
@@ -177,31 +175,6 @@ def build_pre_flash_timebins(data):
     return tensor
 
 
-def build_lr_choices(data):
-    trials = data["trial_indices_all"].astype(int)
-    LR = data["LR"]
-    n_trials = np.max(trials)
-    lr_choices = np.full(n_trials, np.nan)
-
-    for k in range(len(trials)):
-        ti = trials[k] - 1
-        lr = LR[k]
-
-        # LR variable specifies when trial data should be flipped
-        if lr == -1:
-            if bool(data["trial_answer1"][k]) or bool(data["trial_answer2"][k]):
-                lr_choices[ti] = 0
-            elif bool(data["trial_answer3"][k]) or bool(data["trial_answer4"][k]):
-                lr_choices[ti] = 1
-        elif lr == 1:
-            if bool(data["trial_answer1"][k]) or bool(data["trial_answer2"][k]):
-                lr_choices[ti] = 1
-            elif bool(data["trial_answer3"][k]) or bool(data["trial_answer4"][k]):
-                lr_choices[ti] = 0
-
-    return lr_choices
-
-
 def build_trial_metadata(data):
     trials = data["trial_indices_all"].astype(int)
     n_trials = np.max(trials)
@@ -235,55 +208,3 @@ def build_pre_flash_metadata(data):
 
     trial_mask = path_type != -99
     return path_type, flash1_ms, trial_mask
-
-
-########## Custom Data
-
-GAP_THRESHOLD = 0.3
-TIME_THRESHOLD = 200
-
-
-def build_strategy_choices(data):
-    from decoders.common import compute_dv_traces, fit_decoder, zscore_per_neuron
-
-    X = zscore_per_neuron(build_trial_timebins(data))
-    labels = build_lr_choices(data)
-    path_type, _, flash3_ms, trial_mask = build_trial_metadata(data)
-
-    clf, _, _ = fit_decoder(X, labels, trial_mask)
-    dv = compute_dv_traces(clf, X, trial_mask)
-    dv_prob = sigmoid_dv(dv)
-
-    path_type_eligible = path_type[trial_mask]
-    flash3_eligible = flash3_ms[trial_mask]
-
-    dv_means = np.array(
-        [np.nanmean(dv_prob[path_type_eligible == p], axis=0) for p in range(1, 25)]
-    )
-
-    strategy = np.full(6, np.nan)
-
-    for maze in range(1, 7):
-        pt = path_type_for(maze, 1)
-        cutoff = int(
-            np.nanmedian(flash3_eligible[path_type_eligible == pt]) - TIME_THRESHOLD
-        )
-
-        mean_lu = dv_means[path_type_for(maze, 1) - 1]
-        mean_ru = dv_means[path_type_for(maze, 3) - 1]
-
-        mean_ld = dv_means[path_type_for(maze, 2) - 1]
-        mean_rd = dv_means[path_type_for(maze, 4) - 1]
-
-        gap_u = np.abs(mean_lu[:cutoff] - mean_ru[:cutoff])
-        gap_d = np.abs(mean_ld[:cutoff] - mean_rd[:cutoff])
-
-        strategy[maze - 1] = int(
-            np.nanmax(gap_u) <= GAP_THRESHOLD and np.nanmax(gap_d) <= GAP_THRESHOLD
-        )
-
-    n_trials = len(path_type)
-    strategy_choices = np.full(n_trials, np.nan)
-    trial_maze = ((path_type[trial_mask] - 1) // 4).astype(int)
-    strategy_choices[trial_mask] = strategy[trial_maze]
-    return strategy_choices

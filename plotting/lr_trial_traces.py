@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from decoders.common import compute_dv_traces, compute_shuffle_dv_traces, fit_decoder
-from decoders.lr import prepare_decoder_data
+from decoders.lr import get_endpoint_mean, prepare_decoder_data
 from plotting.shared.plots import plot_plot, trace_stats
 from utils import path_type_for, sigmoid_dv
 
@@ -135,12 +135,14 @@ def plot_lr_traces(
 
 
 def generate_traces():
-    X_fit, labels, trial_mask, path_type, flash2_ms, flash3_ms = prepare_decoder_data()
-    clf, trial_mask, best_lambda = fit_decoder(X_fit, labels, trial_mask)
-    dv = compute_dv_traces(clf, X_fit, trial_mask)
+    X, y, trial_mask, path_type, flash2_ms, flash3_ms = prepare_decoder_data()
+    X_mean = get_endpoint_mean(X)
+    clf, trial_mask, best_lambda = fit_decoder(X_mean, y, trial_mask)
+    dv = compute_dv_traces(clf, X, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
-        X_fit,
-        labels,
+        X_mean,
+        X,
+        y,
         trial_mask,
         random_state=0,
         alpha=best_lambda,

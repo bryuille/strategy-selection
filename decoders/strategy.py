@@ -1,37 +1,34 @@
 import numpy as np
 
+from data.labeler import FLASH1_WINDOW_BINS
 from data.loader import (
-    load_lr_choices,
     load_pre_flash_metadata,
     load_pre_flash_timebins,
+    load_strategy_choices,
     load_trial_metadata,
     load_trial_timebins,
 )
 from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neuron
 
 
-def get_endpoint_mean(X, window_bins=301):
+def get_initial_mean(X):
     valid = ~np.isnan(X)
-    cum_valid = valid.cumsum(axis=-1)
-    total_valid = cum_valid[:, :, -1]
-
-    in_window = cum_valid > (total_valid[:, :, None] - window_bins)
-    in_window = in_window & valid
-
-    window_sum = np.where(in_window, X, 0.0).sum(axis=-1)
-    window_count = in_window.sum(axis=-1)
-    endpoint = np.divide(
+    window_sum = np.nansum(X, axis=2)
+    window_count = valid.sum(axis=2)
+    features = np.divide(
         window_sum,
         window_count,
-        out=np.full_like(window_sum, np.nan),
+        out=np.full(X.shape[:2], np.nan),
         where=window_count > 0,
     )
-    return np.nan_to_num(endpoint, nan=0.0)
+    return np.nan_to_num(features, nan=0.0)
 
 
 def prepare_decoder_data():
-    X = zscore_per_neuron(load_trial_timebins())
-    y = load_lr_choices()
+    X = zscore_per_neuron(
+        load_trial_timebins()[:, :, :FLASH1_WINDOW_BINS]
+    )
+    y = load_strategy_choices()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()
     return X, y, trial_mask, path_type, flash2_ms, flash3_ms
 
@@ -49,7 +46,7 @@ def main():
     print(f"Decoder trials: {n_valid} (omits random geometry trials)")
 
     print("Running cross-validation evaluation...")
-    X_mean = get_endpoint_mean(X)
+    X_mean = get_initial_mean(X)
     best_lambda, cv_acc = cross_validate_decoder(X_mean, y, trial_mask)
     print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
 

@@ -2,14 +2,6 @@ import numpy as np
 from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
-from data.loader import (
-    load_data,
-    load_lr_choices,
-    load_strategy_choices,
-    load_trial_metadata,
-    load_trial_timebins,
-)
-
 LAMBDA_GRID = np.logspace(-6, -0.5, 11)
 N_CV_SPLITS = 10
 
@@ -33,26 +25,6 @@ def zscore_per_neuron(X):
         vals = X[:, ni, :]
         X_out[:, ni, :] = (vals - np.nanmean(vals)) / np.nanstd(vals)
     return X_out
-
-
-# average firing rate in 300 ms window after third flash
-def get_endpoint_mean(X, window_bins=301):
-    valid = ~np.isnan(X)
-    cum_valid = valid.cumsum(axis=-1)
-    total_valid = cum_valid[:, :, -1]
-
-    in_window = cum_valid > (total_valid[:, :, None] - window_bins)
-    in_window = in_window & valid
-
-    window_sum = np.where(in_window, X, 0.0).sum(axis=-1)
-    window_count = in_window.sum(axis=-1)
-    endpoint = np.divide(
-        window_sum,
-        window_count,
-        out=np.full_like(window_sum, np.nan),
-        where=window_count > 0,
-    )
-    return np.nan_to_num(endpoint, nan=0.0)
 
 
 def pick_lambda(X, y, n_splits=10, random_state=0):
@@ -93,11 +65,10 @@ def balance_train_indices(idx_train, y):
     return balanced_idx
 
 
-def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
-    eligible = np.where(trial_mask)[0]
-    X_endpoint = get_endpoint_mean(X)
-    X_train = X_endpoint[eligible]
-    y_train = y[eligible].astype(int)
+def fit_decoder(X_mean, y, trial_mask, random_state=0, alpha=None):
+    valid = np.where(trial_mask)[0]
+    X_train = X_mean[valid]
+    y_train = y[valid].astype(int)
 
     best_lambda = (
         alpha
@@ -105,9 +76,9 @@ def fit_decoder(X, y, trial_mask, random_state=0, alpha=None):
         else pick_lambda(X_train, y_train, random_state=random_state)
     )
 
-    balanced_idx = balance_train_indices(eligible, y)
+    balanced_idx = balance_train_indices(valid, y)
     clf = make_sgd_classifier(best_lambda, random_state)
-    clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
+    clf.fit(X_mean[balanced_idx], y[balanced_idx].astype(int))
     return clf, trial_mask, best_lambda
 
 
@@ -117,17 +88,27 @@ def compute_dv_traces(clf, X, trial_mask):
 
 
 def compute_shuffle_dv_traces(
-    X, y, trial_mask, random_state=0, alpha=None, n_shuffles=5
+    X_mean,
+    X,
+    y,
+    trial_mask,
+    random_state=0,
+    alpha=None,
+    n_shuffles=5,
 ):
-    eligible = np.where(trial_mask)[0]
+    valid = np.where(trial_mask)[0]
     shuffled_traces = []
     rng = np.random.default_rng(random_state)
 
     for i in range(n_shuffles):
         y_shuf = y.copy()
-        y_shuf[eligible] = rng.permutation(y[eligible])
+        y_shuf[valid] = rng.permutation(y[valid])
         clf, _, _ = fit_decoder(
-            X, y_shuf, trial_mask, random_state=random_state + i + 1, alpha=alpha
+            X_mean,
+            y_shuf,
+            trial_mask,
+            random_state=random_state + i + 1,
+            alpha=alpha,
         )
         shuffled_traces.append(compute_dv_traces(clf, X, trial_mask))
 
@@ -135,24 +116,25 @@ def compute_shuffle_dv_traces(
 
 
 # for testing model performance
-def cross_validate_decoder(X, y, trial_mask, n_splits=N_CV_SPLITS):
-    eligible = np.where(trial_mask)[0]
-    X_endpoint = get_endpoint_mean(X)
+def cross_validate_decoder(X_mean, y, trial_mask, n_splits=N_CV_SPLITS):
+    valid = np.where(trial_mask)[0]
+    X_train = X_mean[valid]
+    y_train = y[valid].astype(int)
 
-    best_lambda = pick_lambda(X_endpoint[eligible], y[eligible].astype(int))
+    best_lambda = pick_lambda(X_train, y_train)
 
     accs = []
     for i in range(n_splits):
         idx_train, idx_test = train_test_split(
-            eligible,
+            valid,
             test_size=0.5,
-            stratify=y[eligible],
+            stratify=y_train,
             random_state=i,
         )
         balanced_idx = balance_train_indices(idx_train, y)
         clf = make_sgd_classifier(best_lambda, i)
-        clf.fit(X_endpoint[balanced_idx], y[balanced_idx].astype(int))
-        score = clf.score(X_endpoint[idx_test], y[idx_test].astype(int))
+        clf.fit(X_mean[balanced_idx], y[balanced_idx].astype(int))
+        score = clf.score(X_mean[idx_test], y[idx_test].astype(int))
         accs.append(score)
 
     return best_lambda, np.mean(accs)

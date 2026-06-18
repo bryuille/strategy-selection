@@ -1,24 +1,31 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from decoders.common import compute_dv_traces, compute_shuffle_dv_traces, fit_decoder
-from decoders.lr import get_endpoint_mean, prepare_decoder_data, prepare_pre_flash_data
+from decoders.common import (
+    compute_dv_traces,
+    compute_shuffle_dv_traces,
+    fit_decoder,
+)
+from decoders.strategy import (
+    get_initial_mean,
+    prepare_decoder_data,
+    prepare_pre_flash_data,
+)
 from plotting.shared.plots import plot_plot, trace_stats
 from utils import path_type_for, sigmoid_dv
 
-OUTPUT_PATH = "./figures/lr_pre_flash_traces.png"
+OUTPUT_PATH = "./figures/strategy_pre_flash_traces.png"
 N_SHUFFLES = 5
 T_MAX = 700
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
+HIERARCHICAL_MAZES = {1, 2, 4}
 
 TRACE_COLOR = {
     BG_HIERARCHICAL: "#E04838",
     BG_SEQUENTIAL: "#5EB0E8",
 }
-
-DISTANCE_THRESHOLD = 0.2
 
 
 ########## Helpers
@@ -30,10 +37,8 @@ def maze_mask(path_type, maze):
     )
 
 
-def get_background_color(mean):
-    if np.abs(mean[T_MAX - 1] - 0.5) > DISTANCE_THRESHOLD:
-        return BG_HIERARCHICAL
-    return BG_SEQUENTIAL
+def get_background_color(maze):
+    return BG_HIERARCHICAL if maze in HIERARCHICAL_MAZES else BG_SEQUENTIAL
 
 
 def plot_flash_label(ax, flash_t, color, label):
@@ -54,7 +59,7 @@ def plot_flash_label(ax, flash_t, color, label):
 ########## Plotting
 
 
-def plot_lr_traces(
+def plot_strategy_traces(
     traces,
     path_type,
     shuffle_traces,
@@ -68,7 +73,7 @@ def plot_lr_traces(
         mask = maze_mask(path_type, maze)
         mean, half_sd = trace_stats(traces[mask, :T_MAX])
         shuffle_mean, shuffle_half_sd = trace_stats(shuffle_traces[mask, :T_MAX])
-        bg = get_background_color(mean)
+        bg = get_background_color(maze)
 
         plot_plot(
             ax,
@@ -90,14 +95,15 @@ def plot_lr_traces(
 
 
 def generate_traces():
-    X_trial, y, trial_mask, _, _, _ = prepare_decoder_data()
-    clf, _, best_lambda = fit_decoder(get_endpoint_mean(X_trial), y, trial_mask)
-    X, path_type, _, trial_mask = prepare_pre_flash_data()
+    X, y, trial_mask, _, _, _ = prepare_decoder_data()
+    X_mean = get_initial_mean(X)
+    clf, _, best_lambda = fit_decoder(X_mean, y, trial_mask)
 
-    dv = compute_dv_traces(clf, X, trial_mask)
+    X_pre_flash, path_type, _, trial_mask = prepare_pre_flash_data()
+    dv = compute_dv_traces(clf, X_pre_flash, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
-        get_endpoint_mean(X),
-        X,
+        X_mean,
+        X_pre_flash,
         y,
         trial_mask,
         alpha=best_lambda,
@@ -115,7 +121,7 @@ def main():
     print("Generating traces...")
     traces, path_type, shuffle_traces = generate_traces()
     print("Plotting....")
-    plot_lr_traces(traces, path_type, shuffle_traces)
+    plot_strategy_traces(traces, path_type, shuffle_traces)
 
 
 if __name__ == "__main__":
