@@ -1,6 +1,6 @@
 import numpy as np
 
-from data.labeler import FLASH1_WINDOW_BINS
+from data.labeler import EARLY_TRIAL_WINDOW_SIZE
 from data.loader import (
     load_pre_flash_metadata,
     load_pre_flash_timebins,
@@ -26,7 +26,7 @@ def get_initial_mean(X):
 
 def prepare_decoder_data():
     X = zscore_per_neuron(
-        load_trial_timebins()[:, :, :FLASH1_WINDOW_BINS]
+        load_trial_timebins()[:, :, :EARLY_TRIAL_WINDOW_SIZE]
     )
     y = load_strategy_choices()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()

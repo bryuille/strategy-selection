@@ -2,9 +2,8 @@ import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage
 from sklearn.decomposition import PCA
 
-FLASH1_WINDOW_BINS = 300  # 300 ms following flash 1
+EARLY_TRIAL_WINDOW_SIZE = 300
 N_PCA_COMPONENTS = 3
-N_CLUSTERS = 2
 
 
 def build_lr_choices(data):
@@ -36,18 +35,21 @@ def build_lr_choices(data):
 
 
 def build_strategy_choices(trial_timebins):
-    window = trial_timebins[:, :, :FLASH1_WINDOW_BINS]
+    window = trial_timebins[:, :, :EARLY_TRIAL_WINDOW_SIZE]
     trial_averaged = np.nanmean(window, axis=2)
 
     features = np.nan_to_num(trial_averaged, nan=0.0)
+
+    # Z-score each neuron across trials
     features -= features.mean(axis=0)
     features /= features.std(axis=0) + 1e-8
 
     pc_scores = PCA(n_components=N_PCA_COMPONENTS, random_state=0).fit_transform(
         features
     )
-    clusters = (
-        fcluster(linkage(pc_scores, method="ward"), t=N_CLUSTERS, criterion="maxclust")
-        - 1
-    )
+
+    Z = linkage(pc_scores, method="ward")
+    root_distance = Z[-1, 2]
+    clusters = fcluster(Z, t=root_distance - 1e-10, criterion="distance") - 1
+
     return clusters.astype(float)

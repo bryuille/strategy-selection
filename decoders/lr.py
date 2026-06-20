@@ -9,13 +9,15 @@ from data.loader import (
 )
 from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neuron
 
+ENDPOINT_WINDOW_SIZE = 301
 
-def get_endpoint_mean(X, window_bins=301):
+
+def get_endpoint_mean(X):
     valid = ~np.isnan(X)
     cum_valid = valid.cumsum(axis=-1)
     total_valid = cum_valid[:, :, -1]
 
-    in_window = cum_valid > (total_valid[:, :, None] - window_bins)
+    in_window = cum_valid > (total_valid[:, :, None] - ENDPOINT_WINDOW_SIZE)
     in_window = in_window & valid
 
     window_sum = np.where(in_window, X, 0.0).sum(axis=-1)
