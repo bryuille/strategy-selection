@@ -16,11 +16,9 @@ from utils import path_type_for, sigmoid_dv
 
 OUTPUT_PATH = "./figures/strategy_pre_flash_traces.png"
 N_SHUFFLES = 5
-T_MAX = 700
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
-HIERARCHICAL_MAZES = {1, 2, 4}
 
 TRACE_COLOR = {
     BG_HIERARCHICAL: "#E04838",
@@ -37,8 +35,10 @@ def maze_mask(path_type, maze):
     )
 
 
-def get_background_color(maze):
-    return BG_HIERARCHICAL if maze in HIERARCHICAL_MAZES else BG_SEQUENTIAL
+def get_background_color(mean, t_max):
+    if (1 - mean[t_max - 1]) > 0.5:
+        return BG_HIERARCHICAL
+    return BG_SEQUENTIAL
 
 
 def plot_flash_label(ax, flash_t, color, label):
@@ -63,8 +63,10 @@ def plot_strategy_traces(
     traces,
     path_type,
     shuffle_traces,
+    t_max,
     save_path=OUTPUT_PATH,
 ):
+    T_MAX = t_max
     fig, axes = plt.subplots(1, 6, figsize=(14, 2.8))
     fig.subplots_adjust(left=0.03, right=0.97, top=0.88, bottom=0.15, wspace=0.3)
 
@@ -73,7 +75,7 @@ def plot_strategy_traces(
         mask = maze_mask(path_type, maze)
         mean, half_sd = trace_stats(traces[mask, :T_MAX])
         shuffle_mean, shuffle_half_sd = trace_stats(shuffle_traces[mask, :T_MAX])
-        bg = get_background_color(maze)
+        bg = get_background_color(mean, T_MAX)
 
         plot_plot(
             ax,
@@ -99,7 +101,10 @@ def generate_traces():
     X_mean = get_initial_mean(X)
     clf, _, best_lambda = fit_decoder(X_mean, y, trial_mask)
 
-    X_pre_flash, path_type, _, trial_mask = prepare_pre_flash_data()
+    X_pre_flash, path_type, flash1_ms, trial_mask = prepare_pre_flash_data()
+
+    t_max = int(flash1_ms[0])
+
     dv = compute_dv_traces(clf, X_pre_flash, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
         X_mean,
@@ -114,14 +119,15 @@ def generate_traces():
         sigmoid_dv(dv),
         path_type[mask],
         sigmoid_dv(shuffle_raw),
+        t_max,
     )
 
 
 def main():
     print("Generating traces...")
-    traces, path_type, shuffle_traces = generate_traces()
+    traces, path_type, shuffle_traces, t_max = generate_traces()
     print("Plotting....")
-    plot_strategy_traces(traces, path_type, shuffle_traces)
+    plot_strategy_traces(traces, path_type, shuffle_traces, t_max)
 
 
 if __name__ == "__main__":

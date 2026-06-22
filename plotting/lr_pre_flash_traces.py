@@ -8,7 +8,6 @@ from utils import path_type_for, sigmoid_dv
 
 OUTPUT_PATH = "./figures/lr_pre_flash_traces.png"
 N_SHUFFLES = 5
-T_MAX = 700
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
@@ -18,7 +17,7 @@ TRACE_COLOR = {
     BG_SEQUENTIAL: "#5EB0E8",
 }
 
-DISTANCE_THRESHOLD = 0.2
+DISTANCE_THRESHOLD = 0.19
 
 
 ########## Helpers
@@ -30,8 +29,8 @@ def maze_mask(path_type, maze):
     )
 
 
-def get_background_color(mean):
-    if np.abs(mean[T_MAX - 1] - 0.5) > DISTANCE_THRESHOLD:
+def get_background_color(mean, t_max):
+    if np.abs(mean[t_max - 1] - 0.5) > DISTANCE_THRESHOLD:
         return BG_HIERARCHICAL
     return BG_SEQUENTIAL
 
@@ -58,8 +57,10 @@ def plot_lr_traces(
     traces,
     path_type,
     shuffle_traces,
+    t_max,
     save_path=OUTPUT_PATH,
 ):
+    T_MAX = t_max
     fig, axes = plt.subplots(1, 6, figsize=(14, 2.8))
     fig.subplots_adjust(left=0.03, right=0.97, top=0.88, bottom=0.15, wspace=0.3)
 
@@ -68,7 +69,7 @@ def plot_lr_traces(
         mask = maze_mask(path_type, maze)
         mean, half_sd = trace_stats(traces[mask, :T_MAX])
         shuffle_mean, shuffle_half_sd = trace_stats(shuffle_traces[mask, :T_MAX])
-        bg = get_background_color(mean)
+        bg = get_background_color(mean, T_MAX)
 
         plot_plot(
             ax,
@@ -92,7 +93,9 @@ def plot_lr_traces(
 def generate_traces():
     X_trial, y, trial_mask, _, _, _ = prepare_decoder_data()
     clf, _, best_lambda = fit_decoder(get_endpoint_mean(X_trial), y, trial_mask)
-    X, path_type, _, trial_mask = prepare_pre_flash_data()
+    X, path_type, flash1_ms, trial_mask = prepare_pre_flash_data()
+
+    t_max = int(flash1_ms[0])
 
     dv = compute_dv_traces(clf, X, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
@@ -108,14 +111,15 @@ def generate_traces():
         sigmoid_dv(dv),
         path_type[mask],
         sigmoid_dv(shuffle_raw),
+        t_max,
     )
 
 
 def main():
     print("Generating traces...")
-    traces, path_type, shuffle_traces = generate_traces()
+    traces, path_type, shuffle_traces, t_max = generate_traces()
     print("Plotting....")
-    plot_lr_traces(traces, path_type, shuffle_traces)
+    plot_lr_traces(traces, path_type, shuffle_traces, t_max)
 
 
 if __name__ == "__main__":

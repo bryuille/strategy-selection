@@ -99,6 +99,8 @@ def load_strategy_choices():
     if os.path.exists(STRATEGY_CHOICES_PATH):
         return np.load(STRATEGY_CHOICES_PATH)["strategy_choices"]
 
-    strategy_choices = build_strategy_choices(load_trial_timebins())
+    trial_timebins = load_trial_timebins()
+    path_type, _, _, _ = load_trial_metadata()
+    strategy_choices = build_strategy_choices(trial_timebins, path_type)
     np.savez(STRATEGY_CHOICES_PATH, strategy_choices=strategy_choices)
     return strategy_choices
