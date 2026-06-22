@@ -3,7 +3,7 @@ import numpy as np
 
 from decoders.common import compute_dv_traces, compute_shuffle_dv_traces, fit_decoder
 from decoders.lr import get_endpoint_mean, prepare_decoder_data, prepare_pre_flash_data
-from plotting.shared.plots import plot_plot, trace_stats
+from plotting.common import plot_plot, trace_stats
 from utils import path_type_for, sigmoid_dv
 
 OUTPUT_PATH = "./figures/lr_pre_flash_traces.png"
@@ -79,6 +79,7 @@ def plot_lr_traces(
             shuffle=(shuffle_mean, shuffle_half_sd),
         )
         plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"{T_MAX}")
+        plot_flash_label(ax, 0, TRACE_COLOR[bg], "geo_pres")
         ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
 
     axes[0].set_ylabel("Time (ms)", fontsize=8)

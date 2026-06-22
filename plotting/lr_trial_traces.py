@@ -5,7 +5,7 @@ import numpy as np
 
 from decoders.common import compute_dv_traces, compute_shuffle_dv_traces, fit_decoder
 from decoders.lr import get_endpoint_mean, prepare_decoder_data
-from plotting.shared.plots import plot_plot, trace_stats
+from plotting.common import plot_plot, trace_stats
 from utils import path_type_for, sigmoid_dv
 
 OUTPUT_PATH = "./figures/lr_trial_traces.png"

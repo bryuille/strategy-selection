@@ -41,7 +41,7 @@ def plot_flash_marker(ax, flash_t, color, xmin, xmax):
         alpha=0.85,
         zorder=4,
     )
-    is_left = xmax == 0.5
+    is_left = xmax <= 0.5
     ax.text(
         -0.02 if is_left else 1.02,
         flash_t,

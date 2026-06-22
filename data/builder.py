@@ -159,7 +159,7 @@ def build_pre_flash_timebins(data):
     flash_one = data["flash_one"]
     fr_raw = data["FR_WH"].T
 
-    start_bins = np.floor((fix_start - geo_present) * 1000).astype(int)
+    start_bins = np.floor((geo_present - geo_present) * 1000).astype(int)
     end_bins = np.floor((flash_one - geo_present) * 1000).astype(int)
 
     max_length = np.max(end_bins - start_bins)
@@ -198,13 +198,12 @@ def build_pre_flash_metadata(data):
     n_trials = np.max(trials)
 
     path_type = np.full(n_trials, np.nan)
-    fix_start = data["fix_start"]
     flash1_ms = np.full(n_trials, np.nan)
 
     for k in range(len(trials)):
         ti = trials[k] - 1
         path_type[ti] = data["path_type"][k]
-        flash1_ms[ti] = (data["flash_one"][k] - data["fix_start"][k]) * 1000
+        flash1_ms[ti] = (data["flash_one"][k] - data["geo_present"][k]) * 1000
 
     trial_mask = path_type != -99
     return path_type, flash1_ms, trial_mask

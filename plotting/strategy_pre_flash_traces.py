@@ -11,7 +11,7 @@ from decoders.strategy import (
     prepare_decoder_data,
     prepare_pre_flash_data,
 )
-from plotting.shared.plots import plot_plot, trace_stats
+from plotting.common import plot_plot, trace_stats
 from utils import path_type_for, sigmoid_dv
 
 OUTPUT_PATH = "./figures/strategy_pre_flash_traces.png"
@@ -36,7 +36,7 @@ def maze_mask(path_type, maze):
 
 
 def get_background_color(mean, t_max):
-    if (1 - mean[t_max - 1]) > 0.5:
+    if (1 - mean[t_max - 1]) > 0.65:
         return BG_HIERARCHICAL
     return BG_SEQUENTIAL
 
@@ -85,6 +85,7 @@ def plot_strategy_traces(
             shuffle=(shuffle_mean, shuffle_half_sd),
         )
         plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"{T_MAX}")
+        plot_flash_label(ax, 0, TRACE_COLOR[bg], "geo_pres")
         ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
 
     axes[0].set_ylabel("Time (ms)", fontsize=8)
