@@ -25,12 +25,7 @@ TRACE_COLOR = {
     BG_SEQUENTIAL: "#5EB0E8",
 }
 
-N_TRIALS = 1
-
-TRIAL_COLORS = {
-    BG_HIERARCHICAL: ["#C0392B", "#E67E22", "#8E44AD", "#2C3E50"],
-    BG_SEQUENTIAL:   ["#1A6EBD", "#27AE60", "#D35400", "#6C3483"],
-}
+N_TRIALS = 6
 
 
 ########## Helpers
@@ -66,17 +61,36 @@ def plot_flash_label(ax, flash_t, color, label):
 ########## Plotting
 
 
-def plot_individual_traces(ax, trial_traces, colors, t_max):
+def plot_single_trace(ax, trace, shuffle_mean, shuffle_half_sd, color, bg, t_max):
     t = np.arange(t_max)
-    for trace, color in zip(trial_traces, colors):
-        ax.plot(
-            trace[:t_max],
-            t,
-            color=color,
-            linewidth=1.0,
-            alpha=0.85,
-            zorder=2,
-        )
+    ax.set_facecolor(bg)
+    ax.axvline(0.5, color="0.55", linewidth=0.7, linestyle="--", zorder=0)
+
+    # shuffle band
+    ax.fill_betweenx(
+        t,
+        shuffle_mean[:t_max] - shuffle_half_sd[:t_max],
+        shuffle_mean[:t_max] + shuffle_half_sd[:t_max],
+        color="0.75",
+        alpha=0.45,
+        zorder=0,
+    )
+    ax.plot(
+        shuffle_mean[:t_max],
+        t,
+        color="black",
+        linewidth=0.8,
+        alpha=0.4,
+        zorder=1,
+    )
+
+    ax.plot(trace[:t_max], t, color=color, linewidth=1.2, alpha=0.9, zorder=2)
+
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, t_max)
+    ax.set_xticks([0, 0.5, 1])
+    ax.set_yticks([])
+    ax.tick_params(labelsize=6)
 
 
 def plot_strategy_per_trial_traces(
@@ -87,62 +101,47 @@ def plot_strategy_per_trial_traces(
     save_path=OUTPUT_PATH,
 ):
     T_MAX = t_max
-    fig, axes = plt.subplots(1, 6, figsize=(14, 2.8))
-    fig.subplots_adjust(left=0.03, right=0.97, top=0.88, bottom=0.15, wspace=0.3)
+    fig, axes = plt.subplots(N_TRIALS, 6, figsize=(14, N_TRIALS * 2.0))
+    fig.subplots_adjust(left=0.05, right=0.97, top=0.94, bottom=0.04, wspace=0.25, hspace=0.35)
+
+    rng = np.random.default_rng(seed=42)
 
     for col, maze in enumerate(range(1, 7)):
-        ax = axes[col]
         mask = maze_mask(path_type, maze)
 
         maze_traces = traces[mask, :T_MAX]
         mean, _ = trace_stats(maze_traces)
         bg = get_background_color(mean, T_MAX)
-
-        rng = np.random.default_rng(seed=0)
-        n_trials = min(N_TRIALS, len(maze_traces))
-        sample_idx = rng.choice(len(maze_traces), size=n_trials, replace=False)
-        maze_traces_sample = maze_traces[sample_idx]
-        trial_colors = TRIAL_COLORS[bg][:n_trials]
         color = TRACE_COLOR[bg]
 
         shuffle_mean, shuffle_half_sd = trace_stats(shuffle_traces[mask, :T_MAX])
-        t = np.arange(T_MAX)
 
-        ax.set_facecolor(bg)
-        ax.axvline(0.5, color="0.55", linewidth=0.7, linestyle="--", zorder=0)
+        n_trials = min(N_TRIALS, len(maze_traces))
+        sample_idx = rng.choice(len(maze_traces), size=n_trials, replace=False)
 
-        # shuffle band
-        ax.fill_betweenx(
-            t,
-            shuffle_mean[:T_MAX] - shuffle_half_sd[:T_MAX],
-            shuffle_mean[:T_MAX] + shuffle_half_sd[:T_MAX],
-            color="0.75",
-            alpha=0.45,
-            zorder=0,
-        )
-        ax.plot(
-            shuffle_mean[:T_MAX],
-            t,
-            color="black",
-            linewidth=1.0,
-            alpha=0.4,
-            zorder=1,
-        )
+        for row in range(N_TRIALS):
+            ax = axes[row, col]
+            if row < n_trials:
+                plot_single_trace(
+                    ax,
+                    maze_traces[sample_idx[row]],
+                    shuffle_mean,
+                    shuffle_half_sd,
+                    color,
+                    bg,
+                    T_MAX,
+                )
+                if col == 0:
+                    ax.set_ylabel(f"{row + 1}", fontsize=7, labelpad=2)
+            else:
+                ax.set_visible(False)
 
-        # individual trial traces
-        plot_individual_traces(ax, maze_traces_sample, trial_colors, T_MAX)
+            if row == 0:
+                ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
 
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, T_MAX)
-        ax.set_xticks([0, 0.5, 1])
-        ax.set_yticks([])
-        ax.tick_params(labelsize=7)
+            plot_flash_label(ax, T_MAX, color, f"{T_MAX}")
+            plot_flash_label(ax, 0, color, "geo_pres")
 
-        plot_flash_label(ax, T_MAX, color, f"{T_MAX}")
-        plot_flash_label(ax, 0, color, "geo_pres")
-        ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
-
-    axes[0].set_ylabel("Time (ms)", fontsize=8)
     fig.savefig(save_path, dpi=200)
     plt.close(fig)
     print(f"Saved {save_path}")
