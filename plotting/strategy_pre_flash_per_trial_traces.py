@@ -98,7 +98,7 @@ def plot_strategy_per_trial_traces(
         mean, _ = trace_stats(maze_traces)
         bg = get_background_color(mean, T_MAX)
 
-        rng = np.random.default_rng(seed=42)
+        rng = np.random.default_rng(seed=0)
         n_trials = min(N_TRIALS, len(maze_traces))
         sample_idx = rng.choice(len(maze_traces), size=n_trials, replace=False)
         maze_traces_sample = maze_traces[sample_idx]
