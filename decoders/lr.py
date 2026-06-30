@@ -12,13 +12,15 @@ from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neur
 ENDPOINT_WINDOW_SIZE = 301
 
 
-def get_endpoint_mean(X):
-    valid = ~np.isnan(X)
-    cum_valid = valid.cumsum(axis=-1)
-    total_valid = cum_valid[:, :, -1]
+def get_endpoint_mean(X, flash3_ms):
+    t = np.arange(X.shape[-1])
+    flash3_idx = np.floor(flash3_ms).astype(int)
 
-    in_window = cum_valid > (total_valid[:, :, None] - ENDPOINT_WINDOW_SIZE)
-    in_window = in_window & valid
+    in_window = (
+        (t[None, None, :] >= flash3_idx[:, None, None])
+        & (t[None, None, :] < flash3_idx[:, None, None] + ENDPOINT_WINDOW_SIZE)
+        & ~np.isnan(X)
+    )
 
     window_sum = np.where(in_window, X, 0.0).sum(axis=-1)
     window_count = in_window.sum(axis=-1)
@@ -46,12 +48,12 @@ def prepare_pre_flash_data():
 
 def main():
     print("Loading data...")
-    X, y, trial_mask, *_ = prepare_decoder_data()
+    X, y, trial_mask, _, _, flash3_ms = prepare_decoder_data()
     n_valid = trial_mask.sum()
     print(f"Decoder trials: {n_valid} (omits random geometry trials)")
 
     print("Running cross-validation evaluation...")
-    X_mean = get_endpoint_mean(X)
+    X_mean = get_endpoint_mean(X, flash3_ms)
     best_lambda, cv_acc = cross_validate_decoder(X_mean, y, trial_mask)
     print(f"Cross-validated accuracy ({N_CV_SPLITS} iterations): {cv_acc:.3f}")
 

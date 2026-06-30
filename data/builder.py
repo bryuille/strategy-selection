@@ -147,6 +147,63 @@ def build_trial_timebins(data):
     return tensor
 
 
+def build_trial_metadata(data):
+    trials = data["trial_indices_all"].astype(int)
+    n_trials = np.max(trials)
+
+    path_type = np.full(n_trials, np.nan)
+    flash2_ms = np.full(n_trials, np.nan)
+    flash3_ms = np.full(n_trials, np.nan)
+
+    for k in range(len(trials)):
+        ti = trials[k] - 1
+        path_type[ti] = data["path_type"][k]
+        flash2_ms[ti] = (data["flash_two"][k] - data["flash_one"][k]) * 1000
+        flash3_ms[ti] = (data["flash_three"][k] - data["flash_one"][k]) * 1000
+
+    trial_mask = path_type != -99
+    return path_type, flash2_ms, flash3_ms, trial_mask
+
+
+def build_post_flash_timebins(data):
+    trials = data["trial_indices_all"].astype(int)
+    nrns = data["nrns"].astype(int)
+
+    n_trials = np.max(trials)
+    n_neurons = np.max(nrns)
+
+    geo_present = data["geo_present"]
+    flash_three = data["flash_three"]
+    fr_raw = data["FR_WH"].T
+
+    start_bins = np.floor((flash_three - geo_present) * 1000).astype(int)
+    end_bins = start_bins + 500
+
+    tensor = np.full((n_trials, n_neurons, 500), np.nan)
+
+    for k in range(len(nrns)):
+        ti = trials[k] - 1
+        ni = nrns[k] - 1
+        segment = fr_raw[k, start_bins[k] : end_bins[k]]
+        tensor[ti, ni, : len(segment)] = segment
+
+    return tensor
+
+
+def build_post_flash_metadata(data):
+    trials = data["trial_indices_all"].astype(int)
+    n_trials = np.max(trials)
+
+    path_type = np.full(n_trials, np.nan)
+
+    for k in range(len(trials)):
+        ti = trials[k] - 1
+        path_type[ti] = data["path_type"][k]
+
+    trial_mask = path_type != -99
+    return path_type, trial_mask
+
+
 def build_pre_flash_timebins(data):
     trials = data["trial_indices_all"].astype(int)
     nrns = data["nrns"].astype(int)
@@ -175,24 +232,6 @@ def build_pre_flash_timebins(data):
     return tensor
 
 
-def build_trial_metadata(data):
-    trials = data["trial_indices_all"].astype(int)
-    n_trials = np.max(trials)
-
-    path_type = np.full(n_trials, np.nan)
-    flash2_ms = np.full(n_trials, np.nan)
-    flash3_ms = np.full(n_trials, np.nan)
-
-    for k in range(len(trials)):
-        ti = trials[k] - 1
-        path_type[ti] = data["path_type"][k]
-        flash2_ms[ti] = (data["flash_two"][k] - data["flash_one"][k]) * 1000
-        flash3_ms[ti] = (data["flash_three"][k] - data["flash_one"][k]) * 1000
-
-    trial_mask = path_type != -99
-    return path_type, flash2_ms, flash3_ms, trial_mask
-
-
 def build_pre_flash_metadata(data):
     trials = data["trial_indices_all"].astype(int)
     n_trials = np.max(trials)
@@ -207,3 +246,4 @@ def build_pre_flash_metadata(data):
 
     trial_mask = path_type != -99
     return path_type, flash1_ms, trial_mask
+

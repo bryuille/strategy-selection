@@ -84,7 +84,7 @@ def plot_strategy_traces(
             bg_color=bg,
             shuffle=(shuffle_mean, shuffle_half_sd),
         )
-        plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"{T_MAX}")
+        plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"+{T_MAX}ms")
         plot_flash_label(ax, 0, TRACE_COLOR[bg], "geo_pres")
         ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
 

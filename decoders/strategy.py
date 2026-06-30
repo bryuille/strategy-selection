@@ -2,6 +2,8 @@ import numpy as np
 
 from data.labeler import EARLY_TRIAL_WINDOW_SIZE
 from data.loader import (
+    load_post_flash_metadata,
+    load_post_flash_timebins,
     load_pre_flash_metadata,
     load_pre_flash_timebins,
     load_strategy_choices,
@@ -12,22 +14,11 @@ from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neur
 
 
 def get_initial_mean(X):
-    valid = ~np.isnan(X)
-    window_sum = np.nansum(X, axis=2)
-    window_count = valid.sum(axis=2)
-    features = np.divide(
-        window_sum,
-        window_count,
-        out=np.full(X.shape[:2], np.nan),
-        where=window_count > 0,
-    )
-    return np.nan_to_num(features, nan=0.0)
+    return np.nan_to_num(np.nanmean(X, axis=2), nan=0.0)
 
 
 def prepare_decoder_data():
-    X = zscore_per_neuron(
-        load_trial_timebins()[:, :, :EARLY_TRIAL_WINDOW_SIZE]
-    )
+    X = zscore_per_neuron(load_trial_timebins()[:, :, :EARLY_TRIAL_WINDOW_SIZE])
     y = load_strategy_choices()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()
     return X, y, trial_mask, path_type, flash2_ms, flash3_ms
@@ -37,6 +28,12 @@ def prepare_pre_flash_data():
     X = zscore_per_neuron(load_pre_flash_timebins())
     path_type, flash1_ms, trial_mask = load_pre_flash_metadata()
     return X, path_type, flash1_ms, trial_mask
+
+
+def prepare_post_flash_data():
+    X = zscore_per_neuron(load_post_flash_timebins())
+    path_type, trial_mask = load_post_flash_metadata()
+    return X, path_type, trial_mask
 
 
 def main():

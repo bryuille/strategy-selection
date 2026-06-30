@@ -136,7 +136,7 @@ def plot_lr_traces(
 
 def generate_traces():
     X, y, trial_mask, path_type, flash2_ms, flash3_ms = prepare_decoder_data()
-    X_mean = get_endpoint_mean(X)
+    X_mean = get_endpoint_mean(X, flash3_ms)
     clf, trial_mask, best_lambda = fit_decoder(X_mean, y, trial_mask)
     dv = compute_dv_traces(clf, X, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(

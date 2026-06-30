@@ -78,7 +78,7 @@ def plot_lr_traces(
             bg_color=bg,
             shuffle=(shuffle_mean, shuffle_half_sd),
         )
-        plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"{T_MAX}")
+        plot_flash_label(ax, T_MAX, TRACE_COLOR[bg], f"+{T_MAX}ms")
         plot_flash_label(ax, 0, TRACE_COLOR[bg], "geo_pres")
         ax.set_title(f"Maze {maze}", fontsize=9, pad=4)
 
@@ -92,15 +92,17 @@ def plot_lr_traces(
 
 
 def generate_traces():
-    X_trial, y, trial_mask, _, _, _ = prepare_decoder_data()
-    clf, _, best_lambda = fit_decoder(get_endpoint_mean(X_trial), y, trial_mask)
+    X_trial, y, trial_mask, _, _, flash3_ms = prepare_decoder_data()
+    clf, _, best_lambda = fit_decoder(
+        get_endpoint_mean(X_trial, flash3_ms), y, trial_mask
+    )
     X, path_type, flash1_ms, trial_mask = prepare_pre_flash_data()
 
     t_max = int(flash1_ms[0])
 
     dv = compute_dv_traces(clf, X, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
-        get_endpoint_mean(X),
+        get_endpoint_mean(X_trial, flash3_ms),
         X,
         y,
         trial_mask,
