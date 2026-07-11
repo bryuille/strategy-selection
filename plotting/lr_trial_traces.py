@@ -3,13 +3,17 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 
-from decoders.common import compute_dv_traces, compute_shuffle_dv_traces, fit_decoder
+from decoders.common import (
+    N_SHUFFLE_ITERS,
+    compute_dv_traces,
+    compute_shuffle_dv_traces,
+    fit_decoder,
+)
 from decoders.lr import get_endpoint_mean, prepare_decoder_data
 from plotting.common import plot_plot, trace_stats
-from utils import path_type_for, sigmoid_dv
+from utils import path_type_for, sigmoid
 
 OUTPUT_PATH = "./figures/lr_trial_traces.png"
-N_SHUFFLES = 5
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
@@ -146,15 +150,15 @@ def generate_traces():
         trial_mask,
         random_state=0,
         alpha=best_lambda,
-        n_shuffles=N_SHUFFLES,
+        n_shuffles=N_SHUFFLE_ITERS,
     )
     mask = trial_mask
     return (
-        sigmoid_dv(dv),
+        sigmoid(dv),
         path_type[mask],
         flash2_ms[mask],
         flash3_ms[mask],
-        sigmoid_dv(shuffle_raw),
+        sigmoid(shuffle_raw),
     )
 
 

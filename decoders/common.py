@@ -4,6 +4,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test
 
 LAMBDA_GRID = np.logspace(-6, -0.5, 11)
 N_CV_SPLITS = 10
+N_SHUFFLE_ITERS = 50 # Increase for less bias in shuffle DV
 
 
 def make_sgd_classifier(alpha, random_state=0):
@@ -17,14 +18,6 @@ def make_sgd_classifier(alpha, random_state=0):
         max_iter=2000,
         tol=1e-4,
     )
-
-
-def zscore_per_neuron(X):
-    X_out = X.copy()
-    for ni in range(X.shape[1]):
-        vals = X[:, ni, :]
-        X_out[:, ni, :] = (vals - np.nanmean(vals)) / np.nanstd(vals)
-    return X_out
 
 
 def pick_lambda(X, y, n_splits=10, random_state=0):
@@ -51,8 +44,8 @@ def pick_lambda(X, y, n_splits=10, random_state=0):
     return LAMBDA_GRID[int(np.argmin(score))]
 
 
-# used for cases when class counts are not equal
-def balance_train_indices(idx_train, y):
+def balance_train_indices(idx_train, y, random_state=0):
+    np.random.seed(random_state)
     classes, counts = np.unique(y[idx_train], return_counts=True)
     min_count = counts.min()
     balanced_idx = np.concatenate(
@@ -76,7 +69,7 @@ def fit_decoder(X_mean, y, trial_mask, random_state=0, alpha=None):
         else pick_lambda(X_train, y_train, random_state=random_state)
     )
 
-    balanced_idx = balance_train_indices(valid, y)
+    balanced_idx = balance_train_indices(valid, y, random_state)
     clf = make_sgd_classifier(best_lambda, random_state)
     clf.fit(X_mean[balanced_idx], y[balanced_idx].astype(int))
     return clf, trial_mask, best_lambda
@@ -94,25 +87,36 @@ def compute_shuffle_dv_traces(
     trial_mask,
     random_state=0,
     alpha=None,
-    n_shuffles=5,
+    n_shuffles=N_SHUFFLE_ITERS,
 ):
     valid = np.where(trial_mask)[0]
-    shuffled_traces = []
-    rng = np.random.default_rng(random_state)
+    y_valid = y[valid]
+    dv_sum = np.zeros((len(valid), X.shape[-1]))
+    counts = np.zeros(len(valid))
 
     for i in range(n_shuffles):
-        y_shuf = y.copy()
-        y_shuf[valid] = rng.permutation(y[valid])
-        clf, _, _ = fit_decoder(
-            X_mean,
-            y_shuf,
-            trial_mask,
-            random_state=random_state + i + 1,
-            alpha=alpha,
+        np.random.seed(random_state + i)
+        idx_train, idx_test = train_test_split(
+            valid,
+            test_size=0.5,
+            stratify=y_valid,
+            random_state=random_state + i,
         )
-        shuffled_traces.append(compute_dv_traces(clf, X, trial_mask))
+        train_mask = np.zeros_like(trial_mask, dtype=bool)
+        train_mask[idx_train] = True
 
-    return np.nanmean(np.stack(shuffled_traces, axis=0), axis=0)
+        y_shuf = y.copy()
+        y_shuf[idx_train] = np.random.permutation(y[idx_train])
+
+        clf, _, _ = fit_decoder(
+            X_mean, y_shuf, train_mask, random_state=random_state + i, alpha=alpha
+        )
+        dv = compute_dv_traces(clf, X, trial_mask)
+        test_local = np.isin(valid, idx_test)
+        dv_sum[test_local] += dv[test_local]
+        counts[test_local] += 1
+
+    return dv_sum / counts[:, None]
 
 
 # for testing model performance
@@ -131,7 +135,7 @@ def cross_validate_decoder(X_mean, y, trial_mask, n_splits=N_CV_SPLITS):
             stratify=y_train,
             random_state=i,
         )
-        balanced_idx = balance_train_indices(idx_train, y)
+        balanced_idx = balance_train_indices(idx_train, y, random_state=i)
         clf = make_sgd_classifier(best_lambda, i)
         clf.fit(X_mean[balanced_idx], y[balanced_idx].astype(int))
         score = clf.score(X_mean[idx_test], y[idx_test].astype(int))

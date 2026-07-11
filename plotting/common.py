@@ -1,5 +1,31 @@
 import numpy as np
 
+PRE_FLASH_WINDOW_MS = 1000
+
+
+def align_pre_flash_to_flash_one(traces, flash1_ms):
+    aligned = np.full((traces.shape[0], PRE_FLASH_WINDOW_MS), np.nan)
+    for i, window_end in enumerate(flash1_ms.astype(int)):
+        window_start = max(0, window_end - PRE_FLASH_WINDOW_MS)
+        segment = traces[i, window_start:window_end]
+        aligned[i, PRE_FLASH_WINDOW_MS - len(segment) :] = segment
+    return aligned
+
+
+def plot_flash_label(ax, flash_t, color, label):
+    ax.text(
+        -0.02,
+        flash_t,
+        label,
+        color=color,
+        fontsize=5,
+        va="top",
+        ha="right",
+        transform=ax.get_yaxis_transform(),
+        zorder=5,
+        clip_on=False,
+    )
+
 
 def trace_stats(traces):
     mean = np.nanmean(traces, axis=0)

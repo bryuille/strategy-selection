@@ -7,7 +7,7 @@ from data.loader import (
     load_trial_metadata,
     load_trial_timebins,
 )
-from decoders.common import N_CV_SPLITS, cross_validate_decoder, zscore_per_neuron
+from decoders.common import N_CV_SPLITS, cross_validate_decoder
 
 ENDPOINT_WINDOW_SIZE = 301
 
@@ -33,16 +33,24 @@ def get_endpoint_mean(X, flash3_ms):
     return np.nan_to_num(endpoint, nan=0.0)
 
 
+def zscore_per_neuron(X_raw, trial_mask):
+    mu = np.nanmean(X_raw[trial_mask], axis=(0, 2))
+    sd = np.nanstd(X_raw[trial_mask], axis=(0, 2))
+    return (X_raw - mu[None, :, None]) / sd[None, :, None]
+
+
 def prepare_decoder_data():
-    X = zscore_per_neuron(load_trial_timebins())
+    X_raw = load_trial_timebins()
     y = load_lr_choices()
     path_type, flash2_ms, flash3_ms, trial_mask = load_trial_metadata()
+    X = zscore_per_neuron(X_raw, trial_mask)
     return X, y, trial_mask, path_type, flash2_ms, flash3_ms
 
 
 def prepare_pre_flash_data():
-    X = zscore_per_neuron(load_pre_flash_timebins())
+    X_raw = load_pre_flash_timebins()
     path_type, flash1_ms, trial_mask = load_pre_flash_metadata()
+    X = zscore_per_neuron(X_raw, trial_mask)
     return X, path_type, flash1_ms, trial_mask
 
 

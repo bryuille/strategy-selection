@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def sigmoid_dv(dv):
+def sigmoid(dv):
     return 1.0 / (1.0 + np.exp(-dv))
 
 

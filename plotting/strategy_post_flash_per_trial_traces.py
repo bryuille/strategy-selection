@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from decoders.common import (
+    N_SHUFFLE_ITERS,
     compute_dv_traces,
     compute_shuffle_dv_traces,
     fit_decoder,
@@ -11,11 +12,10 @@ from decoders.strategy import (
     prepare_decoder_data,
     prepare_post_flash_data,
 )
-from plotting.common import trace_stats
-from utils import path_type_for, sigmoid_dv
+from plotting.common import plot_flash_label, trace_stats
+from utils import path_type_for, sigmoid
 
 OUTPUT_PATH = "./figures/strategy_post_flash_per_trial_traces.png"
-N_SHUFFLES = 5
 
 POST_FLASH_WINDOW = 500
 
@@ -45,21 +45,6 @@ N_TRIALS = 6
 def maze_mask(path_type, maze):
     return np.isin(
         path_type, [path_type_for(maze, exit_idx) for exit_idx in (1, 2, 3, 4)]
-    )
-
-
-def plot_flash_label(ax, flash_t, color, label):
-    ax.text(
-        -0.02,
-        flash_t,
-        label,
-        color=color,
-        fontsize=5,
-        va="top",
-        ha="right",
-        transform=ax.get_yaxis_transform(),
-        zorder=5,
-        clip_on=False,
     )
 
 
@@ -158,14 +143,15 @@ def generate_traces():
         X_post,
         y,
         post_mask,
+        random_state=0,
         alpha=best_lambda,
-        n_shuffles=N_SHUFFLES,
+        n_shuffles=N_SHUFFLE_ITERS,
     )
 
     return (
-        sigmoid_dv(dv),
+        sigmoid(dv),
         path_type[post_mask],
-        sigmoid_dv(shuffle_raw),
+        sigmoid(shuffle_raw),
     )
 
 
