@@ -1,0 +1,11 @@
+# Large local data (use with: rsync -av --exclude-from=.rsync-exclude ...)
+data/mat/
+data/npz/
+data/archive/
+data/processed/
+eye_data_plotting/out/
+experimental_eye_data_plotting/out/
+trace_plotting/out/
+.venv/
+__pycache__/
+.DS_Store

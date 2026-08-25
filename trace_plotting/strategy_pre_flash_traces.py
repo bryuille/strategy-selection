@@ -12,7 +12,8 @@ from decoders.strategy import (
     prepare_decoder_data,
     prepare_pre_flash_data,
 )
-from plotting.common import (
+from trace_plotting.common import (
+    OUT_DIR,
     PRE_FLASH_WINDOW_MS,
     align_pre_flash_to_flash_one,
     plot_flash_label,
@@ -21,7 +22,7 @@ from plotting.common import (
 )
 from utils import path_type_for, sigmoid
 
-OUTPUT_PATH = "./figures/strategy_pre_flash_traces.png"
+OUTPUT_PATH = OUT_DIR / "strategy_pre_flash_traces.png"
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"

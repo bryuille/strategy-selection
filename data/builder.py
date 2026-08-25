@@ -1,123 +1,45 @@
-import h5py
+import warnings
+
 import numpy as np
+import polars as pl
+import pymovements as pm
+from pymovements.events import blink as blink_fn
 
-############ Data Input
+from data.convert import load_npz
+from data.config import eye_npz_path, npz_dir
 
-DATA_PATH = "./data/raw/june_24_g0_good_trials_concat.mat"
-FR_PATH = "./data/raw/june_24_g0_Whole_Trial_FR_Causal.mat"
-
-FIELDS = {
-    # "Area",
-    # "Grid_hole",
-    "LR",
-    # "LR2",
-    # "all_synctimes",
-    # "answer_time",
-    # "cids",
-    # "date_of_recording",
-    # "feedback_time",
-    "fix_start",
-    # "fixation_cue_present",
-    # "fixation_off",
-    "flash_one",
-    "flash_three",
-    "flash_two",
-    "geo_present",
-    # "geo_type",
-    "h",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    # "labels",
-    "nrns",
-    # "old_nrns",
-    # "one",
-    # "one_hier",
-    "path_type",
-    # "probe_sync",
-    # "probe_type",
-    # "rand_geo",
-    # "reward",
-    # "saccade_init",
-    # "spikes",
-    # "spikes_all",
-    # "sync_params",
-    "trial_answer1",
-    "trial_answer2",
-    "trial_answer3",
-    "trial_answer4",
-    # "trial_end",
-    # "trial_fade",
-    "trial_indices_all",
-    # "trial_time_to_fix",
-    # "two",
-    # "two_hier",
-    # "two_hier_alt",
-    # "two_hier_correct",
-    # "two_hier_left",
-    # "two_hier_right",
-    # "vel",
-    # "which_sync",
-}
-
-
-def import_data():
-    data = {}
-
-    with h5py.File(DATA_PATH, "r") as f:
-        all_data = f["save_all_data"]
-
-        for field in FIELDS:
-            data[field] = convert_mat_field(f, all_data[field])
-
-    with h5py.File(FR_PATH, "r") as f:
-        data["FR_WH"] = convert_mat_field(f, f["smooth_session"])
-
-    return data
-
-
-def convert_mat_field(f, dataset):
-    if dataset.dtype == h5py.ref_dtype:
-        refs = dataset[()]
-        return [np.array(f[r]).squeeze() for r in refs.flat]
-
-    return np.array(dataset).squeeze()
-
-
-########## Data Processing
-
-# Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24.
-# (first length, second length, stop condition length)
+# Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24,
+# so blocks follow published geo_type: maze = ceil(path_type/4).
+# (first arm, second arm, stop = first+second+300). Arm times are h/vel at 10 deg/s:
+# LU (h1,h2), LD (h1,h3), RU (h4,h5), RD (h4,h6).
 PATH_TYPE_LEN_MS = [
-    (500, 900, 1700),
-    (500, 1100, 1900),
-    (1000, 700, 2000),
-    (1000, 500, 1800),
-    (500, 700, 1500),
-    (500, 1100, 1900),
-    (1000, 900, 2200),
-    (1000, 500, 1800),
-    (500, 900, 1700),
-    (500, 1100, 1900),
-    (750, 700, 1750),
-    (750, 500, 1550),
-    (500, 700, 1500),
-    (500, 1100, 1900),
-    (750, 900, 1950),
-    (750, 500, 1550),
-    (500, 900, 1700),
-    (500, 1100, 1900),
-    (500, 700, 1500),
-    (500, 500, 1300),
-    (500, 700, 1500),
-    (500, 1100, 1900),
-    (500, 900, 1700),
-    (500, 500, 1300),
+    (500, 700, 1500),   # 0: m1, LU
+    (500, 1100, 1900),  # 1: m1, LD
+    (1000, 900, 2200),  # 2: m1, RU
+    (1000, 500, 1800),  # 3: m1, RD
+    (500, 900, 1700),   # 4: m2, LU
+    (500, 1100, 1900),  # 5: m2, LD
+    (1000, 700, 2000),  # 6: m2, RU
+    (1000, 500, 1800),  # 7: m2, RD
+    (500, 700, 1500),   # 8: m3, LU
+    (500, 1100, 1900),  # 9: m3, LD
+    (750, 900, 1950),   # 10: m3, RU
+    (750, 500, 1550),   # 11: m3, RD
+    (500, 900, 1700),   # 12: m4, LU
+    (500, 1100, 1900),  # 13: m4, LD
+    (750, 700, 1750),   # 14: m4, RU
+    (750, 500, 1550),   # 15: m4, RD
+    (500, 700, 1500),   # 16: m5, LU
+    (500, 1100, 1900),  # 17: m5, LD
+    (500, 900, 1700),   # 18: m5, RU
+    (500, 500, 1300),   # 19: m5, RD
+    (500, 900, 1700),   # 20: m6, LU
+    (500, 1100, 1900),  # 21: m6, LD
+    (500, 700, 1500),   # 22: m6, RU
+    (500, 500, 1300),   # 23: m6, RD
 ]
 
+########### Decoder Data
 
 def build_trial_timebins(data):
     trials = data["trial_indices_all"].astype(int)
@@ -212,7 +134,6 @@ def build_pre_flash_timebins(data):
     n_neurons = np.max(nrns)
 
     geo_present = data["geo_present"]
-    fix_start = data["fix_start"]
     flash_one = data["flash_one"]
     fr_raw = data["FR_WH"].T
 
@@ -247,3 +168,368 @@ def build_pre_flash_metadata(data):
     trial_mask = path_type != -99
     return path_type, flash1_ms, trial_mask
 
+
+########### Eye Data
+
+EYE_BEHAVIORAL_FIELDS = (
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "trial_fade",
+    "path_type",
+    "geo_present",
+    "fix_start",
+    "flash_one",
+    "flash_two",
+    "flash_three",
+    "photodiode_qc_bad",
+    "vel",
+    "trial_answer1",
+    "trial_answer2",
+    "trial_answer3",
+    "trial_answer4",
+    "LR",
+    "LR2",
+    "geo_type",
+    "fixation_off",
+)
+
+EYE_SAMPLING_RATE_HZ = 1000.0
+POSITION_LIMIT_DEG = 30.0
+BLINK_PADDING_MS = 5
+SACCADE_MIN_DURATION_MS = 12
+SACCADE_THRESHOLD_FACTOR = 8
+SACCADE_MERGE_GAP_MS = 40
+IVT_VELOCITY_THRESHOLD_DEG_S = 40.0
+IDT_DISPERSION_THRESHOLD_DEG = 2.0
+FIXATION_MIN_DURATION_MS = 50
+CLEAN_EVENT_PROPERTIES = ("peak_velocity", "amplitude", "dispersion", "location")
+CLEAN_EYE_DATA_KEYS = (
+    "name",
+    "onset",
+    "offset",
+    "duration",
+    "peak_velocity",
+    "amplitude",
+    "dispersion",
+    "location_x",
+    "location_y",
+    "session",
+    "trial_indices_all",
+)
+
+
+def _gaze_arrays(trial):
+    g = np.asarray(trial, dtype=float)
+    if g.ndim == 1:
+        g = g.reshape(1, -1) if g.size else np.empty((0, 3))
+    if g.size == 0:
+        empty = np.array([], dtype=float)
+        return empty, empty, empty
+    return g[:, 2].copy(), g[:, 0].copy(), g[:, 1].copy()
+
+
+def _collapse_to_trials(session_data, fields):
+    """One row per trial_indices_all value (neuron–trial rows collapsed)."""
+    trials = np.asarray(session_data["trial_indices_all"]).astype(int)
+    n_trials = int(np.max(trials))
+    row = np.full(n_trials, -1, dtype=int)
+    row[trials - 1] = np.arange(len(trials))
+    present = row >= 0
+    out = {}
+    for field in fields:
+        vals = np.asarray(session_data[field])
+        collapsed = np.full(n_trials, np.nan, dtype=np.float64)
+        collapsed[present] = vals[row[present]].astype(np.float64)
+        out[field] = collapsed
+    return out, n_trials
+
+
+def build_eye_data(monkey="Faure"):
+    """Concatenate all eye npz sessions for `monkey`."""
+    times, xs, ys, sessions, trial_ids = [], [], [], [], []
+    for path in sorted(npz_dir("eye", monkey).glob("Eye_Data_*.npz")):
+        raw = load_npz(path)
+        session = path.stem.removeprefix("Eye_Data_")
+        t_trials, x_trials, y_trials = [], [], []
+        for trial in raw["gaze"]:
+            t, x, y = _gaze_arrays(trial)
+            t_trials.append(t)
+            x_trials.append(x)
+            y_trials.append(y)
+        n = len(t_trials)
+        times.extend(t_trials)
+        xs.extend(x_trials)
+        ys.extend(y_trials)
+        sessions.extend([session] * n)
+        trial_ids.extend(range(1, n + 1))
+    return {
+        "time": np.asarray(times, dtype=object),
+        "eye_x": np.asarray(xs, dtype=object),
+        "eye_y": np.asarray(ys, dtype=object),
+        "session": np.asarray(sessions),
+        "trial_indices_all": np.asarray(trial_ids, dtype=int),
+    }
+
+
+def build_eye_behavioral_data(monkey="Faure"):
+    """Concatenate trial-level behavioral fields across all sessions for `monkey`."""
+    chunks = {f: [] for f in EYE_BEHAVIORAL_FIELDS}
+    sessions = []
+    trial_ids = []
+    for path in sorted(npz_dir("behavioral", monkey).glob("*_good_trials_concat.npz")):
+        collapsed, n_trials = _collapse_to_trials(load_npz(path), EYE_BEHAVIORAL_FIELDS)
+        for field in EYE_BEHAVIORAL_FIELDS:
+            chunks[field].append(collapsed[field])
+        sessions.append(np.full(n_trials, path.name.removesuffix("_good_trials_concat.npz")))
+        trial_ids.append(np.arange(1, n_trials + 1, dtype=int))
+    return {
+        "session": np.concatenate(sessions),
+        "trial_indices_all": np.concatenate(trial_ids),
+        **{f: np.concatenate(chunks[f]) for f in EYE_BEHAVIORAL_FIELDS},
+    }
+
+
+def _empty_clean_events():
+    return {
+        "name": np.array([], dtype=object),
+        "onset": np.array([], dtype=float),
+        "offset": np.array([], dtype=float),
+        "duration": np.array([], dtype=float),
+        "peak_velocity": np.array([], dtype=float),
+        "amplitude": np.array([], dtype=float),
+        "dispersion": np.array([], dtype=float),
+        "location_x": np.array([], dtype=float),
+        "location_y": np.array([], dtype=float),
+        "session": np.array([], dtype=object),
+        "trial_indices_all": np.array([], dtype=int),
+    }
+
+
+def _pupil_signal(pupil):
+    p = np.asarray(pupil, dtype=float)
+    if p.ndim == 2 and min(p.shape) == 2:
+        if p.shape[1] != 2:
+            p = p.T
+        return p[:, 0], np.round(p[:, 1] * 1000.0).astype(np.int64)
+    return None, None
+
+
+def trial_blink_mask(time, pupil, padding_ms=BLINK_PADDING_MS):
+    """True where gaze time falls inside a pymovements pupil-blink window."""
+    t = np.asarray(time, dtype=float)
+    mask = np.zeros(t.size, dtype=bool)
+    p_size, p_t_ms = _pupil_signal(pupil)
+    if p_size is None or not np.isfinite(p_size).any():
+        return mask
+    blinks = blink_fn(
+        pupil=p_size,
+        timesteps=p_t_ms,
+        minimum_duration=20,
+        maximum_duration=None,
+        minimum_gap=10,
+    )
+    if blinks.frame.height == 0:
+        return mask
+    t_ms = np.round(t * 1000.0).astype(np.int64)
+    for onset, offset in blinks.frame.select("onset", "offset").rows():
+        start = onset - padding_ms
+        stop = offset + padding_ms
+        mask |= (t_ms >= start) & (t_ms <= stop)
+    return mask
+
+
+def _drop_blink_overlaps(events, blinks):
+    if blinks.frame.height == 0 or events.frame.height == 0:
+        return events
+    kept = events.frame
+    for blink_onset, blink_offset in blinks.frame.select("onset", "offset").rows():
+        start = blink_onset - BLINK_PADDING_MS
+        stop = blink_offset + BLINK_PADDING_MS
+        kept = kept.filter(~((pl.col("onset") < stop) & (pl.col("offset") > start)))
+    events.frame = kept
+    return events
+
+
+def _trial_events(time, eye_x, eye_y, pupil, experiment):
+    """Detect saccades and fixations, then drop events that overlap blinks."""
+    t = np.asarray(time, dtype=float)
+    x = np.asarray(eye_x, dtype=float)
+    y = np.asarray(eye_y, dtype=float)
+    n = min(t.size, x.size, y.size)
+    if n < 6:
+        return None
+
+    t = t[:n]
+    x = x[:n].copy()
+    y = y[:n].copy()
+    oob = (
+        ~np.isfinite(x)
+        | ~np.isfinite(y)
+        | (np.abs(x) > POSITION_LIMIT_DEG)
+        | (np.abs(y) > POSITION_LIMIT_DEG)
+    )
+    x[oob] = np.nan
+    y[oob] = np.nan
+    if not np.isfinite(x).any():
+        return None
+
+    t_ms = np.round(t * 1000.0).astype(np.int64)
+    gaze = pm.Gaze(
+        samples=pl.DataFrame({
+            "time": np.arange(n, dtype=np.int64),
+            "x": x,
+            "y": y,
+        }),
+        experiment=experiment,
+        time_column="time",
+        time_unit="ms",
+        position_columns=["x", "y"],
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        warnings.simplefilter("ignore", RuntimeWarning)
+        gaze.pos2vel("smooth")
+        gaze.detect(
+            "ivt",
+            name="fixation_ivt",
+            velocity_threshold=IVT_VELOCITY_THRESHOLD_DEG_S,
+            minimum_duration=FIXATION_MIN_DURATION_MS,
+        )
+        gaze.detect(
+            "idt",
+            name="fixation_idt",
+            dispersion_threshold=IDT_DISPERSION_THRESHOLD_DEG,
+            minimum_duration=FIXATION_MIN_DURATION_MS,
+        )
+        gaze.detect(
+            "microsaccades",
+            name="saccade",
+            minimum_duration=SACCADE_MIN_DURATION_MS,
+            threshold_factor=SACCADE_THRESHOLD_FACTOR,
+        )
+        if gaze.events.frame.filter(pl.col("name") == "saccade").height:
+            gaze.events.merge_subsequent_close_events(
+                name="saccade", max_gap=SACCADE_MERGE_GAP_MS
+            )
+
+        if len(gaze.events):
+            gaze.compute_event_properties(list(CLEAN_EVENT_PROPERTIES))
+            onset_i = np.clip(gaze.events.frame["onset"].to_numpy().astype(int), 0, n - 1)
+            offset_i = np.clip(gaze.events.frame["offset"].to_numpy().astype(int), 0, n - 1)
+            gaze.events.frame = gaze.events.frame.with_columns(
+                pl.Series("onset", t_ms[onset_i]),
+                pl.Series("offset", t_ms[offset_i]),
+                pl.Series("duration", t_ms[offset_i] - t_ms[onset_i]),
+            )
+
+        p_size, p_t_ms = _pupil_signal(pupil)
+        if p_size is not None and np.isfinite(p_size).any():
+            blinks = blink_fn(
+                pupil=p_size,
+                timesteps=p_t_ms,
+                minimum_duration=20,
+                maximum_duration=None,
+                minimum_gap=10,
+            )
+            gaze.events = _drop_blink_overlaps(gaze.events, blinks)
+
+    gaze.events.frame = gaze.events.frame.filter(
+        pl.col("name").str.contains("saccade") | pl.col("name").str.contains("fixation")
+    )
+    if len(gaze.events) == 0:
+        return None
+    return gaze.events.frame
+
+
+def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
+    """True on samples inside a fixation and outside saccades/blinks."""
+    t = np.asarray(time, dtype=float)
+    x = np.asarray(eye_x, dtype=float)
+    y = np.asarray(eye_y, dtype=float)
+    n = min(t.size, x.size, y.size)
+    mask = np.zeros(n, dtype=bool)
+    if n < 6:
+        return mask
+    if experiment is None:
+        experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
+    frame = _trial_events(t[:n], x[:n], y[:n], pupil, experiment)
+    if frame is None:
+        return mask
+    t_ms = np.round(t[:n] * 1000.0).astype(np.int64)
+    in_fix = np.zeros(n, dtype=bool)
+    in_sac = np.zeros(n, dtype=bool)
+    for name, onset, offset in frame.select("name", "onset", "offset").rows():
+        hit = (t_ms >= float(onset)) & (t_ms <= float(offset))
+        name = str(name).lower()
+        if "saccade" in name:
+            in_sac |= hit
+        elif "fixation" in name:
+            in_fix |= hit
+    return in_fix & ~in_sac
+
+
+def clean_eye_data(eye_data, monkey="Faure"):
+    """Saccade and fixation events; blink-overlapping events are dropped."""
+    experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
+    frames = []
+    n_trials = len(eye_data["time"])
+    pupils_by_session = {}
+    for i in range(n_trials):
+        if i and i % 1000 == 0:
+            print(f"clean_eye_data: {i}/{n_trials} trials", flush=True)
+        session = str(eye_data["session"][i])
+        if session not in pupils_by_session:
+            raw = load_npz(eye_npz_path(monkey, session))
+            pupils_by_session[session] = (
+                list(raw["pupil_size"]) if "pupil_size" in raw else None
+            )
+        trial_id = int(eye_data["trial_indices_all"][i])
+        session_pupils = pupils_by_session[session]
+        pupil = (
+            session_pupils[trial_id - 1]
+            if session_pupils is not None and trial_id - 1 < len(session_pupils)
+            else np.empty((0, 2))
+        )
+        frame = _trial_events(
+            eye_data["time"][i],
+            eye_data["eye_x"][i],
+            eye_data["eye_y"][i],
+            pupil,
+            experiment,
+        )
+        if frame is None or frame.height == 0:
+            continue
+        frames.append(
+            frame.with_columns(
+                pl.lit(str(eye_data["session"][i])).alias("session"),
+                pl.lit(int(eye_data["trial_indices_all"][i])).alias(
+                    "trial_indices_all"
+                ),
+            )
+        )
+
+    if not frames:
+        return _empty_clean_events()
+
+    events = pl.concat(frames, how="diagonal_relaxed")
+    location = np.array(events["location"].to_list(), dtype=float)
+    if location.ndim != 2 or location.shape[1] != 2:
+        location = np.full((events.height, 2), np.nan)
+    return {
+        "name": events["name"].to_numpy(),
+        "onset": events["onset"].to_numpy().astype(float),
+        "offset": events["offset"].to_numpy().astype(float),
+        "duration": events["duration"].to_numpy().astype(float),
+        "peak_velocity": events["peak_velocity"].to_numpy().astype(float),
+        "amplitude": events["amplitude"].to_numpy().astype(float),
+        "dispersion": events["dispersion"].to_numpy().astype(float),
+        "location_x": location[:, 0],
+        "location_y": location[:, 1],
+        "session": events["session"].to_numpy(),
+        "trial_indices_all": events["trial_indices_all"].to_numpy().astype(int),
+    }

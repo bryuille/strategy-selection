@@ -13,5 +13,7 @@ wheels/
 .DS_Store
 
 # Data
-data/raw/
+data/mat/
+data/npz/
 data/processed/
+.claude/

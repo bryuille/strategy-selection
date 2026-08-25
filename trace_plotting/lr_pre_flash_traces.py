@@ -8,7 +8,8 @@ from decoders.common import (
     fit_decoder,
 )
 from decoders.lr import get_endpoint_mean, prepare_decoder_data, prepare_pre_flash_data
-from plotting.common import (
+from trace_plotting.common import (
+    OUT_DIR,
     PRE_FLASH_WINDOW_MS,
     align_pre_flash_to_flash_one,
     plot_flash_label,
@@ -17,7 +18,7 @@ from plotting.common import (
 )
 from utils import path_type_for, sigmoid
 
-OUTPUT_PATH = "./figures/lr_pre_flash_traces.png"
+OUTPUT_PATH = OUT_DIR / "lr_pre_flash_traces.png"
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"

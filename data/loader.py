@@ -1,133 +1,192 @@
-import os
-
 import numpy as np
 
 from data.builder import (
+    CLEAN_EYE_DATA_KEYS,
+    build_eye_data,
+    build_eye_behavioral_data,
     build_post_flash_metadata,
     build_post_flash_timebins,
     build_pre_flash_metadata,
     build_pre_flash_timebins,
     build_trial_metadata,
     build_trial_timebins,
-    import_data,
+    clean_eye_data,
 )
-from data.labeler import build_lr_choices, build_strategy_choices
-
-RAW_PATH = "./data/processed/raw.npz"
-TRIAL_TIMEBINS_PATH = "./data/processed/trial_timebins.npz"
-TRIAL_METADATA_PATH = "./data/processed/trial_metadata.npz"
-PRE_FLASH_TIMEBINS_PATH = "./data/processed/pre_flash_timebins.npz"
-PRE_FLASH_METADATA_PATH = "./data/processed/pre_flash_metadata.npz"
-POST_FLASH_TIMEBINS_PATH = "./data/processed/post_flash_timebins.npz"
-POST_FLASH_METADATA_PATH = "./data/processed/post_flash_metadata.npz"
-LR_CHOICES_PATH = "./data/processed/lr_choices.npz"
-STRATEGY_CHOICES_PATH = "./data/processed/strategy_choices.npz"
+from data.convert import load_data, load_npz
+from data.config import SESSION, processed_npz
+from data.labeler import (
+    build_lr_choices,
+    build_strategy_choices,
+)
 
 
-def load_data():
-    if os.path.exists(RAW_PATH):
-        with np.load(RAW_PATH, allow_pickle=True) as f:
-            return {k: f[k] for k in f.files}
-    data = import_data()
-    np.savez(RAW_PATH, **data)
+def _ensure_npz(path, build):
+    if path.exists():
+        return load_npz(path)
+    data = build()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, **data)
     return data
 
 
 def load_trial_timebins():
-    if os.path.exists(TRIAL_TIMEBINS_PATH):
-        return np.load(TRIAL_TIMEBINS_PATH)["trial_timebins"]
-
-    trial_timebins = build_trial_timebins(load_data())
-    np.savez(TRIAL_TIMEBINS_PATH, trial_timebins=trial_timebins)
-    return trial_timebins
+    return _ensure_npz(
+        processed_npz(f"{SESSION}_trial_timebins"),
+        lambda: {"trial_timebins": build_trial_timebins(load_data())},
+    )["trial_timebins"]
 
 
 def load_trial_metadata():
-    if os.path.exists(TRIAL_METADATA_PATH):
-        loaded = np.load(TRIAL_METADATA_PATH)
-        return (
-            loaded["path_type"],
-            loaded["flash2_ms"],
-            loaded["flash3_ms"],
-            loaded["trial_mask"],
-        )
-
-    path_type, flash2_ms, flash3_ms, trial_mask = build_trial_metadata(load_data())
-    np.savez(
-        TRIAL_METADATA_PATH,
-        path_type=path_type,
-        flash2_ms=flash2_ms,
-        flash3_ms=flash3_ms,
-        trial_mask=trial_mask,
+    loaded = _ensure_npz(
+        processed_npz(f"{SESSION}_trial_metadata"),
+        lambda: dict(
+            zip(
+                ("path_type", "flash2_ms", "flash3_ms", "trial_mask"),
+                build_trial_metadata(load_data()),
+            )
+        ),
     )
-    return path_type, flash2_ms, flash3_ms, trial_mask
+    return loaded["path_type"], loaded["flash2_ms"], loaded["flash3_ms"], loaded["trial_mask"]
 
 
 def load_pre_flash_timebins():
-    if os.path.exists(PRE_FLASH_TIMEBINS_PATH):
-        return np.load(PRE_FLASH_TIMEBINS_PATH)["pre_flash_timebins"]
-
-    pre_flash_timebins = build_pre_flash_timebins(load_data())
-    np.savez(PRE_FLASH_TIMEBINS_PATH, pre_flash_timebins=pre_flash_timebins)
-    return pre_flash_timebins
+    return _ensure_npz(
+        processed_npz(f"{SESSION}_pre_flash_timebins"),
+        lambda: {"pre_flash_timebins": build_pre_flash_timebins(load_data())},
+    )["pre_flash_timebins"]
 
 
 def load_pre_flash_metadata():
-    if os.path.exists(PRE_FLASH_METADATA_PATH):
-        loaded = np.load(PRE_FLASH_METADATA_PATH)
-        return loaded["path_type"], loaded["flash1_ms"], loaded["trial_mask"]
-
-    path_type, flash1_ms, trial_mask = build_pre_flash_metadata(load_data())
-    np.savez(
-        PRE_FLASH_METADATA_PATH,
-        path_type=path_type,
-        flash1_ms=flash1_ms,
-        trial_mask=trial_mask,
+    loaded = _ensure_npz(
+        processed_npz(f"{SESSION}_pre_flash_metadata"),
+        lambda: dict(
+            zip(
+                ("path_type", "flash1_ms", "trial_mask"),
+                build_pre_flash_metadata(load_data()),
+            )
+        ),
     )
-    return path_type, flash1_ms, trial_mask
+    return loaded["path_type"], loaded["flash1_ms"], loaded["trial_mask"]
 
 
 def load_post_flash_timebins():
-    if os.path.exists(POST_FLASH_TIMEBINS_PATH):
-        return np.load(POST_FLASH_TIMEBINS_PATH)["post_flash_timebins"]
-
-    post_flash_timebins = build_post_flash_timebins(load_data())
-    np.savez(POST_FLASH_TIMEBINS_PATH, post_flash_timebins=post_flash_timebins)
-    return post_flash_timebins
+    return _ensure_npz(
+        processed_npz(f"{SESSION}_post_flash_timebins"),
+        lambda: {"post_flash_timebins": build_post_flash_timebins(load_data())},
+    )["post_flash_timebins"]
 
 
 def load_post_flash_metadata():
-    if os.path.exists(POST_FLASH_METADATA_PATH):
-        loaded = np.load(POST_FLASH_METADATA_PATH)
-        return loaded["path_type"], loaded["trial_mask"]
-
-    path_type, trial_mask = build_post_flash_metadata(load_data())
-    np.savez(
-        POST_FLASH_METADATA_PATH,
-        path_type=path_type,
-        trial_mask=trial_mask,
+    loaded = _ensure_npz(
+        processed_npz(f"{SESSION}_post_flash_metadata"),
+        lambda: dict(
+            zip(("path_type", "trial_mask"), build_post_flash_metadata(load_data()))
+        ),
     )
-    return path_type, trial_mask
+    return loaded["path_type"], loaded["trial_mask"]
 
 
 ########## Labels
 
 
 def load_lr_choices():
-    if os.path.exists(LR_CHOICES_PATH):
-        return np.load(LR_CHOICES_PATH)["lr_choices"]
-
-    lr_choices = build_lr_choices(load_data())
-    np.savez(LR_CHOICES_PATH, lr_choices=lr_choices)
-    return lr_choices
+    return _ensure_npz(
+        processed_npz(f"{SESSION}_lr_choices"),
+        lambda: {"lr_choices": build_lr_choices(load_data())},
+    )["lr_choices"]
 
 
 def load_strategy_choices():
-    if os.path.exists(STRATEGY_CHOICES_PATH):
-        return np.load(STRATEGY_CHOICES_PATH)["strategy_choices"]
+    return _ensure_npz(
+        processed_npz(f"{SESSION}_strategy_choices"),
+        lambda: {
+            "strategy_choices": build_strategy_choices(
+                load_trial_timebins(), load_trial_metadata()[0]
+            )
+        },
+    )["strategy_choices"]
 
-    trial_timebins = load_trial_timebins()
-    path_type, _, _, _ = load_trial_metadata()
-    strategy_choices = build_strategy_choices(trial_timebins, path_type)
-    np.savez(STRATEGY_CHOICES_PATH, strategy_choices=strategy_choices)
-    return strategy_choices
+
+def load_all_session_strategy_choices(monkey="Faure"):
+    from data.labeler import build_all_session_strategy_choices
+    path = processed_npz(f"{monkey}_strategy_choices_all_sessions")
+    if path.exists():
+        return load_npz(path)
+    data = build_all_session_strategy_choices(monkey)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, **data)
+    return data
+
+
+def load_session_strategy_choices(session, monkey="Faure"):
+    from data.labeler import build_session_strategy_choices
+    path = processed_npz(f"{monkey}_{session}_strategy_choices")
+    if path.exists():
+        return load_npz(path)["strategy_choices"]
+    choices = build_session_strategy_choices(session, monkey=monkey)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, strategy_choices=choices)
+    return choices
+
+
+########## Eye data (all sessions)
+
+
+def load_eye_data(monkey="Faure"):
+    return _ensure_npz(
+        processed_npz(f"{monkey}_eye_data"),
+        lambda: build_eye_data(monkey),
+    )
+
+
+def load_eye_behavioral_data(monkey="Faure"):
+    return _ensure_npz(
+        processed_npz(f"{monkey}_eye_behavioral"),
+        lambda: build_eye_behavioral_data(monkey),
+    )
+
+
+def load_clean_eye_data(monkey="Faure"):
+    path = processed_npz(f"{monkey}_clean_eye_data")
+    if path.exists():
+        loaded = load_npz(path)
+        if set(CLEAN_EYE_DATA_KEYS) <= set(loaded):
+            return loaded
+    cleaned = clean_eye_data(load_eye_data(monkey), monkey=monkey)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, **cleaned)
+    return cleaned
+
+
+def load_attractor_eye_data(monkey="Faure", k=None):
+    from data.attractor import ATTRACTOR_EYE_DATA_KEYS, DEFAULT_K, produce_attractor_eye_data
+
+    k = DEFAULT_K if k is None else int(k)
+    specific = processed_npz(f"{monkey}_attractor_k{k}_eye_data")
+    default = processed_npz(f"{monkey}_attractor_eye_data")
+    for path in (specific, default):
+        if not path.exists():
+            continue
+        loaded = load_npz(path)
+        if set(ATTRACTOR_EYE_DATA_KEYS) <= set(loaded) and int(loaded["codebook_k"]) == k:
+            return loaded
+    data = produce_attractor_eye_data(load_eye_data(monkey), monkey=monkey, k=k)
+    specific.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(specific, **data)
+    if k == DEFAULT_K:
+        np.savez(default, **data)
+    return data
+
+
+def load_attractor_strategy_choices(monkey="Faure"):
+    from data.labeler import build_attractor_strategy_choices
+    path = processed_npz(f"{monkey}_attractor_strategy_choices")
+    if path.exists():
+        return load_npz(path)["strategy_choices"]
+    attractor = load_attractor_eye_data(monkey)
+    behavioral = load_eye_behavioral_data(monkey)
+    choices = build_attractor_strategy_choices(attractor, behavioral)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, strategy_choices=choices)
+    return choices
+

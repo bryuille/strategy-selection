@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -10,10 +8,10 @@ from decoders.common import (
     fit_decoder,
 )
 from decoders.lr import get_endpoint_mean, prepare_decoder_data
-from plotting.common import plot_plot, trace_stats
+from trace_plotting.common import OUT_DIR, plot_plot, trace_stats
 from utils import path_type_for, sigmoid
 
-OUTPUT_PATH = "./figures/lr_trial_traces.png"
+OUTPUT_PATH = OUT_DIR / "lr_trial_traces.png"
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"

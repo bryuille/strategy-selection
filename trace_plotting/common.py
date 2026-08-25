@@ -1,4 +1,7 @@
 import numpy as np
+from pathlib import Path
+
+OUT_DIR = Path(__file__).resolve().parent / "out"
 
 PRE_FLASH_WINDOW_MS = 1000
 
