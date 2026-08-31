@@ -1,0 +1,14 @@
+Faure -- per-maze decoding (degrees features, scope: all). Balanced accuracy, chance = 0.500
+
+| Feature set                       | d   | Trials | Mazes | Logistic (L2) train | Logistic (L2) CV | Random forest train | Random forest CV |
+|-----------------------------------|-----|--------|-------|---------------------|------------------|---------------------|------------------|
+| Codebook occupancy (ms), K=6      | 6   | 1295   | 6     | 0.619               | **0.558**        | 0.977               | 0.529            |
+| Codebook occupancy (ms), K=12     | 12  | 1295   | 6     | 0.679               | 0.506            | 0.991               | 0.496            |
+| Codebook occupancy (binary), K=6  | 6   | 1295   | 6     | 0.612               | 0.522            | 0.659               | **0.536**        |
+| Codebook occupancy (binary), K=12 | 12  | 1295   | 6     | 0.667               | 0.492            | 0.731               | 0.501            |
+| State bigrams, K=6                | 36  | 1295   | 6     | 0.673               | 0.464            | 0.732               | 0.495            |
+| State bigrams, K=12               | 144 | 1295   | 6     | 0.839               | 0.478            | 0.833               | 0.476            |
+| Gaze heatmap, 5x5                 | 25  | 1295   | 6     | 0.704               | 0.483            | 0.981               | 0.482            |
+| Gaze heatmap, 10x10               | 100 | 1295   | 6     | 0.861               | 0.498            | 0.980               | 0.506            |
+
+Bold: best CV accuracy per model.

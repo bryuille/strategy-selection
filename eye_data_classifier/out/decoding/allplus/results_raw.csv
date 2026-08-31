@@ -1,0 +1,261 @@
+scope,monkey,regime,feature_set,model,maze,d,n_trials,n_groups,train_bacc,cv_bacc
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),pooled,6,2448,6,0.6100206911350233,0.5846518647769886
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),1,6,356,1,0.6434445488721805,0.606390977443609
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),2,6,348,1,0.6095147326041258,0.5816617379841095
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),3,6,379,1,0.589912518037518,0.5413961038961039
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),4,6,408,1,0.6548367764699545,0.6370700568319552
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),5,6,464,1,0.5728056426332289,0.5426332288401254
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),6,6,493,1,0.5996373189371723,0.6004843152936994
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,pooled,6,2448,6,0.9410303523880701,0.5355725968481718
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,1,6,356,1,0.9490836466165413,0.524812030075188
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,2,6,348,1,0.9298152634766808,0.5255816439234688
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,3,6,379,1,0.9522727272727273,0.48524531024531026
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,4,6,408,1,0.931747784631131,0.6010181269695909
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,5,6,464,1,0.950705329153605,0.5307210031347962
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=6",Random forest,6,6,493,1,0.9330650715364792,0.5394894694748067
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),pooled,12,2448,6,0.6361640317903083,0.5894771538930984
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),1,12,356,1,0.6398026315789473,0.5710526315789474
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),2,12,348,1,0.650114012897709,0.6178608330067339
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),3,12,379,1,0.622005772005772,0.5741522366522367
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),4,12,408,1,0.6521601529883911,0.624235731408409
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),5,12,464,1,0.6083855799373041,0.5717868338557994
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),6,12,493,1,0.6474801164134009,0.5824113569714743
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,pooled,12,2448,6,0.9669832776579552,0.5616268387482318
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,1,12,356,1,0.9790883458646616,0.5343045112781954
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,2,12,348,1,0.9568755121673139,0.5638650372323369
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,3,12,379,1,0.9709325396825397,0.5218253968253967
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,4,12,408,1,0.9578877905567377,0.6394402995124842
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,5,12,464,1,0.9720219435736677,0.5366771159874608
+allplus,Faure,per-maze,"Codebook occupancy (ms), K=12",Random forest,6,12,493,1,0.9651259664089576,0.5694592553096952
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),pooled,6,2448,6,0.6082649501819182,0.5817809715633089
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),1,6,356,1,0.6517857142857143,0.6464285714285714
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),2,6,348,1,0.6056400755335447,0.6056400755335447
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),3,6,379,1,0.590755772005772,0.5527236652236652
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),4,6,408,1,0.6371676946696474,0.6202224795970588
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),5,6,464,1,0.575,0.542319749216301
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),6,6,493,1,0.5995401226339643,0.5459210877099441
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,pooled,6,2448,6,0.6315056463483089,0.5778921945787355
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,1,6,356,1,0.6692904135338347,0.6104323308270676
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,2,6,348,1,0.6277122599494067,0.5831047137207397
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,3,6,379,1,0.6223755411255412,0.5105339105339105
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,4,6,408,1,0.6546886363024214,0.6373124680151911
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,5,6,464,1,0.6040752351097178,0.5670846394984326
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=6",Random forest,6,6,493,1,0.6205484093130721,0.5634941793299564
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),pooled,12,2448,6,0.6328379285414923,0.5821581059945031
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),1,12,356,1,0.665296052631579,0.6202067669172933
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),2,12,348,1,0.6640360565789005,0.6158656072968254
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),3,12,379,1,0.5979888167388168,0.506962481962482
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),4,12,408,1,0.6483893123602769,0.6058259487704366
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),5,12,464,1,0.6035266457680251,0.5680250783699059
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),6,12,493,1,0.6288850750910868,0.5824113569714743
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,pooled,12,2448,6,0.6975613938936024,0.5587295695386886
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,1,12,356,1,0.6952302631578948,0.6049812030075188
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,2,12,348,1,0.7070714718352513,0.6163644137243025
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,3,12,379,1,0.6643668831168831,0.4592171717171717
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,4,12,408,1,0.6967604438818111,0.5767500740700837
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,5,12,464,1,0.6978056426332289,0.535423197492163
+allplus,Faure,per-maze,"Codebook occupancy (binary), K=12",Random forest,6,12,493,1,0.7184834044254865,0.5681707100328801
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),pooled,36,2448,6,0.6392197229217635,0.5731362869837087
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),1,36,356,1,0.6903195488721805,0.6487781954887217
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),2,36,348,1,0.6150995831403427,0.5423807318202871
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),3,36,379,1,0.6302083333333333,0.5418109668109669
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),4,36,408,1,0.6716506854849571,0.5801976997872169
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),5,36,464,1,0.6167711598746082,0.5786833855799373
+allplus,Faure,per-maze,"State bigrams, K=6",Logistic (L2),6,36,493,1,0.6205622944992446,0.5532413578601262
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,pooled,36,2448,6,0.6999037984431651,0.5599928609551797
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,1,36,356,1,0.7241071428571428,0.5935150375939849
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,2,36,348,1,0.7193456728542417,0.6147789218655361
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,3,36,379,1,0.6937905844155845,0.5427308802308802
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,4,36,408,1,0.7141938481428609,0.6131252188434293
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,5,36,464,1,0.6751567398119123,0.5460815047021943
+allplus,Faure,per-maze,"State bigrams, K=6",Random forest,6,36,493,1,0.6848673687016795,0.4795054652092775
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),pooled,144,2448,6,0.7355047792869128,0.5551170562318626
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),1,144,356,1,0.765578007518797,0.5864661654135338
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),2,144,348,1,0.7175374995546371,0.5701179320910679
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),3,144,379,1,0.7308757215007216,0.4790584415584416
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),4,144,408,1,0.7423808818380155,0.5784738869286503
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),5,144,464,1,0.7159090909090908,0.5404388714733542
+allplus,Faure,per-maze,"State bigrams, K=12",Logistic (L2),6,144,493,1,0.7427824802274949,0.5748467075446548
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,pooled,144,2448,6,0.7943837609449246,0.552987029393369
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,1,144,356,1,0.7593045112781955,0.5609962406015038
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,2,144,348,1,0.772165710621014,0.5713827626750276
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,3,144,379,1,0.7925505050505051,0.5083513708513709
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,4,144,408,1,0.7965261130713497,0.5583402914321114
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,5,144,464,1,0.8247648902821316,0.5426332288401254
+allplus,Faure,per-maze,"State bigrams, K=12",Random forest,6,144,493,1,0.8064405047542877,0.5738469741402292
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),pooled,25,2448,6,0.6321734892511501,0.5418067762148709
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),1,25,356,1,0.6204652255639098,0.5040413533834587
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),2,25,348,1,0.6380981223500908,0.5299818291944276
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),3,25,379,1,0.6327290764790765,0.5651695526695527
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),4,25,408,1,0.6370195545021144,0.561949524604735
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),5,25,464,1,0.6164576802507837,0.5658307210031348
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Logistic (L2),6,25,493,1,0.6467997422909446,0.5201835066204568
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,pooled,25,2448,6,0.9592894223671022,0.5411016958058045
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,1,25,356,1,0.9672697368421053,0.48468045112781954
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,2,25,348,1,0.9478257384116577,0.5565789004881178
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,3,25,379,1,0.9529626623376624,0.5188672438672439
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,4,25,408,1,0.9527735879548576,0.597206884477604
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,5,25,464,1,0.9695141065830721,0.5423197492163009
+allplus,Faure,per-maze,"Gaze heatmap, 5x5",Random forest,6,25,493,1,0.9622517328712343,0.5404336621345419
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),pooled,100,2448,6,0.7497729390408336,0.5568428254482726
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),1,100,356,1,0.7734727443609022,0.581484962406015
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),2,100,348,1,0.7422640467452881,0.5077136851106281
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),3,100,379,1,0.7373827561327562,0.5691017316017316
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),4,100,408,1,0.7496094486492311,0.5711746168556575
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),5,100,464,1,0.7376959247648902,0.561128526645768
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Logistic (L2),6,100,493,1,0.7589864924908913,0.5484093130720696
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,pooled,100,2448,6,0.9599795696595024,0.5470435654067901
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,1,100,356,1,0.971921992481203,0.5522556390977443
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,2,100,348,1,0.9558689920547262,0.5278440873623829
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,3,100,379,1,0.9596455627705628,0.5346320346320346
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,4,100,408,1,0.9432286476149433,0.5864599886874782
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,5,100,464,1,0.9724921630094043,0.5545454545454546
+allplus,Faure,per-maze,"Gaze heatmap, 10x10",Random forest,6,100,493,1,0.9566004620989959,0.5266928818981605
+allplus,Faure,across-maze,"Codebook occupancy (ms), K=6",Logistic (L2),pooled,6,2448,1,0.5849646125555936,0.5793972374273008
+allplus,Faure,across-maze,"Codebook occupancy (ms), K=6",Random forest,pooled,6,2448,1,0.9343287611187137,0.5531773862470064
+allplus,Faure,across-maze,"Codebook occupancy (ms), K=12",Logistic (L2),pooled,12,2448,1,0.5871175269414984,0.5786862812179268
+allplus,Faure,across-maze,"Codebook occupancy (ms), K=12",Random forest,pooled,12,2448,1,0.9692992537632571,0.5420854002736915
+allplus,Faure,across-maze,"Codebook occupancy (binary), K=6",Logistic (L2),pooled,6,2448,1,0.5451724469722887,0.5407917807047554
+allplus,Faure,across-maze,"Codebook occupancy (binary), K=6",Random forest,pooled,6,2448,1,0.5505647558159426,0.5206284211426617
+allplus,Faure,across-maze,"Codebook occupancy (binary), K=12",Logistic (L2),pooled,12,2448,1,0.552721679353404,0.5392896852548752
+allplus,Faure,across-maze,"Codebook occupancy (binary), K=12",Random forest,pooled,12,2448,1,0.5960312072357168,0.5256906431748204
+allplus,Faure,across-maze,"State bigrams, K=6",Logistic (L2),pooled,36,2448,1,0.5581139881970578,0.5290369483407458
+allplus,Faure,across-maze,"State bigrams, K=6",Random forest,pooled,36,2448,1,0.5868903416866234,0.5145719295244612
+allplus,Faure,across-maze,"State bigrams, K=12",Logistic (L2),pooled,144,2448,1,0.6049154870851865,0.550606183715361
+allplus,Faure,across-maze,"State bigrams, K=12",Random forest,pooled,144,2448,1,0.7144628806021212,0.5414760092370852
+allplus,Faure,across-maze,"Gaze heatmap, 5x5",Logistic (L2),pooled,25,2448,1,0.5728850389154978,0.5479334160109477
+allplus,Faure,across-maze,"Gaze heatmap, 5x5",Random forest,pooled,25,2448,1,0.9189670287375984,0.5700372049264455
+allplus,Faure,across-maze,"Gaze heatmap, 10x10",Logistic (L2),pooled,100,2448,1,0.6290666160622648,0.5887198511802942
+allplus,Faure,across-maze,"Gaze heatmap, 10x10",Random forest,pooled,100,2448,1,0.9332048622990079,0.5895537547040712
+allplus,Faure,across-maze,Maze identity (reference),Logistic (L2),pooled,6,2448,1,0.7103521638727335,0.7103521638727335
+allplus,Faure,across-maze,Maze identity (reference),Random forest,pooled,6,2448,1,0.7103521638727335,0.7103521638727335
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),pooled,6,2635,6,0.576626781144481,0.5395511663213032
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),1,6,361,1,0.5931823760432008,0.5795287187039764
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),2,6,404,1,0.5591978979829446,0.4727335661915101
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),3,6,443,1,0.5971955172224359,0.5242679778058562
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),4,6,425,1,0.5961388234761344,0.572660990852278
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),5,6,502,1,0.5432445607553367,0.5381773399014778
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Logistic (L2),6,6,500,1,0.577462792345854,0.5514528703047484
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,pooled,6,2635,6,0.9243826314590444,0.5250288424586274
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,1,6,361,1,0.9186671575846834,0.49013254786450666
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,2,6,404,1,0.9291434595172914,0.5233015513389345
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,3,6,443,1,0.9170054386639566,0.5403092896775257
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,4,6,425,1,0.9102068426772938,0.5420931075083779
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,5,6,502,1,0.9314578201970443,0.533122947454844
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=6",Random forest,6,6,500,1,0.936144578313253,0.5154500354358611
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),pooled,12,2635,6,0.58760033502666,0.5171091371811174
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),1,12,361,1,0.6161266568483064,0.5600883652430044
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),2,12,404,1,0.5865311998489569,0.45084804430598824
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),3,12,443,1,0.6092162006262704,0.5457067516343459
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),4,12,425,1,0.6078168870573317,0.5674078434924372
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),5,12,502,1,0.5548414408866995,0.5323019293924467
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Logistic (L2),6,12,500,1,0.5644223954642098,0.4562721474131821
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,pooled,12,2635,6,0.9400183766872038,0.5034288313617271
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,1,12,361,1,0.9540439371624938,0.5144575355915562
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,2,12,404,1,0.9191958526070676,0.4825513704018377
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,3,12,443,1,0.9351858210185134,0.5291572817667417
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,4,12,425,1,0.9202970745403496,0.5110836880717327
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,5,12,502,1,0.9522911535303776,0.4743175287356322
+allplus,Nielsen,per-maze,"Codebook occupancy (ms), K=12",Random forest,6,12,500,1,0.9554394046775336,0.5122608079376328
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),pooled,6,2635,6,0.5576801038758308,0.49553900541227214
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),1,6,361,1,0.5583946980854197,0.5255522827687775
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),2,6,404,1,0.5473779854620977,0.47012177853299353
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),3,6,443,1,0.5558664780530682,0.42536944459704445
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),4,6,425,1,0.5879137985689702,0.5743705280318812
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),5,6,502,1,0.5445402298850575,0.4727268062397373
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Logistic (L2),6,6,500,1,0.5545889440113394,0.5124734231041814
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,pooled,6,2635,6,0.6046582118754843,0.5151189762388906
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,1,6,361,1,0.6061426116838489,0.5099165439371625
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,2,6,404,1,0.6059937380030838,0.45180779760219014
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,3,6,443,1,0.6209862385321101,0.5334422897324618
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,4,6,425,1,0.6062573589348791,0.5490557920478217
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,5,6,502,1,0.5743983477011494,0.4936627668308703
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=6",Random forest,6,6,500,1,0.6170623671155209,0.546491849751949
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),pooled,12,2635,6,0.5863730000769789,0.5156740189781178
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),1,12,361,1,0.5617574864997545,0.466593028964163
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),2,12,404,1,0.5934697441706788,0.5264010824758488
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),3,12,443,1,0.5924229522606164,0.5251332197989342
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),4,12,425,1,0.5988361561452766,0.5576034779458382
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),5,12,502,1,0.5714413998357963,0.49186678981937604
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Logistic (L2),6,12,500,1,0.5974486180014174,0.5223245924875974
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,pooled,12,2635,6,0.6891006404477408,0.5170644000200157
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,1,12,361,1,0.6792525773195877,0.49138438880706925
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,2,12,404,1,0.6844496365524403,0.45070644136064697
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,3,12,443,1,0.6992872054057024,0.5720760314233918
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,4,12,425,1,0.6647750430214654,0.5343492437279231
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,5,12,502,1,0.690456947865353,0.5402811986863711
+allplus,Nielsen,per-maze,"Codebook occupancy (binary), K=12",Random forest,6,12,500,1,0.7102586817859674,0.5024805102763997
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),pooled,36,2635,6,0.6213517514345407,0.5231978584537521
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),1,36,361,1,0.6305535100638193,0.5018654884634266
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),2,36,404,1,0.5947166367727115,0.4476855785267
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),3,36,443,1,0.6461194583310443,0.5716365434269077
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),4,36,425,1,0.6333552214473327,0.548885970473689
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),5,36,502,1,0.5932112068965517,0.48768472906403937
+allplus,Nielsen,per-maze,"State bigrams, K=6",Logistic (L2),6,36,500,1,0.6323352232459248,0.5705173635719348
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,pooled,36,2635,6,0.6649988665137986,0.5084860923406126
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,1,36,361,1,0.6619354442808051,0.45078546882670595
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,2,36,404,1,0.6823806601843985,0.4535227666068788
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,3,36,443,1,0.6790535900675713,0.5542080975663353
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,4,36,425,1,0.6431256226791051,0.5469160402137487
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,5,36,502,1,0.6532673953201971,0.5004874794745484
+allplus,Nielsen,per-maze,"State bigrams, K=6",Random forest,6,36,500,1,0.6710843373493975,0.5294117647058824
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),pooled,144,2635,6,0.7172680666114278,0.49667292658073603
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),1,144,361,1,0.7278902798232696,0.4615365733922435
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),2,144,404,1,0.7012099184996381,0.4495736177979168
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),3,144,443,1,0.7361149261110806,0.5424243256606054
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),4,144,425,1,0.7076776333665429,0.5356851734444343
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),5,144,502,1,0.704997947454844,0.4738813628899836
+allplus,Nielsen,per-maze,"State bigrams, K=12",Logistic (L2),6,144,500,1,0.7263465627214741,0.5092841956059532
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,pooled,144,2635,6,0.7488894992591052,0.5043607722303421
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,1,144,361,1,0.7654025527736867,0.5094747177221404
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,2,144,404,1,0.7333419868466597,0.438748859309607
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,3,144,443,1,0.7610215349118277,0.5400620776795034
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,4,144,425,1,0.7246060139480119,0.545217824472421
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,5,144,502,1,0.7465555726600985,0.47323994252873564
+allplus,Nielsen,per-maze,"State bigrams, K=12",Random forest,6,144,500,1,0.7617647058823529,0.5185683912119065
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),pooled,25,2635,6,0.6044756800715967,0.5120477446114904
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),1,25,361,1,0.644115120274914,0.5407461953853706
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),2,25,404,1,0.6121337990496869,0.5159539318417823
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),3,25,443,1,0.5908984782728122,0.505576003955392
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),4,25,425,1,0.6189373698034598,0.5827370709174894
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),5,25,502,1,0.5865853345648604,0.47944889162561577
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Logistic (L2),6,25,500,1,0.5873671155209071,0.46654854712969523
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,pooled,25,2635,6,0.8661260734390589,0.5152058867426381
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,1,25,361,1,0.8741102110947472,0.5086647029945999
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,2,25,404,1,0.8559780043424903,0.511690109820951
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,3,25,443,1,0.8626187990990496,0.5377959676976323
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,4,25,425,1,0.8307869531745313,0.5837899646771125
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,5,25,502,1,0.8942618534482758,0.4742149014778325
+allplus,Nielsen,per-maze,"Gaze heatmap, 5x5",Random forest,6,25,500,1,0.873458540042523,0.48561304039688163
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),pooled,100,2635,6,0.7047504916698986,0.5227628993974397
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),1,100,361,1,0.7304000981836034,0.5453608247422681
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),2,100,404,1,0.7227532332672519,0.5363290223103307
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),3,100,443,1,0.7066589298467285,0.4881475580948195
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),4,100,425,1,0.6902171451861244,0.5359568879630467
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),5,100,502,1,0.6827214183087027,0.527196223316913
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Logistic (L2),6,100,500,1,0.7044649184975196,0.5104890148830616
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,pooled,100,2635,6,0.9274519583557552,0.5340591066734386
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,1,100,361,1,0.9055351006381934,0.5693421698576338
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,2,100,404,1,0.9386347902703043,0.4993863872368545
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,3,100,443,1,0.929342004065264,0.5247624018019008
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,4,100,425,1,0.9013619690245449,0.5784462458110678
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,5,100,502,1,0.9514637212643677,0.5313269704433498
+allplus,Nielsen,per-maze,"Gaze heatmap, 10x10",Random forest,6,100,500,1,0.9306343019135365,0.509851169383416
+allplus,Nielsen,across-maze,"Codebook occupancy (ms), K=6",Logistic (L2),pooled,6,2635,1,0.5881161208612058,0.5893430734358533
+allplus,Nielsen,across-maze,"Codebook occupancy (ms), K=6",Random forest,pooled,6,2635,1,0.9008524030889776,0.5468912493572317
+allplus,Nielsen,across-maze,"Codebook occupancy (ms), K=12",Logistic (L2),pooled,12,2635,1,0.5979592680857148,0.5912774315091394
+allplus,Nielsen,across-maze,"Codebook occupancy (ms), K=12",Random forest,pooled,12,2635,1,0.9130639932114437,0.5696925203668218
+allplus,Nielsen,across-maze,"Codebook occupancy (binary), K=6",Logistic (L2),pooled,6,2635,1,0.5961804138390623,0.5935559444832603
+allplus,Nielsen,across-maze,"Codebook occupancy (binary), K=6",Random forest,pooled,6,2635,1,0.601529154589539,0.5964362961784394
+allplus,Nielsen,across-maze,"Codebook occupancy (binary), K=12",Logistic (L2),pooled,12,2635,1,0.6105875046982621,0.6026408844492714
+allplus,Nielsen,across-maze,"Codebook occupancy (binary), K=12",Random forest,pooled,12,2635,1,0.6451770898907236,0.5895393627888422
+allplus,Nielsen,across-maze,"State bigrams, K=6",Logistic (L2),pooled,36,2635,1,0.6100381971586756,0.6011478171240411
+allplus,Nielsen,across-maze,"State bigrams, K=6",Random forest,pooled,36,2635,1,0.6380183653045742,0.5950138469023754
+allplus,Nielsen,across-maze,"State bigrams, K=12",Logistic (L2),pooled,144,2635,1,0.629635498453897,0.5872738204768131
+allplus,Nielsen,across-maze,"State bigrams, K=12",Random forest,pooled,144,2635,1,0.6955321545595624,0.5889859478729267
+allplus,Nielsen,across-maze,"Gaze heatmap, 5x5",Logistic (L2),pooled,25,2635,1,0.604863047102527,0.5898869765329017
+allplus,Nielsen,across-maze,"Gaze heatmap, 5x5",Random forest,pooled,25,2635,1,0.8911486184227213,0.5760582330845272
+allplus,Nielsen,across-maze,"Gaze heatmap, 10x10",Logistic (L2),pooled,100,2635,1,0.6299790048216274,0.5831286851092188
+allplus,Nielsen,across-maze,"Gaze heatmap, 10x10",Random forest,pooled,100,2635,1,0.9034366633922951,0.606032856704737
+allplus,Nielsen,across-maze,Maze identity (reference),Logistic (L2),pooled,6,2635,1,0.7531867475574803,0.7531867475574803
+allplus,Nielsen,across-maze,Maze identity (reference),Random forest,pooled,6,2635,1,0.7531867475574803,0.7531867475574803

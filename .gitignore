@@ -16,4 +16,9 @@ wheels/
 data/mat/
 data/npz/
 data/processed/
+
+# Config
+.matplotlib/
 .claude/
+# Slurm job logs
+/logs/

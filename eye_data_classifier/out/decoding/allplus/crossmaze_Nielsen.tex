@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Nielsen -- across-maze decoding (unit-H features, scope: allplus). Balanced accuracy, chance = 0.500}
+\label{tab:crossmaze_Nielsen}
+\begin{tabular}{lrrrrrr}
+\toprule
+Feature set & d & Trials & Logistic (L2) train & Logistic (L2) CV & Random forest train & Random forest CV \\
+\midrule
+Codebook occupancy (ms), K=6 & 6 & 2635 & 0.588 & 0.589 & 0.901 & 0.547 \\
+Codebook occupancy (ms), K=12 & 12 & 2635 & 0.598 & 0.591 & 0.913 & 0.570 \\
+Codebook occupancy (binary), K=6 & 6 & 2635 & 0.596 & 0.594 & 0.602 & 0.596 \\
+Codebook occupancy (binary), K=12 & 12 & 2635 & 0.611 & \textbf{0.603} & 0.645 & 0.590 \\
+State bigrams, K=6 & 36 & 2635 & 0.610 & 0.601 & 0.638 & 0.595 \\
+State bigrams, K=12 & 144 & 2635 & 0.630 & 0.587 & 0.696 & 0.589 \\
+Gaze heatmap, 5x5 & 25 & 2635 & 0.605 & 0.590 & 0.891 & 0.576 \\
+Gaze heatmap, 10x10 & 100 & 2635 & 0.630 & 0.583 & 0.903 & \textbf{0.606} \\
+Maze identity (reference) & 6 & 2635 & 0.753 & 0.753 & 0.753 & 0.753 \\
+\bottomrule
+\end{tabular}
+\par\smallskip
+{\footnotesize Bold: best CV accuracy per model, maze-identity reference excluded.}
+\end{table}

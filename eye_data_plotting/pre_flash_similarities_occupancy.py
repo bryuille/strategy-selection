@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from data.attractor import DEFAULT_K
-from data.labeler import attractor_occupancy_rows
+from data.occupancy import attractor_occupancy_rows
 from data.loader import load_attractor_eye_data, load_eye_behavioral_data
 from eye_data_plotting.plot_io import PRE_FIX_START_MS, save_figure
 from eye_data_plotting.similarities_common import BLUE_YELLOW

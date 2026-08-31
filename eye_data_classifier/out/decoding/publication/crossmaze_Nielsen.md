@@ -1,0 +1,15 @@
+Nielsen -- across-maze decoding (unit-H features, scope: publication). Balanced accuracy, chance = 0.500
+
+| Feature set                       | d   | Trials | Logistic (L2) train | Logistic (L2) CV | Random forest train | Random forest CV |
+|-----------------------------------|-----|--------|---------------------|------------------|---------------------|------------------|
+| Codebook occupancy (ms), K=6      | 6   | 957    | 0.634               | 0.635            | 0.892               | 0.599            |
+| Codebook occupancy (ms), K=12     | 12  | 957    | 0.647               | 0.635            | 0.920               | 0.655            |
+| Codebook occupancy (binary), K=6  | 6   | 957    | 0.651               | 0.648            | 0.655               | 0.645            |
+| Codebook occupancy (binary), K=12 | 12  | 957    | 0.667               | 0.646            | 0.711               | 0.644            |
+| State bigrams, K=6                | 36  | 957    | 0.644               | 0.635            | 0.680               | 0.628            |
+| State bigrams, K=12               | 144 | 957    | 0.704               | 0.637            | 0.751               | 0.656            |
+| Gaze heatmap, 5x5                 | 25  | 957    | 0.674               | **0.653**        | 0.884               | **0.680**        |
+| Gaze heatmap, 10x10               | 100 | 957    | 0.714               | 0.652            | 0.889               | 0.657            |
+| Maze identity (reference)         | 6   | 957    | 0.859               | 0.859            | 0.859               | 0.859            |
+
+Bold: best CV accuracy per model, maze-identity reference excluded.

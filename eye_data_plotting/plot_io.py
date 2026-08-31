@@ -1,4 +1,4 @@
-from pathlib import Path  # temp
+from pathlib import Path
 
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 

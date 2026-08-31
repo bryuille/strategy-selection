@@ -15,7 +15,7 @@ from __future__ import annotations
 import argparse
 
 from data.attractor import DEFAULT_K
-from data.labeler import attractor_transition_rows
+from data.occupancy import attractor_transition_rows
 from data.loader import load_attractor_eye_data, load_eye_behavioral_data
 from eye_data_plotting.plot_io import PRE_FIX_START_MS
 from eye_data_plotting.similarities_common import (

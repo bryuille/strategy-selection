@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.linear_model import SGDClassifier
-from sklearn.model_selection import GroupKFold, StratifiedKFold, cross_val_score, train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 
 LAMBDA_GRID = np.logspace(-6, -0.5, 11)
 N_CV_SPLITS = 10
@@ -148,54 +148,4 @@ def cross_validate_decoder(X_mean, y, trial_mask, n_splits=N_CV_SPLITS):
         accs.append(score)
 
     return best_lambda, np.mean(accs)
-
-
-def cross_validate_decoder_grouped(
-    X,
-    y,
-    groups,
-    *,
-    n_splits=N_CV_SPLITS,
-    random_state=0,
-):
-    """Cross-validated accuracy with session-blocked or stratified trial splits."""
-    y = np.asarray(y, dtype=int)
-    groups = np.asarray(groups)
-    n_groups = len(np.unique(groups))
-
-    if n_groups > 1:
-        n_splits = min(n_splits, n_groups)
-        splitter = GroupKFold(n_splits=n_splits)
-        split_iter = splitter.split(X, y, groups=groups)
-        pick_idx = np.arange(len(y))
-    else:
-        valid = np.arange(len(y))
-        pick_idx = valid
-        best_lambda = pick_lambda(X, y, n_splits=min(n_splits, 5), random_state=random_state)
-        accs = []
-        for i in range(n_splits):
-            idx_train, idx_test = train_test_split(
-                valid,
-                test_size=0.5,
-                stratify=y,
-                random_state=random_state + i,
-            )
-            balanced_idx = balance_train_indices(idx_train, y, random_state=random_state + i)
-            X_tr, X_te = zscore_features(X[balanced_idx], X[idx_test])
-            clf = make_sgd_classifier(best_lambda, random_state + i)
-            clf.fit(X_tr, y[balanced_idx])
-            accs.append(clf.score(X_te, y[idx_test]))
-        return best_lambda, float(np.mean(accs))
-
-    best_lambda = pick_lambda(
-        X[pick_idx], y[pick_idx], n_splits=min(n_splits, 5), random_state=random_state
-    )
-    accs = []
-    for fold, (idx_train, idx_test) in enumerate(split_iter):
-        balanced_idx = balance_train_indices(idx_train, y, random_state=random_state + fold)
-        X_tr, X_te = zscore_features(X[balanced_idx], X[idx_test])
-        clf = make_sgd_classifier(best_lambda, random_state + fold)
-        clf.fit(X_tr, y[balanced_idx])
-        accs.append(clf.score(X_te, y[idx_test]))
-    return best_lambda, float(np.mean(accs))
 

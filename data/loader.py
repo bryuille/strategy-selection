@@ -12,15 +12,21 @@ from data.builder import (
     build_trial_timebins,
     clean_eye_data,
 )
-from data.convert import load_data, load_npz
-from data.config import SESSION, processed_npz
+from data.config import (
+    SESSION,
+    behavioral_npz_path,
+    monkey_for_session,
+    processed_npz,
+    single_trial_npz_path,
+)
+from data.convert import load_npz, load_session_data
 from data.labeler import (
     build_lr_choices,
     build_strategy_choices,
 )
 
 
-def _ensure_npz(path, build):
+def ensure_npz(path, build):
     if path.exists():
         return load_npz(path)
     data = build()
@@ -29,58 +35,79 @@ def _ensure_npz(path, build):
     return data
 
 
-def load_trial_timebins():
-    return _ensure_npz(
-        processed_npz(f"{SESSION}_trial_timebins"),
-        lambda: {"trial_timebins": build_trial_timebins(load_data())},
+def resolve_session(session=None):
+    return SESSION if session is None else session
+
+
+def session_data(session=None):
+    return load_session_data(resolve_session(session))
+
+
+def load_trial_timebins(session=None):
+    session = resolve_session(session)
+    return ensure_npz(
+        processed_npz(f"{session}_trial_timebins"),
+        lambda: {"trial_timebins": build_trial_timebins(session_data(session))},
     )["trial_timebins"]
 
 
-def load_trial_metadata():
-    loaded = _ensure_npz(
-        processed_npz(f"{SESSION}_trial_metadata"),
+def load_trial_metadata(session=None):
+    session = resolve_session(session)
+    loaded = ensure_npz(
+        processed_npz(f"{session}_trial_metadata"),
         lambda: dict(
             zip(
                 ("path_type", "flash2_ms", "flash3_ms", "trial_mask"),
-                build_trial_metadata(load_data()),
+                build_trial_metadata(session_data(session)),
             )
         ),
     )
     return loaded["path_type"], loaded["flash2_ms"], loaded["flash3_ms"], loaded["trial_mask"]
 
 
-def load_pre_flash_timebins():
-    return _ensure_npz(
-        processed_npz(f"{SESSION}_pre_flash_timebins"),
-        lambda: {"pre_flash_timebins": build_pre_flash_timebins(load_data())},
+def load_pre_flash_timebins(session=None):
+    session = resolve_session(session)
+    return ensure_npz(
+        processed_npz(f"{session}_pre_flash_timebins"),
+        lambda: {
+            "pre_flash_timebins": build_pre_flash_timebins(session_data(session))
+        },
     )["pre_flash_timebins"]
 
 
-def load_pre_flash_metadata():
-    loaded = _ensure_npz(
-        processed_npz(f"{SESSION}_pre_flash_metadata"),
+def load_pre_flash_metadata(session=None):
+    session = resolve_session(session)
+    loaded = ensure_npz(
+        processed_npz(f"{session}_pre_flash_metadata"),
         lambda: dict(
             zip(
                 ("path_type", "flash1_ms", "trial_mask"),
-                build_pre_flash_metadata(load_data()),
+                build_pre_flash_metadata(session_data(session)),
             )
         ),
     )
     return loaded["path_type"], loaded["flash1_ms"], loaded["trial_mask"]
 
 
-def load_post_flash_timebins():
-    return _ensure_npz(
-        processed_npz(f"{SESSION}_post_flash_timebins"),
-        lambda: {"post_flash_timebins": build_post_flash_timebins(load_data())},
+def load_post_flash_timebins(session=None):
+    session = resolve_session(session)
+    return ensure_npz(
+        processed_npz(f"{session}_post_flash_timebins"),
+        lambda: {
+            "post_flash_timebins": build_post_flash_timebins(session_data(session))
+        },
     )["post_flash_timebins"]
 
 
-def load_post_flash_metadata():
-    loaded = _ensure_npz(
-        processed_npz(f"{SESSION}_post_flash_metadata"),
+def load_post_flash_metadata(session=None):
+    session = resolve_session(session)
+    loaded = ensure_npz(
+        processed_npz(f"{session}_post_flash_metadata"),
         lambda: dict(
-            zip(("path_type", "trial_mask"), build_post_flash_metadata(load_data()))
+            zip(
+                ("path_type", "trial_mask"),
+                build_post_flash_metadata(session_data(session)),
+            )
         ),
     )
     return loaded["path_type"], loaded["trial_mask"]
@@ -89,58 +116,54 @@ def load_post_flash_metadata():
 ########## Labels
 
 
-def load_lr_choices():
-    return _ensure_npz(
-        processed_npz(f"{SESSION}_lr_choices"),
-        lambda: {"lr_choices": build_lr_choices(load_data())},
+def load_lr_choices(session=None):
+    session = resolve_session(session)
+    monkey = monkey_for_session(session)
+    return ensure_npz(
+        processed_npz(f"{session}_lr_choices"),
+        lambda: {
+            "lr_choices": build_lr_choices(
+                load_npz(behavioral_npz_path(monkey, session))
+            )
+        },
     )["lr_choices"]
 
 
-def load_strategy_choices():
-    return _ensure_npz(
-        processed_npz(f"{SESSION}_strategy_choices"),
+def load_single_trial_range(session=None):
+    """`min_value`, `max_value`: the session's published single-trial window."""
+    session = resolve_session(session)
+    listed = load_npz(single_trial_npz_path(monkey_for_session(session), session))
+    return int(listed["min_value"]), int(listed["max_value"])
+
+
+def load_strategy_choices(session=None):
+    session = resolve_session(session)
+    monkey = monkey_for_session(session)
+
+    return ensure_npz(
+        processed_npz(f"{session}_strategy_choices"),
         lambda: {
             "strategy_choices": build_strategy_choices(
-                load_trial_timebins(), load_trial_metadata()[0]
+                load_trial_timebins(session),
+                load_npz(behavioral_npz_path(monkey, session)),
+                *load_single_trial_range(session),
             )
         },
     )["strategy_choices"]
-
-
-def load_all_session_strategy_choices(monkey="Faure"):
-    from data.labeler import build_all_session_strategy_choices
-    path = processed_npz(f"{monkey}_strategy_choices_all_sessions")
-    if path.exists():
-        return load_npz(path)
-    data = build_all_session_strategy_choices(monkey)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **data)
-    return data
-
-
-def load_session_strategy_choices(session, monkey="Faure"):
-    from data.labeler import build_session_strategy_choices
-    path = processed_npz(f"{monkey}_{session}_strategy_choices")
-    if path.exists():
-        return load_npz(path)["strategy_choices"]
-    choices = build_session_strategy_choices(session, monkey=monkey)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, strategy_choices=choices)
-    return choices
 
 
 ########## Eye data (all sessions)
 
 
 def load_eye_data(monkey="Faure"):
-    return _ensure_npz(
+    return ensure_npz(
         processed_npz(f"{monkey}_eye_data"),
         lambda: build_eye_data(monkey),
     )
 
 
 def load_eye_behavioral_data(monkey="Faure"):
-    return _ensure_npz(
+    return ensure_npz(
         processed_npz(f"{monkey}_eye_behavioral"),
         lambda: build_eye_behavioral_data(monkey),
     )
@@ -176,17 +199,3 @@ def load_attractor_eye_data(monkey="Faure", k=None):
     if k == DEFAULT_K:
         np.savez(default, **data)
     return data
-
-
-def load_attractor_strategy_choices(monkey="Faure"):
-    from data.labeler import build_attractor_strategy_choices
-    path = processed_npz(f"{monkey}_attractor_strategy_choices")
-    if path.exists():
-        return load_npz(path)["strategy_choices"]
-    attractor = load_attractor_eye_data(monkey)
-    behavioral = load_eye_behavioral_data(monkey)
-    choices = build_attractor_strategy_choices(attractor, behavioral)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, strategy_choices=choices)
-    return choices
-

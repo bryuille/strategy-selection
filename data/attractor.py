@@ -1,21 +1,3 @@
-"""K-means gaze codebook for maze-normalized fixation traces.
-
-Maps `{Monkey}_eye_data.npz` → `{Monkey}_attractor_eye_data.npz`. Coordinates
-are warped by maze arm lengths `h1`–`h6` so the four exits sit at the
-unit-square corners, and the 7° center stem maps to height 1.
-
-Prototype `(x, y)` codes come from k-means on in-maze fixations. Each
-pymovements fixation event is assigned as a whole to the nearest prototype of
-its maze-space centroid, within `ASSIGN_RADIUS`; otherwise `state_id = -1`.
-Overlapping events (I-VT and I-DT) keep the longer event's assignment. Blinks,
-saccades, and out-of-maze samples stay unassigned.
-
-Usage:
-    uv run python -m data.attractor
-    uv run python -m data.attractor --monkey Faure --k 12
-    uv run python -m data.attractor --sweep
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -113,7 +95,7 @@ def assign_states_inference(xy, codebook_xy, radius=ASSIGN_RADIUS):
     return state
 
 
-def _contiguous_true_runs(mask):
+def contiguous_true_runs(mask):
     """Inclusive-exclusive sample slices `[start, end)` of contiguous True runs."""
     idx = np.flatnonzero(mask)
     if idx.size == 0:
@@ -124,7 +106,7 @@ def _contiguous_true_runs(mask):
     return [(int(idx[s]), int(idx[e - 1]) + 1) for s, e in zip(starts, ends)]
 
 
-def _fixation_event_spans(event_rows):
+def fixation_event_spans(event_rows):
     """Fixation `(duration, onset, offset)` spans, shortest first."""
     spans = []
     for name, onset, offset in event_rows or ():
@@ -153,13 +135,13 @@ def assign_fixation_states(
     if n == 0 or not valid.any():
         return state
 
-    spans = _fixation_event_spans(event_rows)
+    spans = fixation_event_spans(event_rows)
     if spans:
         t_ms = np.asarray(t_ms)
         groups = [valid & (t_ms >= onset) & (t_ms <= offset) for _, onset, offset in spans]
     else:
         groups = []
-        for start, end in _contiguous_true_runs(valid):
+        for start, end in contiguous_true_runs(valid):
             hit = np.zeros(n, dtype=bool)
             hit[start:end] = True
             groups.append(hit)
@@ -174,7 +156,7 @@ def assign_fixation_states(
     return state
 
 
-def _events_mask(events, t_ms, n, padding_ms=0):
+def events_mask(events, t_ms, n, padding_ms=0):
     mask = np.zeros(n, dtype=bool)
     if events is None or events.frame.height == 0:
         return mask
@@ -183,10 +165,10 @@ def _events_mask(events, t_ms, n, padding_ms=0):
     return mask
 
 
-def _out_of_screen_mask(x, y, t_ms, x_min, x_max, y_min, y_max):
+def out_of_screen_mask(x, y, t_ms, x_min, x_max, y_min, y_max):
     xy = np.stack([np.asarray(x, dtype=float), np.asarray(y, dtype=float)], axis=1)
     xy = np.where(np.isfinite(xy), xy, 1e6)
-    return _events_mask(
+    return events_mask(
         out_of_screen(
             xy,
             x_min=x_min,
@@ -200,7 +182,7 @@ def _out_of_screen_mask(x, y, t_ms, x_min, x_max, y_min, y_max):
     )
 
 
-def _samples_in_fixations(t_ms, event_rows):
+def samples_in_fixations(t_ms, event_rows):
     """Fixation samples that do not also fall inside a saccade."""
     n = t_ms.size
     in_fix = np.zeros(n, dtype=bool)
@@ -215,7 +197,7 @@ def _samples_in_fixations(t_ms, event_rows):
     return in_fix & ~in_sac
 
 
-def _event_lookup(events):
+def event_lookup(events):
     lookup = {}
     for i in range(len(events["name"])):
         key = (str(events["session"][i]), int(events["trial_indices_all"][i]))
@@ -229,13 +211,13 @@ def _event_lookup(events):
     return lookup
 
 
-def _arm_lengths(h):
+def arm_lengths(h):
     return tuple(max(float(v), ARM_EPS) for v in h)
 
 
 def to_maze(x, y, h):
     """Warp degrees so exits sit at the unit-square corners and the stem top at (0, 1)."""
-    h1, h2, h3, h4, h5, h6 = _arm_lengths(h)
+    h1, h2, h3, h4, h5, h6 = arm_lengths(h)
     x = np.asarray(x, dtype=np.float64)
     y = np.asarray(y, dtype=np.float64)
     x_n = np.where(x <= 0, x / h1, x / h4)
@@ -261,7 +243,7 @@ def prepare_trial(
     blink = trial_blink_mask(t, pupil, padding_ms=BLINK_PADDING_MS)
     if blink.size < n:
         blink = np.pad(blink, (0, n - blink.size))
-    oos_deg = _out_of_screen_mask(
+    oos_deg = out_of_screen_mask(
         x, y, t_ms, -POSITION_LIMIT_DEG, POSITION_LIMIT_DEG, -POSITION_LIMIT_DEG, POSITION_LIMIT_DEG
     )
     valid = (
@@ -275,7 +257,7 @@ def prepare_trial(
         if event_rows is None:
             in_fix = trial_fixation_mask(t, x, y, pupil, experiment=experiment)
         else:
-            in_fix = _samples_in_fixations(t_ms, event_rows)
+            in_fix = samples_in_fixations(t_ms, event_rows)
         valid &= in_fix[:n]
     return {
         "t": t.astype(np.float32),
@@ -286,12 +268,12 @@ def prepare_trial(
     }
 
 
-def _inlier_xy(xy):
+def inlier_xy(xy):
     xy = np.asarray(xy, dtype=np.float32)
     return (np.abs(xy[:, 0]) <= CODE_X_LIM) & (np.abs(xy[:, 1]) <= CODE_Y_LIM)
 
 
-def _codebook_xy_pool(packed, max_samples=80000, seed=0):
+def codebook_xy_pool(packed, max_samples=80000, seed=0):
     """In-maze valid fixation samples used to fit k-means codes."""
     chunks = []
     for p in packed:
@@ -301,7 +283,7 @@ def _codebook_xy_pool(packed, max_samples=80000, seed=0):
         if not keep.any():
             continue
         xy = np.stack([p["x"][keep], p["y"][keep]], axis=1)
-        xy = xy[_inlier_xy(xy)]
+        xy = xy[inlier_xy(xy)]
         if xy.size:
             chunks.append(xy)
     if not chunks:
@@ -336,7 +318,7 @@ def fit_code_xy(xy, k, seed=0):
     return centers, names
 
 
-def _pinned_landmarks(k):
+def pinned_landmarks(k):
     """Geometric maze landmarks for diagnostics."""
     exits = [(name, np.asarray(xy, dtype=np.float32)) for name, xy in MAZE_EXITS]
     if k <= 4:
@@ -345,41 +327,7 @@ def _pinned_landmarks(k):
     return [origin, *exits]
 
 
-def _codebook_path(monkey, k):
-    return processed_npz(f"{monkey}_attractor_k{k}_codebook")
-
-
-def save_codebook(codebook_xy, codebook_name, monkey, k, seed=0):
-    path = _codebook_path(monkey, k)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(
-        path,
-        codebook_xy=clip_codebook_xy(codebook_xy),
-        codebook_name=np.asarray(codebook_name),
-        codebook_k=np.int32(k),
-        seed=np.int32(seed),
-    )
-    print(f"Wrote {path}")
-    return path
-
-
-def load_codebook(monkey, k):
-    path = _codebook_path(monkey, k)
-    if not path.exists():
-        raise FileNotFoundError(f"Missing k-means codebook: {path}")
-    loaded = load_npz(path)
-    if int(loaded["codebook_k"]) != k:
-        raise ValueError(
-            f"Codebook K mismatch in {path}: expected {k}, got {loaded['codebook_k']}"
-        )
-    return (
-        clip_codebook_xy(np.asarray(loaded["codebook_xy"], dtype=np.float32)),
-        np.asarray(loaded["codebook_name"]),
-    )
-
-
-def _trial_inference(packed, codebook_xy):
-    """Assign each pymovements fixation to the nearest in-radius prototype."""
+def trial_inference(packed, codebook_xy):
     n = min(packed["valid_orig"].size, packed["x"].size, packed["y"].size)
     valid_orig = np.asarray(packed["valid_orig"][:n], dtype=bool)
     xy = np.stack([packed["x"][:n], packed["y"][:n]], axis=1).astype(np.float32)
@@ -398,7 +346,7 @@ def _trial_inference(packed, codebook_xy):
     return state, recon, artifact, valid_orig, xy
 
 
-def _state_runs(t_ms, state, codebook_xy, session, trial_id):
+def state_runs(t_ms, state, codebook_xy, session, trial_id):
     n = state.size
     if n == 0:
         return []
@@ -428,7 +376,7 @@ def _state_runs(t_ms, state, codebook_xy, session, trial_id):
     return rows
 
 
-def _h_lookup(behavioral):
+def h_lookup(behavioral):
     return {
         (str(session), int(trial_id)): tuple(
             float(behavioral[f"h{k}"][i]) for k in range(1, 7)
@@ -439,7 +387,7 @@ def _h_lookup(behavioral):
     }
 
 
-def _pupil_for_trial(pupils_by_session, monkey, session, trial_id):
+def pupil_for_trial(pupils_by_session, monkey, session, trial_id):
     if session not in pupils_by_session:
         path = eye_npz_path(monkey, session)
         if path.exists():
@@ -455,7 +403,7 @@ def _pupil_for_trial(pupils_by_session, monkey, session, trial_id):
     return session_pupils[trial_id - 1]
 
 
-def _unpack_eye(eye, i):
+def unpack_eye(eye, i):
     return (
         np.asarray(eye["time"][i], dtype=float),
         np.asarray(eye["eye_x"][i], dtype=float),
@@ -465,7 +413,7 @@ def _unpack_eye(eye, i):
     )
 
 
-def _pack_trials(
+def pack_trials(
     eye_data,
     behavioral,
     *,
@@ -474,34 +422,34 @@ def _pack_trials(
     events="auto",
     require_fixation=True,
 ):
-    event_lookup = None
+    events_by_trial = None
     experiment = None
     if require_fixation:
         if events == "auto":
             from data.loader import load_clean_eye_data
 
-            event_lookup = _event_lookup(load_clean_eye_data(monkey))
+            events_by_trial = event_lookup(load_clean_eye_data(monkey))
         elif events is not None:
-            event_lookup = _event_lookup(events)
+            events_by_trial = event_lookup(events)
 
     n_trials = len(eye_data["session"])
     if max_trials is not None:
         n_trials = min(n_trials, int(max_trials))
-    h_lookup = _h_lookup(behavioral)
+    hs = h_lookup(behavioral)
     pupils_by_session = {}
     packed = []
     for i in range(n_trials):
-        t, x, y, session, trial_id = _unpack_eye(eye_data, i)
-        pupil = _pupil_for_trial(pupils_by_session, monkey, session, trial_id)
+        t, x, y, session, trial_id = unpack_eye(eye_data, i)
+        pupil = pupil_for_trial(pupils_by_session, monkey, session, trial_id)
         event_rows = (
-            None if event_lookup is None else event_lookup.get((session, trial_id), ())
+            None if events_by_trial is None else events_by_trial.get((session, trial_id), ())
         )
         packed.append(
             prepare_trial(
                 t,
                 x,
                 y,
-                h_lookup.get((session, trial_id)),
+                hs.get((session, trial_id)),
                 pupil,
                 event_rows=event_rows,
                 experiment=experiment,
@@ -513,11 +461,11 @@ def _pack_trials(
     return packed, n_trials
 
 
-def _print_codebook_diagnostics(codebook_xy, codebook_name, usage, k):
+def print_codebook_diagnostics(codebook_xy, codebook_name, usage, k):
     print("K-means prototypes (maze units):")
     for j, ((px, py), name) in enumerate(zip(codebook_xy, codebook_name)):
         print(f"  state {j:2d} {name:8s}: ({px:7.2f}, {py:7.2f})  usage={usage[j]:.3f}")
-    diagnostic = list(_pinned_landmarks(max(k, 5))) + [
+    diagnostic = list(pinned_landmarks(max(k, 5))) + [
         ("extra", np.asarray(EXTRA_HOLD_XY, dtype=np.float32))
     ]
     for name, pt in diagnostic:
@@ -533,7 +481,7 @@ def _print_codebook_diagnostics(codebook_xy, codebook_name, usage, k):
         print(f"  min prototype separation: {dmat.min():.2f}")
 
 
-def _infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
+def infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
     codebook_xy = clip_codebook_xy(codebook_xy)
     k = codebook_xy.shape[0]
     times, xs, ys = [], [], []
@@ -548,7 +496,7 @@ def _infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
     n_trials = len(packed)
 
     for i, p in enumerate(packed):
-        t, x, y, session, trial_id = _unpack_eye(eye_data, i)
+        t, x, y, session, trial_id = unpack_eye(eye_data, i)
         if p is None:
             n = min(t.size, x.size, y.size)
             times.append(t[:n].astype(np.float32))
@@ -563,7 +511,7 @@ def _infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
             trial_ids.append(trial_id)
             continue
 
-        state, recon, artifact, valid_orig, xy = _trial_inference(p, codebook_xy)
+        state, recon, artifact, valid_orig, xy = trial_inference(p, codebook_xy)
         n = state.size
         t_ms = p["t"][:n] * 1000.0
 
@@ -577,7 +525,7 @@ def _infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
         artifacts.append(artifact.astype(np.float32))
         sessions.append(session)
         trial_ids.append(trial_id)
-        transition_rows.extend(_state_runs(t_ms, state, codebook_xy, session, trial_id))
+        transition_rows.extend(state_runs(t_ms, state, codebook_xy, session, trial_id))
 
         assigned = valid_orig & (state >= 0)
         if assigned.any():
@@ -646,41 +594,12 @@ def _infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
 
 
 def fit_codebook_from_trials(packed, k, seed=0):
-    pool = _codebook_xy_pool(packed, seed=seed)
+    pool = codebook_xy_pool(packed, seed=seed)
     codebook_xy, codebook_name = fit_code_xy(pool, k, seed=seed)
     print(f"Fitted k-means codebook (K={k}, n={pool.shape[0]} fixation samples):")
     for j, ((px, py), name) in enumerate(zip(codebook_xy, codebook_name)):
         print(f"  state {j:2d} {name:8s}: ({px:7.2f}, {py:7.2f})")
     return codebook_xy, codebook_name
-
-
-def reinfer_attractor_eye_data(
-    eye_data,
-    *,
-    monkey="Faure",
-    k=DEFAULT_K,
-    max_trials=None,
-    behavioral=None,
-    events="auto",
-):
-    """Re-run assignment from a saved k-means codebook."""
-    if behavioral is None:
-        from data.loader import load_eye_behavioral_data
-
-        behavioral = load_eye_behavioral_data(monkey)
-    print(f"Re-inferring k-means assignments (K={k}, radius={ASSIGN_RADIUS:g})")
-    packed, n_trials = _pack_trials(
-        eye_data,
-        behavioral,
-        monkey=monkey,
-        max_trials=max_trials,
-        events=events,
-    )
-    print(f"Prepared {n_trials} trials")
-    codebook_xy, codebook_name = load_codebook(monkey, k)
-    data = _infer_all_trials(packed, eye_data, codebook_xy, codebook_name)
-    _print_codebook_diagnostics(codebook_xy, codebook_name, data["codebook_usage"], k)
-    return data
 
 
 def build_attractor_eye_data(
@@ -693,12 +612,11 @@ def build_attractor_eye_data(
     behavioral=None,
     events="auto",
 ):
-    """Fit k-means prototypes and return a processed npz payload."""
     if behavioral is None:
         from data.loader import load_eye_behavioral_data
 
         behavioral = load_eye_behavioral_data(monkey)
-    packed, n_trials = _pack_trials(
+    packed, n_trials = pack_trials(
         eye_data,
         behavioral,
         monkey=monkey,
@@ -707,9 +625,8 @@ def build_attractor_eye_data(
     )
     print(f"Preparing {n_trials} maze-normalized fixation trials (K={k})")
     codebook_xy, codebook_name = fit_codebook_from_trials(packed, k, seed=seed)
-    save_codebook(codebook_xy, codebook_name, monkey, k, seed=seed)
-    data = _infer_all_trials(packed, eye_data, codebook_xy, codebook_name)
-    _print_codebook_diagnostics(codebook_xy, codebook_name, data["codebook_usage"], k)
+    data = infer_all_trials(packed, eye_data, codebook_xy, codebook_name)
+    print_codebook_diagnostics(codebook_xy, codebook_name, data["codebook_usage"], k)
     return data
 
 
@@ -722,18 +639,7 @@ def produce_attractor_eye_data(
     seed=0,
     behavioral=None,
     events="auto",
-    refit=False,
 ):
-    """Re-infer from a saved codebook, or fit k-means when none exists."""
-    if not refit and _codebook_path(monkey, k).exists():
-        return reinfer_attractor_eye_data(
-            eye_data,
-            monkey=monkey,
-            k=k,
-            max_trials=max_trials,
-            behavioral=behavioral,
-            events=events,
-        )
     return build_attractor_eye_data(
         eye_data,
         monkey=monkey,
@@ -754,20 +660,15 @@ def save_attractor_eye_data(data, monkey, stem=None):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser()
     parser.add_argument("--monkey", default="Faure", choices=("Faure", "Nielsen"))
     parser.add_argument("--k", type=int, default=DEFAULT_K)
     parser.add_argument("--max-trials", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
-        "--refit",
-        action="store_true",
-        help="Re-fit k-means even when a saved codebook exists",
-    )
-    parser.add_argument(
         "--sweep",
         action="store_true",
-        help=f"Run K in {CODEBOOK_SWEEP}; re-infer when a codebook exists, else fit",
+        help=f"Run K in {CODEBOOK_SWEEP}",
     )
     args = parser.parse_args()
 
@@ -782,7 +683,6 @@ def main():
             k=k,
             max_trials=args.max_trials,
             seed=args.seed,
-            refit=args.refit,
         )
         save_attractor_eye_data(
             data, args.monkey, stem=f"{args.monkey}_attractor_k{k}_eye_data"

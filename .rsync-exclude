@@ -1,11 +1,44 @@
-# Large local data (use with: rsync -av --exclude-from=.rsync-exclude ...)
-data/mat/
-data/npz/
-data/archive/
-data/processed/
-eye_data_plotting/out/
-experimental_eye_data_plotting/out/
-trace_plotting/out/
+# Push code up (run from the repo root):
+#   rsync -av --delete --exclude-from=.rsync-exclude ./ \
+#       byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/
+#
+# Pull results back:
+#   rsync -av byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/eye_data_classifier/out/ \
+#       ./eye_data_classifier/out/
+#
+# --delete removes dest files that are gone locally. Do not add
+# --delete-excluded (that would wipe dest data/mat/).
+#
+# CAUTION: out/ directories are deliberately NOT excluded, so figures can be
+# pulled back with the same file. The cost is that a push with --delete
+# overwrites cloud figures with whatever is local, and deletes cloud figures
+# that do not exist locally. Pull before you push again, or drop --delete.
+#
+# Leading '/' = repo root. Unanchored '*.mat' / '*.npz' catch strays.
+
+# Raw and derived data. The cloud already has data/mat/; everything else in
+# here is rebuilt there by `python -m eye_data_classifier.pipeline`.
+/data/mat/
+/data/npz/
+/data/processed/
+/data/archive/
+
+# Local env and caches (the cloud runs its own `uv sync`)
 .venv/
+.git/
+.matplotlib/
+.claude/
 __pycache__/
+*.pyc
 .DS_Store
+
+# Strays. Note *.mat also covers zrefs/Dendogram_all/, which the classifier
+# pipeline does not need; drop this line if you want the label check up there.
+*.mat
+*.npz
+
+# Movies are large and are not figures. Remove if you want them synced.
+*.mp4
+
+# Logs
+/logs/

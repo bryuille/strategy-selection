@@ -5,9 +5,27 @@ row in a physiology behavioral file is a neuron–trial observation, so trial
 values repeat across neurons. `trial_indices_all` is the stable trial key and
 must be used for cross-file joins; row position must not be used as a trial ID.
 
+Paths below are given as they appear in the published distribution
+(`Data/Physiology/...`). In this repo the same files live under `data/mat/`, and
+all path construction goes through `data/config.py`:
+
+| Published path | This repo | Read by |
+| -------------- | --------- | ------- |
+| `Data/Physiology/Behavioral_Data/<Monkey>/` | `data/mat/Behavioral_Data/<Monkey>/` | `data.convert behavioral` |
+| `Data/Physiology/Neural_Data/<Monkey>/` | `data/mat/Neural_Data/<Monkey>/` | `data.convert neural` |
+| `Data/Physiology/Eye_Data/<Monkey>/` | `data/mat/Eye_Data/<Monkey>/` | `data.convert eye` |
+| `Data/Physiology/Single_Trial_List/<Monkey>/` | `data/mat/Single_Trial_List/<Monkey>/` | `data.convert single_trial` |
+| `Data/Physiology/Decoding_Data/<Monkey>/` | `data/mat/Decoding_Data/<Monkey>/` | nothing — reference only |
+| `Data/Pre_Physiology/` | not present | nothing — reference only |
+
+The last two sections of this file describe trees the Python code never opens.
+They are kept because they define the published record this analysis has to
+stay consistent with.
+
 ## Physiology behavior
 
 Files: `Data/Physiology/Behavioral_Data/<Monkey>/<session>_good_trials_concat.mat`
+(`data.config.behavioral_mat_path`)
 
 The top-level MATLAB variable is `save_all_data`.
 
@@ -89,6 +107,7 @@ component if they are not included in the analysis-ready files.
 ## Neural data
 
 Files: `Data/Physiology/Neural_Data/<Monkey>/<session>_Whole_Trial_FR_Causal.mat`
+(`data.config.neural_mat_path`)
 
 | Variable | Meaning |
 | --- | --- |
@@ -100,14 +119,16 @@ consumed by the Isomap notebook.
 
 ## Eye data
 
-Files: `Data/Physiology/Eye_Data/<Monkey>/*_Eye_Data.mat`
+Files: `Data/Physiology/Eye_Data/<Monkey>/Eye_Data_<session>.mat`
+(`data.config.eye_mat_path`)
 
 The top-level `Eye_Data` structure contains per-trial cell arrays `eye_x`,
 `eye_y`, `eye_RX`, `eye_RY`, and `pupil_size`.
 
 ## Published single-trial ranges
 
-Files: `Data/Physiology/Single_Trial_List/<Monkey>/<session>.mat`
+Files: `Data/Physiology/Single_Trial_List/<Monkey>/single_trial_list_<session>.mat`
+(`data.config.single_trial_mat_path`)
 
 | Variable | Meaning |
 | --- | --- |
@@ -116,9 +137,11 @@ Files: `Data/Physiology/Single_Trial_List/<Monkey>/<session>.mat`
 
 QC is applied after this range is loaded; the optimization is not rerun.
 
-## Decoder outputs
+## Decoder outputs (reference only)
 
-Files: `Data/Physiology/Decoding_Data/<Monkey>/`
+Files: `Data/Physiology/Decoding_Data/<Monkey>/`. Present in `data/mat/` but not
+read by any Python module here; the DV decoders in `decoders/` refit from
+firing rates rather than loading these.
 
 | Filename family | Principal variable/content |
 | --- | --- |
@@ -134,7 +157,9 @@ Trial-ID files contain `trial_ids_per_condition`, `choose_trials_original`,
 `min_value`, and `max_value`. These files are mandatory: Figures Three and
 Five use them to prevent positional misalignment after QC exclusions.
 
-## Pre-physiology behavior and model results
+## Pre-physiology behavior and model results (reference only)
+
+Not present in this repo.
 
 Behavior files contain the top-level structure `S`. Core behavioral variables
 used across Figure One include `LR`, `LR2`, `targetCorrect`, `h`, `h1`–`h6`,

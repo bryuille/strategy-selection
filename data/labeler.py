@@ -1,11 +1,64 @@
+from __future__ import annotations
+
+import argparse
+
 import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage
 from sklearn.decomposition import PCA
 
-from eye_data_plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
+from data.config import monkey_for_session
 
 EARLY_TRIAL_WINDOW_SIZE = 500
 N_PCA_COMPONENTS = 3
+N_MAZES = 6
+FR_THRESH = 1.0
+
+# The four sessions the published clustering was defined on, from
+# zrefs/Dendogram_all/Single_Trial_Statistics_Clustering_All.m.
+PUBLICATION_SESSIONS = (
+    "june_24_g0",
+    "june_8_g0",
+    "Nov_3_g0",
+    "Oct_22_g0",
+)
+
+# Every session whose neural clustering separates maze 1 from maze 6 at
+# snr_auc >= 0.95, from zrefs/Dendogram_all/SNR_All_Sessions/all_session_snr_results.csv
+# (61 sessions, all status=passed). The four publication sessions rank #2-#5 of
+# 61, so this threshold keeps their high-SNR criterion while widening the pool
+# roughly sixfold -- which is what makes a per-maze classifier testable in more
+# than one maze per animal.
+#
+# A label costs ~5 KB but is derived from a neural npz of up to ~14 GB, so the
+# pipeline's `labels` stage converts, labels and deletes one session at a time
+# rather than holding all of them on disk at once.
+CLUSTERING_SESSIONS = (
+    # Faure, 13
+    "june_24_g0",
+    "june_8_g0",
+    "june_28_g0",
+    "june_29_g0",
+    "june_16_g0",
+    "june_09_09_g0",
+    "june_18_g0",
+    "june_10_g0",
+    "june_22_g0",
+    "june_12_g0",
+    "june_17_g0",
+    "April_8_g0",
+    "june_11_g0",
+    # Nielsen, 10
+    "Nov_6_g0",
+    "Oct_22_g0",
+    "Nov_3_g0",
+    "Nov_18_g0",
+    "Oct_21_g0",
+    "Nov_7_g0",
+    "Oct_25_g0",
+    "Nov_1_g0",
+    "Nov_4_g0",
+    "Nov_9_g0",
+)
 
 
 def build_lr_choices(data):
@@ -33,19 +86,66 @@ def build_lr_choices(data):
     return lr_choices
 
 
-def build_strategy_choices(trial_timebins, path_type):
-    n_trials = trial_timebins.shape[0]
-    strategy_choices = np.full(n_trials, np.nan)
+def name_clusters_maze_1_6(clusters, mazes):
+    """Hierarchical (0) is the cluster holding more maze-1 trials, sequential (1) maze-6."""
+    counts = np.array(
+        [
+            [np.sum((clusters == c) & (mazes == maze)) for maze in (1, 6)]
+            for c in (0, 1)
+        ]
+    )
+    hierarchical = int(np.argmax(counts[:, 0]))
+    sequential = int(np.argmax(counts[:, 1]))
+    if hierarchical == sequential:
+        raise ValueError(
+            "the same cluster was selected as both hierarchical and sequential "
+            f"(maze-1 counts {counts[:, 0].tolist()}, maze-6 counts {counts[:, 1].tolist()})"
+        )
+    return np.where(clusters == hierarchical, 0.0, 1.0)
 
-    valid_idx = np.where(path_type != -99)[0]
-    trial_window = trial_timebins[valid_idx, :, :EARLY_TRIAL_WINDOW_SIZE]
-    trial_averaged = np.nanmean(trial_window, axis=2)
 
-    neuron_idx = np.where(~np.isnan(trial_averaged).any(axis=0))[0]
-    features = trial_averaged[:, neuron_idx]
+def build_strategy_choices(trial_timebins, data, min_value, max_value):
+    nrns = data["nrns"].astype(int)
+    trials = data["trial_indices_all"].astype(int)
+
+    # A neuron is usable only if it was recorded on every trial of the window.
+    recorded = np.zeros((int(nrns.max()), int(trials.max()) + 1), dtype=bool)
+    recorded[nrns - 1, trials] = True
+    neuron_ok = recorded[:, min_value : max_value + 1].all(axis=1)
+
+    in_window = (
+        (data["geo_type"] != -99)
+        & (data["trial_fade"] == 0)
+        & (data["photodiode_qc_bad"] == 0)
+        & (trials >= min_value)
+        & (trials <= max_value)
+    )
+    trial_ids = np.unique(trials[in_window])
+
+    trial_geo_type = np.full(int(trials.max()) + 1, -99.0)
+    trial_geo_type[trials] = data["geo_type"]
+    mazes = trial_geo_type[trial_ids]
+
+    trial_averaged = np.nanmean(
+        trial_timebins[
+            np.ix_(
+                trial_ids - 1,
+                np.flatnonzero(neuron_ok),
+                # MATLAB's `start_indices : start_indices + 500` is inclusive, so
+                # the reference averages 501 bins. Slicing 500 here shifted 16 of
+                # june_24's labels and 1 of june_8's away from the reference.
+                np.arange(EARLY_TRIAL_WINDOW_SIZE + 1),
+            )
+        ],
+        axis=2,
+    )
+    maze_means = np.array(
+        [trial_averaged[mazes == maze].mean(axis=0) for maze in range(1, N_MAZES + 1)]
+    )
+    features = trial_averaged[:, (maze_means >= FR_THRESH).any(axis=0)]
+
     features = features - features.mean(axis=0)
-    features = features / (features.std(axis=0) + 1e-8)
-
+    features = features / features.std(axis=0, ddof=1)
     pc_scores = PCA(n_components=N_PCA_COMPONENTS, random_state=0).fit_transform(
         features
     )
@@ -53,288 +153,117 @@ def build_strategy_choices(trial_timebins, path_type):
         fcluster(linkage(pc_scores, method="ward"), t=2, criterion="maxclust") - 1
     )
 
-    strategy_choices[valid_idx] = (1 - clusters).astype(float)
+    strategy_choices = np.full(trial_timebins.shape[0], np.nan)
+    strategy_choices[trial_ids - 1] = name_clusters_maze_1_6(clusters, mazes)
+    print(
+        f"trials {min_value}-{max_value} ({trial_ids.size}) | "
+        f"neurons {features.shape[1]}/{nrns.max()} | "
+        f"hierarchical {int(np.sum(strategy_choices == 0))} "
+        f"sequential {int(np.sum(strategy_choices == 1))}"
+    )
     return strategy_choices
 
 
-def _behavioral_lookup(behavioral):
-    return {
-        (str(session), int(trial_id)): i
-        for session, trial_id, i in zip(
-            behavioral["session"],
-            behavioral["trial_indices_all"],
-            range(len(behavioral["session"])),
+
+def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
+    """Build a strategy label for each session, converting and freeing as it goes.
+
+    A label is ~5 KB but is derived from a neural npz of up to ~14 GB -- `np.savez`
+    is uncompressed where the mat is compressed HDF5, so the npz runs 3-6x its
+    source -- plus a ~1.5 GB `trial_timebins` cache. The 23 eligible sessions
+    would be ~170 GB held together, so this converts one session, writes its
+    label, then deletes both intermediates before starting the next. Peak extra
+    usage is one session, not the pool.
+
+    A session whose label already exists is skipped, so the sweep resumes cleanly
+    after an interruption -- but its intermediates are still reclaimed, because a
+    label built by an earlier run leaves its npz behind and nothing downstream
+    reads it again.
+    """
+    from data.convert import convert_kinds
+    from data.config import neural_npz_path, processed_npz
+    from data.loader import load_strategy_choices
+
+    def reclaim(monkey, session, why):
+        """Delete a session's neural intermediates. Rebuildable from `data/mat/`."""
+        freed = 0.0
+        for path in (
+            neural_npz_path(monkey, session),
+            processed_npz(f"{session}_trial_timebins"),
+        ):
+            if path.exists():
+                freed += path.stat().st_size / 1e9
+                path.unlink()
+        if freed:
+            print(f"    freed {freed:.1f} GB ({why})", flush=True)
+        return freed
+
+    built, skipped, failed, reclaimed = [], [], [], 0.0
+    for session in sessions:
+        monkey = monkey_for_session(session)
+        label_path = processed_npz(f"{session}_strategy_choices")
+        if label_path.exists() and not overwrite:
+            skipped.append(session)
+            print(f"=== {monkey} {session}: label already built ===")
+            if not keep_neural:
+                reclaimed += reclaim(monkey, session, "stale, label already built")
+            continue
+
+        print(f"=== {monkey} {session}: convert -> label -> free ===", flush=True)
+        try:
+            convert_kinds(["neural"], monkey=monkey, sessions=[session])
+            load_strategy_choices(session)
+            built.append(session)
+        except Exception as exc:  # noqa: BLE001 - one bad session must not stop the sweep
+            failed.append((session, repr(exc)))
+            print(f"    FAILED {session}: {exc!r}", flush=True)
+        finally:
+            if not keep_neural:
+                reclaimed += reclaim(monkey, session, "converted and labelled")
+
+    print(
+        f"\nlabels: {len(built)} built, {len(skipped)} already present, "
+        f"{len(failed)} failed, {reclaimed:.1f} GB reclaimed"
+    )
+    for session, err in failed:
+        print(f"  FAILED {session}: {err}")
+    return built, skipped, failed
+
+
+def main():
+    from data.loader import load_lr_choices, load_strategy_choices
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--type", choices=("lr", "strategy"), required=True)
+    parser.add_argument("--session", default=None)
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="strategy only: convert, label and free each session in turn",
+    )
+    parser.add_argument(
+        "--keep-neural",
+        action="store_true",
+        help="with --sweep, do not delete the neural npz after labelling",
+    )
+    parser.add_argument("--overwrite", action="store_true")
+    args = parser.parse_args()
+
+    jobs = [args.session] if args.session is not None else list(CLUSTERING_SESSIONS)
+
+    if args.sweep:
+        if args.type != "strategy":
+            parser.error("--sweep only applies to --type strategy")
+        sweep_strategy_labels(
+            jobs, keep_neural=args.keep_neural, overwrite=args.overwrite
         )
-    }
+        return
+
+    load = load_lr_choices if args.type == "lr" else load_strategy_choices
+    for session in jobs:
+        print(f"=== {monkey_for_session(session)} {session} {args.type} ===")
+        load(session)
 
 
-def _fix_start_ms(behavioral, beh_i):
-    return (
-        behavioral["fix_start"][beh_i] - behavioral["geo_present"][beh_i]
-    ) * 1000.0
-
-
-def _pre_fix_assigned_mask(
-    t_ms,
-    fix_ms,
-    valid,
-    state,
-    k,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Samples in [fix_start - start_ms, fix_start - end_ms] with assigned states."""
-    keep = (
-        np.isfinite(t_ms)
-        & (t_ms >= fix_ms - start_ms)
-        & (t_ms <= fix_ms - end_ms)
-    )
-    keep &= valid & (state >= 0) & (state < k)
-    return keep
-
-
-def attractor_pre_fix_state_times(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Seconds per codebook state from fix_start-start_ms through fix_start-end_ms."""
-    lookup = _behavioral_lookup(behavioral)
-    k = int(np.asarray(attractor["codebook_k"]))
-    n = len(attractor["session"])
-    times = np.full((n, k), np.nan)
-    for i in range(n):
-        beh_i = lookup.get(
-            (str(attractor["session"][i]), int(attractor["trial_indices_all"][i]))
-        )
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
-            continue
-        t_ms = np.asarray(attractor["time"][i], dtype=float) * 1000.0
-        state = np.asarray(attractor["state_id"][i], dtype=int)
-        valid = np.asarray(attractor["valid"][i], dtype=bool)
-        n_samp = min(t_ms.size, state.size, valid.size)
-        if n_samp < 2:
-            continue
-        t_ms = t_ms[:n_samp]
-        state = state[:n_samp]
-        valid = valid[:n_samp]
-        fix_ms = _fix_start_ms(behavioral, beh_i)
-        if not np.isfinite(fix_ms) or fix_ms <= 0:
-            continue
-        keep = _pre_fix_assigned_mask(
-            t_ms, fix_ms, valid, state, k, start_ms=start_ms, end_ms=end_ms
-        )
-        if keep.sum() < 2:
-            continue
-        t_keep = t_ms[keep]
-        dt = np.empty(t_keep.size, dtype=float)
-        dt[:-1] = np.diff(t_keep)
-        pos = dt[:-1][dt[:-1] > 0]
-        dt[-1] = float(np.median(pos)) if pos.size else 1.0
-        dt = np.where(dt > 0, dt, 0.0)
-        times[i] = np.bincount(state[keep], weights=dt, minlength=k) / 1000.0
-    return times
-
-
-def attractor_pre_fix_occupancy_matrix(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Pre-fixation codebook occupancy (seconds per state) aligned to attractor rows."""
-    return attractor_pre_fix_state_times(
-        attractor, behavioral, start_ms=start_ms, end_ms=end_ms
-    )
-
-
-def attractor_pre_fix_occupancy_bin_matrix(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Pre-fixation visit/no-visit occupancy (1 if a state was used, else 0)."""
-    occ = attractor_pre_fix_occupancy_matrix(
-        attractor, behavioral, start_ms=start_ms, end_ms=end_ms
-    )
-    out = np.full_like(occ, np.nan)
-    finite = np.isfinite(occ).all(axis=1)
-    out[finite] = (occ[finite] > 0).astype(np.float64)
-    return out
-
-
-def _occupancy_rows_from_matrix(attractor, behavioral, features):
-    beh_lookup = _behavioral_lookup(behavioral)
-    rows_x, rows_g, rows_trial, rows_maze = [], [], [], []
-    for i in range(len(attractor["session"])):
-        session = str(attractor["session"][i])
-        trial_id = int(attractor["trial_indices_all"][i])
-        beh_i = beh_lookup.get((session, trial_id))
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
-            continue
-        if not np.isfinite(features[i]).all():
-            continue
-        rows_x.append(features[i])
-        rows_g.append(session)
-        rows_trial.append(trial_id)
-        rows_maze.append(int(behavioral["geo_type"][beh_i]))
-    if not rows_x:
-        empty_k = int(np.asarray(attractor["codebook_k"]))
-        return (
-            np.empty((0, empty_k), dtype=float),
-            np.asarray([], dtype=object),
-            np.asarray([], dtype=int),
-            np.asarray([], dtype=int),
-        )
-    return (
-        np.asarray(rows_x, dtype=float),
-        np.asarray(rows_g),
-        np.asarray(rows_trial, dtype=int),
-        np.asarray(rows_maze, dtype=int),
-    )
-
-
-def attractor_occupancy_rows(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Seconds-per-state occupancy for every valid-path trial with finite occupancy."""
-    return _occupancy_rows_from_matrix(
-        attractor,
-        behavioral,
-        attractor_pre_fix_occupancy_matrix(
-            attractor, behavioral, start_ms=start_ms, end_ms=end_ms
-        ),
-    )
-
-
-def attractor_occupancy_bin_rows(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Binary visit/no-visit occupancy for every valid-path trial with finite occupancy."""
-    return _occupancy_rows_from_matrix(
-        attractor,
-        behavioral,
-        attractor_pre_fix_occupancy_bin_matrix(
-            attractor, behavioral, start_ms=start_ms, end_ms=end_ms
-        ),
-    )
-
-
-def _collapse_state_runs(states):
-    runs = []
-    for state in states:
-        sid = int(state)
-        if not runs or runs[-1] != sid:
-            runs.append(sid)
-    return runs
-
-
-def _ngram_proportions(runs, k, order):
-    """Proportion of length-`order` state-run n-grams; zeros if too few runs."""
-    counts = np.zeros((k,) * order, dtype=np.float64)
-    n = len(runs) - order + 1
-    if n <= 0:
-        return counts
-    for i in range(n):
-        counts[tuple(runs[i : i + order])] += 1.0
-    total = counts.sum()
-    if total > 0:
-        counts /= total
-    return counts
-
-
-def transition_feature_dim(k):
-    """Bigram (K×K) plus trigram (K×K×K) proportions."""
-    return k * k + k * k * k
-
-
-def attractor_pre_fix_transition_matrix(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Pre-fixation transition-order features (bigram + trigram proportions)."""
-    lookup = _behavioral_lookup(behavioral)
-    k = int(np.asarray(attractor["codebook_k"]))
-    n = len(attractor["session"])
-    n_bigrams = k * k
-    features = np.full((n, transition_feature_dim(k)), np.nan)
-    for i in range(n):
-        beh_i = lookup.get(
-            (str(attractor["session"][i]), int(attractor["trial_indices_all"][i]))
-        )
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
-            continue
-        t_ms = np.asarray(attractor["time"][i], dtype=float) * 1000.0
-        state = np.asarray(attractor["state_id"][i], dtype=int)
-        valid = np.asarray(attractor["valid"][i], dtype=bool)
-        n_samp = min(t_ms.size, state.size, valid.size)
-        if n_samp < 1:
-            continue
-        t_ms = t_ms[:n_samp]
-        state = state[:n_samp]
-        valid = valid[:n_samp]
-        fix_ms = _fix_start_ms(behavioral, beh_i)
-        if not np.isfinite(fix_ms) or fix_ms <= 0:
-            continue
-        keep = _pre_fix_assigned_mask(
-            t_ms, fix_ms, valid, state, k, start_ms=start_ms, end_ms=end_ms
-        )
-        if not keep.any():
-            continue
-        runs = _collapse_state_runs(state[keep])
-        bigrams = _ngram_proportions(runs, k, 2)
-        trigrams = _ngram_proportions(runs, k, 3)
-        features[i, :n_bigrams] = bigrams.ravel()
-        features[i, n_bigrams:] = trigrams.ravel()
-    return features
-
-
-def attractor_transition_rows(
-    attractor,
-    behavioral,
-    start_ms=PRE_FIX_START_MS,
-    end_ms=PRE_FIX_END_MS,
-):
-    """Transition n-gram features for trials with at least one state change."""
-    beh_lookup = _behavioral_lookup(behavioral)
-    features = attractor_pre_fix_transition_matrix(
-        attractor, behavioral, start_ms=start_ms, end_ms=end_ms
-    )
-    rows_x, rows_g, rows_trial, rows_maze = [], [], [], []
-    for i in range(len(attractor["session"])):
-        session = str(attractor["session"][i])
-        trial_id = int(attractor["trial_indices_all"][i])
-        beh_i = beh_lookup.get((session, trial_id))
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
-            continue
-        row = features[i]
-        if not np.isfinite(row).all() or not np.any(row > 0):
-            continue
-        rows_x.append(row)
-        rows_g.append(session)
-        rows_trial.append(trial_id)
-        rows_maze.append(int(behavioral["geo_type"][beh_i]))
-    if not rows_x:
-        empty_k = int(np.asarray(attractor["codebook_k"]))
-        return (
-            np.empty((0, transition_feature_dim(empty_k)), dtype=float),
-            np.asarray([], dtype=object),
-            np.asarray([], dtype=int),
-            np.asarray([], dtype=int),
-        )
-    return (
-        np.asarray(rows_x, dtype=float),
-        np.asarray(rows_g),
-        np.asarray(rows_trial, dtype=int),
-        np.asarray(rows_maze, dtype=int),
-    )
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,22 @@
+\begin{table}[t]
+\centering
+\caption{Faure -- across-maze decoding (unit-H features, scope: all). Balanced accuracy, chance = 0.500}
+\label{tab:crossmaze_Faure}
+\begin{tabular}{lrrrrrr}
+\toprule
+Feature set & d & Trials & Logistic (L2) train & Logistic (L2) CV & Random forest train & Random forest CV \\
+\midrule
+Codebook occupancy (ms), K=6 & 6 & 1295 & 0.601 & \textbf{0.597} & 0.929 & 0.563 \\
+Codebook occupancy (ms), K=12 & 12 & 1295 & 0.595 & 0.571 & 0.958 & 0.561 \\
+Codebook occupancy (binary), K=6 & 6 & 1295 & 0.565 & 0.564 & 0.585 & 0.562 \\
+Codebook occupancy (binary), K=12 & 12 & 1295 & 0.580 & 0.565 & 0.637 & 0.564 \\
+State bigrams, K=6 & 36 & 1295 & 0.598 & 0.575 & 0.646 & 0.584 \\
+State bigrams, K=12 & 144 & 1295 & 0.649 & 0.555 & 0.745 & 0.561 \\
+Gaze heatmap, 5x5 & 25 & 1295 & 0.580 & 0.554 & 0.917 & 0.548 \\
+Gaze heatmap, 10x10 & 100 & 1295 & 0.649 & \textbf{0.597} & 0.938 & \textbf{0.595} \\
+Maze identity (reference) & 6 & 1295 & 0.841 & 0.841 & 0.841 & 0.841 \\
+\bottomrule
+\end{tabular}
+\par\smallskip
+{\footnotesize Bold: best CV accuracy per model, maze-identity reference excluded.}
+\end{table}

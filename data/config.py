@@ -1,5 +1,3 @@
-"""Data trees, session identity, and path helpers."""
-
 from pathlib import Path
 
 MAT_ROOT = Path("./data/mat")
@@ -16,6 +14,18 @@ KINDS = {
 
 MONKEY = "Faure"
 SESSION = "june_24_g0"
+
+SESSION_MONTH_MONKEY = {
+    "june": "Faure",
+    "April": "Faure",
+    "Dec": "Nielsen",
+    "Nov": "Nielsen",
+    "Oct": "Nielsen",
+}
+
+
+def monkey_for_session(session):
+    return SESSION_MONTH_MONKEY[session.split("_", 1)[0]]
 
 
 def mat_dir(kind, monkey):
@@ -48,6 +58,14 @@ def neural_mat_path(monkey, session):
 
 def neural_npz_path(monkey, session):
     return npz_dir("neural", monkey) / f"{session}_Whole_Trial_FR_Causal.npz"
+
+
+def single_trial_mat_path(monkey, session):
+    return mat_dir("single_trial", monkey) / f"single_trial_list_{session}.mat"
+
+
+def single_trial_npz_path(monkey, session):
+    return npz_dir("single_trial", monkey) / f"single_trial_list_{session}.npz"
 
 
 def processed_npz(stem):

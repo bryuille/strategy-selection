@@ -1,11 +1,3 @@
-"""mat → npz conversion for all data kinds.
-
-Examples:
-    uv run -m data.convert all
-    uv run -m data.convert eye --monkey Faure
-    uv run -m data.convert behavioral neural --overwrite
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -22,6 +14,9 @@ from data.config import (
     MONKEYS,
     NEURAL_NPZ,
     NPZ_ROOT,
+    behavioral_npz_path,
+    monkey_for_session,
+    neural_npz_path,
 )
 
 BAD_PUPIL_VALUE = -32768
@@ -61,7 +56,7 @@ def load_npz(path):
         return {k: f[k] for k in f.files}
 
 
-def _xy_t(arr):
+def xy_t(arr):
     a = np.asarray(arr, dtype=float)
     if a.size == 0:
         return np.empty((0, 2))
@@ -125,7 +120,7 @@ def read_eye_mat(path):
         if pupils is None or i >= len(pupils):
             pupil_size.append(np.empty((0, 2)))
         else:
-            p = _xy_t(pupils[i])
+            p = xy_t(pupils[i])
             if p.size:
                 p = p.copy()
                 p[p[:, 0] == BAD_PUPIL_VALUE, 0] = np.nan
@@ -179,20 +174,48 @@ def convert_mat(mat_file, *, overwrite=False):
         k: np.asarray(v, dtype=object) if isinstance(v, list) else v
         for k, v in data.items()
     }
-    np.savez(out_path, **out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Write to a hidden sibling and rename. `np.savez` straight onto `out_path`
+    # leaves a truncated-but-existing npz if the process dies mid-write -- a
+    # Slurm TIMEOUT, a scancel, a full disk -- and the next run sees the file,
+    # reports "skipped", and carries the corruption downstream. `replace` is
+    # atomic within a filesystem, so a file at `out_path` is always complete.
+    # The temp name is passed as an open handle because `np.savez` appends
+    # ".npz" to a *path* that lacks it, which would defeat the rename.
+    tmp = out_path.with_name(f".{out_path.name}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            np.savez(fh, **out)
+        tmp.replace(out_path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     return out_path, "wrote"
 
 
-def convert_kind(kind_dir, *, monkey=None, overwrite=False):
+def convert_kind(kind_dir, *, monkey=None, overwrite=False, sessions=None):
     results = []
     for mat_file in iter_mats(kind_dir, monkey):
+        if sessions is not None and not any(s in mat_file.name for s in sessions):
+            continue
         out_path, status = convert_mat(mat_file, overwrite=overwrite)
         results.append((mat_file, out_path, status))
         print(f"[{status}] {mat_file} -> {out_path}")
     return results
 
 
-def convert_kinds(kinds, *, monkey=None, overwrite=False):
+def convert_kinds(kinds, *, monkey=None, overwrite=False, sessions=None):
+    """Convert the requested kinds, optionally restricted to named sessions.
+
+    `sessions` exists because npz is roughly three times the size of the mat it
+    came from -- `np.savez` is uncompressed, `.mat` v7.3 is compressed HDF5 -- and
+    neural files are the big ones, a couple of gigabytes each before conversion.
+    Converting every neural session on a quota-limited filesystem is the fastest
+    way to run out of space, and only the sessions in
+    `data.labeler.CLUSTERING_SESSIONS` carry the strategy labels anything
+    downstream needs.
+    """
     if kinds == ["all"]:
         kind_dirs = list(KINDS.values())
     else:
@@ -201,7 +224,11 @@ def convert_kinds(kinds, *, monkey=None, overwrite=False):
     results = []
     for kind_dir in kind_dirs:
         print(f"=== {kind_dir} ===")
-        results.extend(convert_kind(kind_dir, monkey=monkey, overwrite=overwrite))
+        results.extend(
+            convert_kind(
+                kind_dir, monkey=monkey, overwrite=overwrite, sessions=sessions
+            )
+        )
     return results
 
 
@@ -225,6 +252,13 @@ def load_data():
     return data
 
 
+def load_session_data(session):
+    monkey = monkey_for_session(session)
+    data = load_npz(behavioral_npz_path(monkey, session))
+    data.update(load_npz(neural_npz_path(monkey, session)))
+    return data
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Convert data/mat/*.mat → data/npz/*.npz"
@@ -235,10 +269,21 @@ def main(argv=None):
         choices=("all", *KINDS.keys()),
     )
     parser.add_argument("--monkey", choices=MONKEYS, default=None)
+    parser.add_argument(
+        "--sessions",
+        nargs="+",
+        default=None,
+        help="only convert files whose name contains one of these session ids",
+    )
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args(argv)
 
-    results = convert_kinds(args.kinds, monkey=args.monkey, overwrite=args.overwrite)
+    results = convert_kinds(
+        args.kinds,
+        monkey=args.monkey,
+        overwrite=args.overwrite,
+        sessions=args.sessions,
+    )
     n_wrote = sum(1 for *_, s in results if s == "wrote")
     n_skip = sum(1 for *_, s in results if s == "skipped")
     print(f"done: {n_wrote} wrote, {n_skip} skipped, {len(results)} total")

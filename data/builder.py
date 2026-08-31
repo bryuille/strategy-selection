@@ -222,7 +222,7 @@ CLEAN_EYE_DATA_KEYS = (
 )
 
 
-def _gaze_arrays(trial):
+def gaze_arrays(trial):
     g = np.asarray(trial, dtype=float)
     if g.ndim == 1:
         g = g.reshape(1, -1) if g.size else np.empty((0, 3))
@@ -232,7 +232,7 @@ def _gaze_arrays(trial):
     return g[:, 2].copy(), g[:, 0].copy(), g[:, 1].copy()
 
 
-def _collapse_to_trials(session_data, fields):
+def collapse_to_trials(session_data, fields):
     """One row per trial_indices_all value (neuron–trial rows collapsed)."""
     trials = np.asarray(session_data["trial_indices_all"]).astype(int)
     n_trials = int(np.max(trials))
@@ -256,7 +256,7 @@ def build_eye_data(monkey="Faure"):
         session = path.stem.removeprefix("Eye_Data_")
         t_trials, x_trials, y_trials = [], [], []
         for trial in raw["gaze"]:
-            t, x, y = _gaze_arrays(trial)
+            t, x, y = gaze_arrays(trial)
             t_trials.append(t)
             x_trials.append(x)
             y_trials.append(y)
@@ -281,7 +281,7 @@ def build_eye_behavioral_data(monkey="Faure"):
     sessions = []
     trial_ids = []
     for path in sorted(npz_dir("behavioral", monkey).glob("*_good_trials_concat.npz")):
-        collapsed, n_trials = _collapse_to_trials(load_npz(path), EYE_BEHAVIORAL_FIELDS)
+        collapsed, n_trials = collapse_to_trials(load_npz(path), EYE_BEHAVIORAL_FIELDS)
         for field in EYE_BEHAVIORAL_FIELDS:
             chunks[field].append(collapsed[field])
         sessions.append(np.full(n_trials, path.name.removesuffix("_good_trials_concat.npz")))
@@ -293,7 +293,7 @@ def build_eye_behavioral_data(monkey="Faure"):
     }
 
 
-def _empty_clean_events():
+def empty_clean_events():
     return {
         "name": np.array([], dtype=object),
         "onset": np.array([], dtype=float),
@@ -309,7 +309,7 @@ def _empty_clean_events():
     }
 
 
-def _pupil_signal(pupil):
+def pupil_signal(pupil):
     p = np.asarray(pupil, dtype=float)
     if p.ndim == 2 and min(p.shape) == 2:
         if p.shape[1] != 2:
@@ -322,7 +322,7 @@ def trial_blink_mask(time, pupil, padding_ms=BLINK_PADDING_MS):
     """True where gaze time falls inside a pymovements pupil-blink window."""
     t = np.asarray(time, dtype=float)
     mask = np.zeros(t.size, dtype=bool)
-    p_size, p_t_ms = _pupil_signal(pupil)
+    p_size, p_t_ms = pupil_signal(pupil)
     if p_size is None or not np.isfinite(p_size).any():
         return mask
     blinks = blink_fn(
@@ -342,7 +342,7 @@ def trial_blink_mask(time, pupil, padding_ms=BLINK_PADDING_MS):
     return mask
 
 
-def _drop_blink_overlaps(events, blinks):
+def drop_blink_overlaps(events, blinks):
     if blinks.frame.height == 0 or events.frame.height == 0:
         return events
     kept = events.frame
@@ -354,7 +354,7 @@ def _drop_blink_overlaps(events, blinks):
     return events
 
 
-def _trial_events(time, eye_x, eye_y, pupil, experiment):
+def trial_events(time, eye_x, eye_y, pupil, experiment):
     """Detect saccades and fixations, then drop events that overlap blinks."""
     t = np.asarray(time, dtype=float)
     x = np.asarray(eye_x, dtype=float)
@@ -427,7 +427,7 @@ def _trial_events(time, eye_x, eye_y, pupil, experiment):
                 pl.Series("duration", t_ms[offset_i] - t_ms[onset_i]),
             )
 
-        p_size, p_t_ms = _pupil_signal(pupil)
+        p_size, p_t_ms = pupil_signal(pupil)
         if p_size is not None and np.isfinite(p_size).any():
             blinks = blink_fn(
                 pupil=p_size,
@@ -436,7 +436,7 @@ def _trial_events(time, eye_x, eye_y, pupil, experiment):
                 maximum_duration=None,
                 minimum_gap=10,
             )
-            gaze.events = _drop_blink_overlaps(gaze.events, blinks)
+            gaze.events = drop_blink_overlaps(gaze.events, blinks)
 
     gaze.events.frame = gaze.events.frame.filter(
         pl.col("name").str.contains("saccade") | pl.col("name").str.contains("fixation")
@@ -457,7 +457,7 @@ def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
         return mask
     if experiment is None:
         experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
-    frame = _trial_events(t[:n], x[:n], y[:n], pupil, experiment)
+    frame = trial_events(t[:n], x[:n], y[:n], pupil, experiment)
     if frame is None:
         return mask
     t_ms = np.round(t[:n] * 1000.0).astype(np.int64)
@@ -495,7 +495,7 @@ def clean_eye_data(eye_data, monkey="Faure"):
             if session_pupils is not None and trial_id - 1 < len(session_pupils)
             else np.empty((0, 2))
         )
-        frame = _trial_events(
+        frame = trial_events(
             eye_data["time"][i],
             eye_data["eye_x"][i],
             eye_data["eye_y"][i],
@@ -514,7 +514,7 @@ def clean_eye_data(eye_data, monkey="Faure"):
         )
 
     if not frames:
-        return _empty_clean_events()
+        return empty_clean_events()
 
     events = pl.concat(frames, how="diagonal_relaxed")
     location = np.array(events["location"].to_list(), dtype=float)
