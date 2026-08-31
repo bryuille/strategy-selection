@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from neural_traces.common import OUT_DIR, plot_flash_label, trace_stats
+from neural_traces.plotting.common import OUT_DIR, plot_flash_label, trace_stats
 from neural_traces.decoders.common import (
     N_SHUFFLE_ITERS,
     compute_dv_traces,

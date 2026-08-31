@@ -160,14 +160,14 @@ the scripts below plot their single-trial and averaged traces.
 
 ```bash
 uv run -m neural_traces.decoders.lr                              # test the lr DV model
-uv run -m neural_traces.lr_trial_traces
-uv run -m neural_traces.lr_pre_flash_traces
-uv run -m neural_traces.strategy_pre_flash_traces
-uv run -m neural_traces.strategy_pre_flash_per_trial_traces
-uv run -m neural_traces.strategy_post_flash_per_trial_traces
+uv run -m neural_traces.plotting.lr_trial_traces
+uv run -m neural_traces.plotting.lr_pre_flash_traces
+uv run -m neural_traces.plotting.strategy_pre_flash_traces
+uv run -m neural_traces.plotting.strategy_pre_flash_per_trial_traces
+uv run -m neural_traces.plotting.strategy_post_flash_per_trial_traces
 ```
 
-Saved to `neural_traces/out/` as `<decoder>_<window>_traces.png`:
+Saved to `neural_traces/plotting/out/` as `<decoder>_<window>_traces.png`:
 
 - `lr_trial_traces.png` — left/right DV during the trial (flash_one to ~200 ms
   after flash_three)
@@ -240,14 +240,20 @@ uv run python -m eye_pre_flash.plotting.similarities_occupancy --monkey Nielsen 
 ## Post-flash eye data (`eye_post_flash/`)
 
 Quantifies voluntary post-feedback saccades toward the most likely unchosen
-alternative exit and compares them across the hierarchical/sequential regimes
-— by maze regime (`data.labeler.MAZE_GROUPS`) and by per-trial neural
-strategy label. Full reference:
+alternative exit, and asks which decision model explains where those saccades
+go. `counterfactual` tests whether the looked-at alternative tracks the
+hierarchical/sequential regime, by maze regime (`data.labeler.MAZE_GROUPS`)
+and by per-trial neural strategy label; `model_comparison` fits the
+manuscript's full model set (optimal, lapse, total-time, hierarchical,
+postdictive, revision) plus single-interval, proximity and empirical
+references to the same trials and ranks them by AIC/BIC. Full reference:
 [eye_post_flash/post_flash.md](eye_post_flash/post_flash.md).
 
 ```bash
 uv run python -m eye_post_flash.counterfactual                   # both monkeys
 uv run python -m eye_post_flash.counterfactual --align response  # no cluster step needed
+uv run python -m eye_post_flash.model_comparison --align response
+uv run python -m eye_post_flash.model_comparison --plots-only  # rebuild figures, no refit
 ```
 
 `--align feedback` (the reviewer's definition) needs behavioral npz that carry

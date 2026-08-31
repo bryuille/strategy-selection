@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from neural_traces.common import (
+from neural_traces.plotting.common import (
     OUT_DIR,
     PRE_FLASH_WINDOW_MS,
     align_pre_flash_to_flash_one,
@@ -15,14 +15,14 @@ from neural_traces.decoders.common import (
     compute_shuffle_dv_traces,
     fit_decoder,
 )
-from neural_traces.decoders.lr import (
-    get_endpoint_mean,
+from neural_traces.decoders.strategy import (
+    get_initial_mean,
     prepare_decoder_data,
     prepare_pre_flash_data,
 )
 from utils import path_type_for, sigmoid
 
-OUTPUT_PATH = OUT_DIR / "lr_pre_flash_traces.png"
+OUTPUT_PATH = OUT_DIR / "strategy_pre_flash_traces.png"
 
 BG_HIERARCHICAL = "#FFFFAB"
 BG_SEQUENTIAL = "#FFE4DC"
@@ -31,8 +31,6 @@ TRACE_COLOR = {
     BG_HIERARCHICAL: "#E04838",
     BG_SEQUENTIAL: "#5EB0E8",
 }
-
-DISTANCE_THRESHOLD = 0.19
 
 
 ########## Helpers
@@ -45,7 +43,7 @@ def maze_mask(path_type, maze):
 
 
 def get_background_color(mean):
-    if np.abs(mean[PRE_FLASH_WINDOW_MS - 1] - 0.5) > DISTANCE_THRESHOLD:
+    if (1 - mean[PRE_FLASH_WINDOW_MS - 1]) > 0.65:
         return BG_HIERARCHICAL
     return BG_SEQUENTIAL
 
@@ -53,7 +51,7 @@ def get_background_color(mean):
 ########## Plotting
 
 
-def plot_lr_traces(
+def plot_strategy_traces(
     traces,
     path_type,
     shuffle_traces,
@@ -92,19 +90,18 @@ def plot_lr_traces(
 
 
 def generate_traces():
-    X_trial, y, trial_mask, _, _, flash3_ms = prepare_decoder_data()
-    clf, _, best_lambda = fit_decoder(
-        get_endpoint_mean(X_trial, flash3_ms), y, trial_mask
-    )
-    X, path_type, flash1_ms, trial_mask = prepare_pre_flash_data()
+    X, y, trial_mask, _, _, _ = prepare_decoder_data()
+    X_mean = get_initial_mean(X)
+    clf, _, best_lambda = fit_decoder(X_mean, y, trial_mask)
 
-    dv = compute_dv_traces(clf, X, trial_mask)
+    X_pre_flash, path_type, flash1_ms, trial_mask = prepare_pre_flash_data()
+
+    dv = compute_dv_traces(clf, X_pre_flash, trial_mask)
     shuffle_raw = compute_shuffle_dv_traces(
-        get_endpoint_mean(X_trial, flash3_ms),
-        X,
+        X_mean,
+        X_pre_flash,
         y,
         trial_mask,
-        random_state=0,
         alpha=best_lambda,
         n_shuffles=N_SHUFFLE_ITERS,
     )
@@ -123,7 +120,7 @@ def main():
     print("Generating traces...")
     traces, path_type, shuffle_traces = generate_traces()
     print("Plotting....")
-    plot_lr_traces(traces, path_type, shuffle_traces)
+    plot_strategy_traces(traces, path_type, shuffle_traces)
 
 
 if __name__ == "__main__":

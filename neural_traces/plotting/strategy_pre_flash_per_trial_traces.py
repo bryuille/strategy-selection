@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from neural_traces.common import (
+from neural_traces.plotting.common import (
     OUT_DIR,
     PRE_FLASH_WINDOW_MS,
     align_pre_flash_to_flash_one,
