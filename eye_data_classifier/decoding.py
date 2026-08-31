@@ -92,7 +92,8 @@ def load_labelled(monkey, sessions, *, k, space):
 
 
 def cv_pool(X, y, factory, *, n_splits=N_SPLITS, seed=SEED):
-    """Pooled (train_true, train_pred, cv_true, cv_pred) over stratified folds.
+    """Pooled (train_true, train_pred, cv_true, cv_pred) over stratified folds,
+    plus each fold's own (train, cv) balanced accuracy for a std readout.
 
     Returns ``None`` when either class has fewer than `MIN_PER_CLASS` trials --
     below that a stratified split cannot put both classes on both sides.
@@ -105,11 +106,21 @@ def cv_pool(X, y, factory, *, n_splits=N_SPLITS, seed=SEED):
         n_splits=min(n_splits, int(counts.min())), shuffle=True, random_state=seed
     )
     pools = ([], [], [], [])
+    fold_train, fold_cv = [], []
     for tr, te in skf.split(X, y):
         model = factory().fit(X[tr], y[tr])
-        for pool, arr in zip(pools, (y[tr], model.predict(X[tr]), y[te], model.predict(X[te]))):
+        train_pred, cv_pred = model.predict(X[tr]), model.predict(X[te])
+        for pool, arr in zip(pools, (y[tr], train_pred, y[te], cv_pred)):
             pool.append(arr)
-    return tuple(np.concatenate(p) for p in pools)
+        fold_train.append(balanced_accuracy_score(y[tr], train_pred))
+        fold_cv.append(balanced_accuracy_score(y[te], cv_pred))
+    pooled = tuple(np.concatenate(p) for p in pools)
+    return pooled, fold_train, fold_cv
+
+
+def _fold_std(scores):
+    """Sample std (ddof=1) of per-fold scores; NaN with fewer than 2 folds."""
+    return float(np.std(scores, ddof=1)) if len(scores) > 1 else float("nan")
 
 
 def score_groups(groups, factory, *, n_splits=N_SPLITS, seed=SEED):
@@ -124,25 +135,36 @@ def score_groups(groups, factory, *, n_splits=N_SPLITS, seed=SEED):
     single maze's -- exactly the geometry confound this regime exists to
     remove. ``per_group`` carries each group's own scores for the by-maze
     table; with a single group the aggregate equals it.
+
+    ``train_std``/``cv_std`` are the sample std of the contributing folds' own
+    balanced accuracy (pooled across every group's folds when there is more
+    than one group) -- a diagnostic only, not read by any rendered table.
     """
     per_group = {}
     for gid, X, y in groups:
-        p = cv_pool(X, y, factory, n_splits=n_splits, seed=seed)
-        if p is None:
+        result = cv_pool(X, y, factory, n_splits=n_splits, seed=seed)
+        if result is None:
             continue
+        p, fold_train, fold_cv = result
         per_group[gid] = dict(
             train=balanced_accuracy_score(p[0], p[1]),
             cv=balanced_accuracy_score(p[2], p[3]),
             n=int(p[2].size),
+            fold_train=fold_train,
+            fold_cv=fold_cv,
         )
     if not per_group:
         return None
     weights = [g["n"] for g in per_group.values()]
+    all_fold_train = [s for g in per_group.values() for s in g["fold_train"]]
+    all_fold_cv = [s for g in per_group.values() for s in g["fold_cv"]]
     return dict(
         train=float(
             np.average([g["train"] for g in per_group.values()], weights=weights)
         ),
         cv=float(np.average([g["cv"] for g in per_group.values()], weights=weights)),
+        train_std=_fold_std(all_fold_train),
+        cv_std=_fold_std(all_fold_cv),
         n_groups=len(per_group),
         n_trials=int(sum(weights)),
         per_group=per_group,
@@ -304,6 +326,8 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
                         n_groups=scores["n_groups"] if scores else 0,
                         train_bacc=scores["train"] if scores else np.nan,
                         cv_bacc=scores["cv"] if scores else np.nan,
+                        train_bacc_std=scores["train_std"] if scores else np.nan,
+                        cv_bacc_std=scores["cv_std"] if scores else np.nan,
                     )
                 )
                 for gid, g in (scores["per_group"] if scores else {}).items():
@@ -322,6 +346,8 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
                             n_groups=1,
                             train_bacc=g["train"],
                             cv_bacc=g["cv"],
+                            train_bacc_std=_fold_std(g["fold_train"]),
+                            cv_bacc_std=_fold_std(g["fold_cv"]),
                         )
                     )
             if regime == "per-maze":
@@ -364,6 +390,8 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
                         n_groups=scores["n_groups"] if scores else 0,
                         train_bacc=scores["train"] if scores else np.nan,
                         cv_bacc=scores["cv"] if scores else np.nan,
+                        train_bacc_std=scores["train_std"] if scores else np.nan,
+                        cv_bacc_std=scores["cv_std"] if scores else np.nan,
                     )
                 )
             table.append(row)

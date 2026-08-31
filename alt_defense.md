@@ -10,22 +10,66 @@ which answers the same reviewer concern from the opposite direction.
 
 ## The claim
 
-> Within the same maze — where visual input is identical — the animals'
+> Within the same maze — where the stimulus is identical — the animals'
 > pre-fixation eye movements are statistically indistinguishable between
-> strategy states. The within-maze neural strategy signal therefore cannot be
-> attributed to differences in visual input or overt sampling behaviour.
+> strategy states. There is therefore no evidence that strategy-correlated
+> differences in overt sampling account for the within-maze neural strategy
+> signal: with the screen fixed and eye position matched in every feature
+> tested, foveal and peripheral input are matched to the same extent.
 
 The reviewer's worry is that the early neural state is "a passive response to
-visual geometry." The paper's neural claim rests on within-maze evidence (the
-same maze, solved both ways), and for that signal this defense holds: the
-neural state differentiates strategies where gaze does not. What is *lost*
-relative to the drafts is the active-evaluation inference — the sentence
-"such strategy-dependent inspection would provide behavioural evidence of
-active evaluation" cannot be written from these data.
+visual geometry." A passive (stimulus-driven) account needs the *input* to
+differ where the response differs. Within a maze the screen does not differ,
+and — because peripheral input is anchored to eye position, not an independent
+channel — matched gaze means matched retinal input throughout the visual
+field. The eye analysis closes the one gap a passive account had left within
+maze: that different eye movements might have created different visual input
+from the same screen. What is *lost* relative to the drafts is the
+active-evaluation inference — the sentence "such strategy-dependent inspection
+would provide behavioural evidence of active evaluation" cannot be written
+from these data.
 
-**Scope carefully.** The defense is a within-maze statement. Across mazes,
-gaze *does* correlate with strategy — see result 2 — so an unscoped "gaze
-cannot explain the neural state" would be false as written.
+## What this defense can and cannot rule out
+
+Ruled out (within maze): the passive pathway *through overt sampling* —
+strategy-correlated eye movements delivering different visual input from an
+identical screen.
+
+Not ruled out:
+
+- **Covert attention.** The animal can take in different peripheral
+  information from identical retinal input by attending covertly to different
+  maze parts. The gaze data are blind to this. Note, though, that covert
+  attention deployed by strategy state is an *active, internal* process — it
+  contradicts "passive," not the paper. The residual objection it supports is
+  subtler: "the early neural state may be a visual-attention state rather than
+  an abstract strategy state," and the eye data cannot distinguish those.
+- **Undetected gaze differences — a decoding null is not input equivalence.**
+  "Statistically matched" means indistinguishable in the features tested
+  (occupancy, scan order, spatial density over 1466 ms) — not equivalence of
+  the full retinal input stream, which varies trial to trial with the gaze
+  path. A passive account can retreat to "the relevant input differences are
+  invisible to those features." The null does not exclude that; it prices it:
+  the surviving story needs sampling differences potent enough to flip the
+  neural regime and predict subsequent choice, yet invisible to position,
+  occupancy, order and density statistics that demonstrably read maze
+  geometry out of the same signals. Phrase claims evidentially ("we found no
+  evidence that…"), never as exclusion ("cannot be attributed to…").
+- **The identity of the neural labels.** The eye data cannot address whether
+  the two neural regimes are strategies at all, rather than two visual-
+  response classes to two families of geometries — strategy ≈ maze at 0.84 in
+  the vetted pool, so most of what the clustering separates could in principle
+  be geometry readout. That question belongs to the paper's other analyses,
+  and two carry it: (i) **within-cell behavioural validation** — if the
+  neural label were geometry readout + noise it would predict behaviour no
+  better than maze identity, so the decisive test is whether the neural label
+  predicts choices *within* (session, maze) cells (the strongest version of
+  Figure 5); (ii) **random-geometry bimodality** — a passive readout across
+  many random geometries should vary as richly as the geometry space, whereas
+  the initial states collapse into two clusters. The "internal selection"
+  conclusion rests on the conjunction of early bifurcation, within-cell
+  behavioural validation, bimodality, and the gaze null — not on the gaze
+  null alone.
 
 ## The three supporting results
 
@@ -66,16 +110,69 @@ null is a property of the data, not of a weak decoder. It is also conservative
 in design: trial-level CV pools sessions, which permits any session-level
 leakage to *inflate* decodability, and the result is chance anyway.
 
-## Suggested bracket text
+## How this slots into the two reviewer responses
 
-> Across mazes, gaze features predicted the strategy state (balanced accuracy
-> ≈ 0.6) but carried no information beyond maze identity itself (maze alone:
-> 0.84; maze + gaze: 0.82–0.84), and within a maze — where geometry is fixed —
-> gaze was uninformative about the subsequent strategy (≈ 0.50 in both
-> monkeys, across gaze-position, state-occupancy and scan-order features). The
-> strategy-predictive structure in gaze is therefore fully accounted for by
-> visual geometry, and the within-maze neural strategy state cannot be
-> attributed to differences in visual input or overt sampling.
+**Response 2 (adaptive-selection overclaim) — the null is load-bearing.** The
+reviewer argues neural geometry differences follow from task structure. The
+response's counter-evidence is the early bifurcation plus within-maze strategy
+variation (same maze, occasionally solved in the non-dominant regime, early
+neural state predicting it). The reviewer's next move against that evidence is
+"the within-maze variation is gaze-driven — different looking, different
+retinal input, still a visual response." The eye null closes exactly that
+route: the early neural state differs where the stimulus and the sampling do
+not, which no passive (stimulus-driven) account can produce. A *positive* gaze
+result would have backfired here — strategy-dependent gaze would let the
+reviewer re-explain the early bifurcation as differential retinal input.
+
+**Supporting positives.** Gaze demonstrably tracks the maze — maze identity is
+decodable from the 10×10 gaze heatmap (degree space, vetted pool, 6-way
+logistic) at 0.346 (Faure) and 0.307 (Nielsen) against 0.167 chance — so the
+animals inspect the maze; the inspection simply does not differ by upcoming
+strategy. Selection is internal.
+
+**What is lost.** The standalone "behavioral evidence of active evaluation"
+sentence. The active-evaluation case rests on the early-bifurcation and
+simulation analyses; the eye data play defense.
+
+### Draft for Response 1's bracket
+
+> Gaze during the pre-fixation viewing period reliably reflected the maze on
+> the screen (maze identity was decodable from gaze density well above
+> chance), confirming that animals visually inspected the maze. However, gaze
+> did not detectably differ as a function of the subsequently inferred
+> strategy state: within a maze, classifiers trained on gaze position, region
+> occupancy, and scan order performed at chance in both monkeys (balanced
+> accuracy ≈ 0.50), and across mazes gaze carried no strategy information
+> beyond maze identity itself (maze alone: 0.84; maze plus gaze: 0.82–0.84).
+> We therefore found no evidence that animals gathered different visual
+> information depending on the upcoming strategy: the within-maze variation in
+> the initial neural state is not accompanied by detectable differences in
+> overt sampling, arguing against accounts in which that variation is a
+> passive response to trial-to-trial differences in visual input. Together
+> with the behavioural validation of the strategy states and their early,
+> pre-flash divergence, this supports an internal selection process.
+
+### Draft for Response 2's bracket
+
+The sentence following the bracket ("Such strategy-dependent inspection
+would provide…") presumes a positive result and needs replacing.
+
+> We found that they do not: although gaze robustly reflected the maze
+> geometry itself, within-maze gaze was statistically indistinguishable
+> between strategy states (balanced decoding accuracy ≈ 0.50 in both monkeys),
+> and gaze carried no strategy information beyond maze identity. This
+> strengthens the central inference of this analysis: the early, within-maze
+> divergence of the neural state occurs with the stimulus fixed and with no
+> detectable difference in overt sampling, leaving no evidence for a passive
+> visual account of that divergence — consistent instead with an internal
+> commitment to a strategy made on the basis of comparably sampled visual
+> evidence.
+
+Replacement for the follow-on sentence: "The absence of strategy-dependent
+inspection indicates that strategy selection is not driven by differential
+information gathering during viewing; combined with the early divergence of
+neural trajectories, it places the selection process internally, during
+evaluation of a comparably inspected stimulus."
 
 ## Caveats
 
