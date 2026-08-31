@@ -2,8 +2,10 @@ import numpy as np
 
 from data.builder import (
     CLEAN_EYE_DATA_KEYS,
-    build_eye_data,
+    EYE_BEHAVIORAL_FIELDS,
+    EYE_BEHAVIORAL_OPTIONAL_FIELDS,
     build_eye_behavioral_data,
+    build_eye_data,
     build_post_flash_metadata,
     build_post_flash_timebins,
     build_pre_flash_metadata,
@@ -163,10 +165,23 @@ def load_eye_data(monkey="Faure"):
 
 
 def load_eye_behavioral_data(monkey="Faure"):
-    return ensure_npz(
-        processed_npz(f"{monkey}_eye_behavioral"),
-        lambda: build_eye_behavioral_data(monkey),
-    )
+    """Trial-level behavioral fields for every session with eye data.
+
+    A cache written before `EYE_BEHAVIORAL_OPTIONAL_FIELDS` existed is rebuilt
+    in place. Optional fields are NaN for sessions whose behavioral npz predate
+    their addition to `data.convert.BEHAVIORAL_FIELDS` (fix by re-converting
+    behavioral data where `data/mat/` lives, then deleting this cache).
+    """
+    path = processed_npz(f"{monkey}_eye_behavioral")
+    wanted = set(EYE_BEHAVIORAL_FIELDS) | set(EYE_BEHAVIORAL_OPTIONAL_FIELDS)
+    if path.exists():
+        loaded = load_npz(path)
+        if wanted <= set(loaded):
+            return loaded
+    built = build_eye_behavioral_data(monkey)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(path, **built)
+    return built
 
 
 def load_clean_eye_data(monkey="Faure"):
@@ -182,7 +197,11 @@ def load_clean_eye_data(monkey="Faure"):
 
 
 def load_attractor_eye_data(monkey="Faure", k=None):
-    from data.attractor import ATTRACTOR_EYE_DATA_KEYS, DEFAULT_K, produce_attractor_eye_data
+    from data.attractor import (
+        ATTRACTOR_EYE_DATA_KEYS,
+        DEFAULT_K,
+        produce_attractor_eye_data,
+    )
 
     k = DEFAULT_K if k is None else int(k)
     specific = processed_npz(f"{monkey}_attractor_k{k}_eye_data")

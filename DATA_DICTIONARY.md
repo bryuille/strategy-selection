@@ -140,7 +140,7 @@ QC is applied after this range is loaded; the optimization is not rerun.
 ## Decoder outputs (reference only)
 
 Files: `Data/Physiology/Decoding_Data/<Monkey>/`. Present in `data/mat/` but not
-read by any Python module here; the DV decoders in `decoders/` refit from
+read by any Python module here; the DV decoders in `neural_traces/decoders/` refit from
 firing rates rather than loading these.
 
 | Filename family | Principal variable/content |

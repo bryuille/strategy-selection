@@ -1,5 +1,5 @@
 #!/bin/bash
-# eye_data_classifier pipeline on Engaging.
+# eye_pre_flash/classifier pipeline on Engaging.
 #
 #   mkdir -p logs          # Slurm will not create the -o/-e directory for you
 #
@@ -71,7 +71,7 @@ echo "started     $(date)"
 echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
 echo
 
-uv run python -m eye_data_classifier.pipeline "$@"
+uv run python -m eye_pre_flash.classifier.pipeline "$@"
 
 echo
 # The sweep frees each session before starting the next, so this should sit near

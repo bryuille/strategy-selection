@@ -5,8 +5,8 @@ import polars as pl
 import pymovements as pm
 from pymovements.events import blink as blink_fn
 
-from data.convert import load_npz
 from data.config import eye_npz_path, npz_dir
+from data.convert import load_npz
 
 # Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24,
 # so blocks follow published geo_type: maze = ceil(path_type/4).
@@ -197,6 +197,16 @@ EYE_BEHAVIORAL_FIELDS = (
     "fixation_off",
 )
 
+# Post-flash event fields. Older behavioral npz predate their addition to
+# `data.convert.BEHAVIORAL_FIELDS`; sessions converted before then contribute
+# NaN, and the post-flash analyses tell the user to re-convert.
+EYE_BEHAVIORAL_OPTIONAL_FIELDS = (
+    "answer_time",
+    "feedback_time",
+    "saccade_init",
+    "trial_end",
+)
+
 EYE_SAMPLING_RATE_HZ = 1000.0
 POSITION_LIMIT_DEG = 30.0
 BLINK_PADDING_MS = 5
@@ -277,19 +287,23 @@ def build_eye_data(monkey="Faure"):
 
 def build_eye_behavioral_data(monkey="Faure"):
     """Concatenate trial-level behavioral fields across all sessions for `monkey`."""
-    chunks = {f: [] for f in EYE_BEHAVIORAL_FIELDS}
+    fields = EYE_BEHAVIORAL_FIELDS + EYE_BEHAVIORAL_OPTIONAL_FIELDS
+    chunks = {f: [] for f in fields}
     sessions = []
     trial_ids = []
     for path in sorted(npz_dir("behavioral", monkey).glob("*_good_trials_concat.npz")):
-        collapsed, n_trials = collapse_to_trials(load_npz(path), EYE_BEHAVIORAL_FIELDS)
-        for field in EYE_BEHAVIORAL_FIELDS:
-            chunks[field].append(collapsed[field])
+        raw = load_npz(path)
+        collapsed, n_trials = collapse_to_trials(raw, [f for f in fields if f in raw])
+        for field in fields:
+            chunks[field].append(
+                collapsed.get(field, np.full(n_trials, np.nan))
+            )
         sessions.append(np.full(n_trials, path.name.removesuffix("_good_trials_concat.npz")))
         trial_ids.append(np.arange(1, n_trials + 1, dtype=int))
     return {
         "session": np.concatenate(sessions),
         "trial_indices_all": np.concatenate(trial_ids),
-        **{f: np.concatenate(chunks[f]) for f in EYE_BEHAVIORAL_FIELDS},
+        **{f: np.concatenate(chunks[f]) for f in fields},
     }
 
 

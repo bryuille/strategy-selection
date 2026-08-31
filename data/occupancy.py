@@ -1,6 +1,6 @@
 import numpy as np
 
-from eye_data_plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
+from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
 
 
 def behavioral_lookup(behavioral):

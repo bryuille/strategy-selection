@@ -13,6 +13,15 @@ N_PCA_COMPONENTS = 3
 N_MAZES = 6
 FR_THRESH = 1.0
 
+# Which mazes each animal dominantly solves in which regime
+# (hierarchical mazes, sequential mazes). Behavioral grouping, shared by the
+# pooled gaze heatmaps and the post-flash counterfactual analysis; the
+# per-trial neural labels built below are the finer-grained version.
+MAZE_GROUPS: dict[str, tuple[list[int], list[int]]] = {
+    "Faure": ([1, 2, 3], [4, 5, 6]),
+    "Nielsen": ([1, 2, 3, 4], [5, 6]),
+}
+
 # The four sessions the published clustering was defined on, from
 # zrefs/Dendogram_all/Single_Trial_Statistics_Clustering_All.m.
 PUBLICATION_SESSIONS = (
@@ -180,8 +189,8 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
     label built by an earlier run leaves its npz behind and nothing downstream
     reads it again.
     """
-    from data.convert import convert_kinds
     from data.config import neural_npz_path, processed_npz
+    from data.convert import convert_kinds
     from data.loader import load_strategy_choices
 
     def reclaim(monkey, session, why):

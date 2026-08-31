@@ -24,6 +24,8 @@ BAD_PUPIL_VALUE = -32768
 BEHAVIORAL_FIELDS = {
     "LR",
     "LR2",
+    "answer_time",
+    "feedback_time",
     "fix_start",
     "fixation_off",
     "flash_one",
@@ -41,6 +43,8 @@ BEHAVIORAL_FIELDS = {
     "nrns",
     "path_type",
     "photodiode_qc_bad",
+    "saccade_init",
+    "trial_end",
     "trial_answer1",
     "trial_answer2",
     "trial_answer3",

@@ -1,7 +1,7 @@
 # The alternative defense: gaze cannot explain the neural strategy state
 
 The reviewer-response passages in
-[eye_data_classifier/classifier.md](eye_data_classifier/classifier.md) were
+[eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md) were
 drafted hoping for a *positive* finding — strategy-dependent maze inspection as
 behavioural evidence of active evaluation. The decoding tables do not support
 that bracket: within a maze, gaze does not detectably differ by the subsequent
@@ -73,7 +73,7 @@ Not ruled out:
 
 ## The three supporting results
 
-All numbers from `eye_data_classifier/out/decoding/all/` (the label-vetted
+All numbers from `eye_pre_flash/classifier/out/decoding/all/` (the label-vetted
 pool: 4 sessions per monkey; see classifier.md for the vetting rule) at
 stratified 5-fold CV, balanced accuracy, chance = 0.500.
 

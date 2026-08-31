@@ -2,7 +2,7 @@
 
 Login node `orcd-login.mit.edu`, aliased to `engaging` in `~/.ssh/config`.
 Scheduler Slurm. One command end to end:
-`uv run python -m eye_data_classifier.pipeline`.
+`uv run python -m eye_pre_flash.classifier.pipeline`.
 
 This document is written from the cluster's side: what the cloud tree holds,
 what arrives in it, and what it sends back.
@@ -19,7 +19,7 @@ same home directory, so a compute node writes straight into it — nothing is
   data/mat/                  THE ONLY COPY. Never arrives, never leaves, never deleted
   data/npz/                  built here from data/mat/, never transferred
   data/processed/            built here, never transferred
-  eye_data_classifier/out/   written here by the job, then pulled down
+  eye_pre_flash/classifier/out/   written here by the job, then pulled down
   logs/                      Slurm stdout/stderr. Must exist before sbatch
   .venv/                     built here by uv sync, never transferred
 ```
@@ -44,8 +44,8 @@ a connection back to it — so the two commands read as "code arrives" and
 # code arrives in ~/strategy-selection (run on the laptop, from the repo root)
 rsync -av --delete --exclude-from=.rsync-exclude ./ engaging:strategy-selection/
 
-# figures leave ~/strategy-selection/eye_data_classifier/out/
-rsync -av engaging:strategy-selection/eye_data_classifier/out/ ./eye_data_classifier/out/
+# figures leave ~/strategy-selection/eye_pre_flash/classifier/out/
+rsync -av engaging:strategy-selection/eye_pre_flash/classifier/out/ ./eye_pre_flash/classifier/out/
 ```
 
 `out/` directories are deliberately **not** excluded, so one exclude file serves
@@ -111,7 +111,7 @@ sizes to trust):
 | `data/processed` trial_timebins, freed after each label | 1.5 GB |
 | `data/processed` clean / features / labels | 0.4 GB |
 | `.venv` + uv cache + Python 3.14 | ~2 GB |
-| incoming code push (mostly `eye_data_plotting/out/`) | 0.6 GB |
+| incoming code push (mostly `eye_pre_flash/plotting/out/`) | 0.6 GB |
 | `data/processed` strategy labels, 23 sessions | 0.2 MB |
 | **total** | **~48 GB** against 67 GB headroom |
 
@@ -209,13 +209,25 @@ Or smoke-test the wiring in 15 minutes once the caches exist:
 ```bash
 salloc -p mit_quicktest -c 8 -t 00:15:00
 export PATH="$HOME/.local/bin:$PATH" MPLBACKEND=Agg OMP_NUM_THREADS=1
-uv run python -m eye_data_classifier.pipeline --only decode-pub
+uv run python -m eye_pre_flash.classifier.pipeline --only decode-pub
 ```
 
 `salloc` swaps your prompt from `[byuille@login009 ...]` to `[byuille@node1806
 ...]` — you are now typing on a compute node. `sbatch` is the opposite: it queues
 a script, prints a job ID, and returns immediately. That return means the request
 is filed, not that anything ran.
+
+**Post-flash counterfactual analysis.** One light job; it exists because the
+behavioral npz here predate `feedback_time` entering
+`data.convert.BEHAVIORAL_FIELDS`, and `data/mat/` never leaves this tree. It
+re-converts the behavioral npz (small — minutes), rebuilds the eye-behavioral
+caches, and runs `eye_post_flash.counterfactual` under both alignments:
+
+```bash
+sbatch slurm/run_post_flash.sbatch
+# results leave ~/strategy-selection/eye_post_flash/out/ (run on the laptop):
+rsync -av engaging:strategy-selection/eye_post_flash/out/ ./eye_post_flash/out/
+```
 
 ## Monitor
 

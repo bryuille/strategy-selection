@@ -47,17 +47,17 @@ is warped to unit H (`to_maze`) so exits sit at `(±1, ±1)`.
 Heatmap trials additionally require QC-passed fixed geometry (`path_type != -99`,
 photodiode OK, `trial_fade == 0`); the state-based plots require
 `path_type != -99` and a finite feature vector. Shared CV machinery lives in
-`eye_data_plotting/similarities_common.py`.
+`eye_pre_flash/plotting/similarities_common.py`.
 
 ```bash
-uv run python -m eye_data_plotting.pre_flash_similarities_heatmap --monkey Faure
-uv run python -m eye_data_plotting.pre_flash_similarities_heatmap_log --monkey Nielsen
-uv run python -m eye_data_plotting.pre_flash_similarities_occupancy --monkey Faure --k 12
-uv run python -m eye_data_plotting.pre_flash_similarities_occupancy_bin --monkey Faure
-uv run python -m eye_data_plotting.pre_flash_similarities_transition --monkey Faure
+uv run python -m eye_pre_flash.plotting.similarities_heatmap --monkey Faure
+uv run python -m eye_pre_flash.plotting.similarities_heatmap_log --monkey Nielsen
+uv run python -m eye_pre_flash.plotting.similarities_occupancy --monkey Faure --k 12
+uv run python -m eye_pre_flash.plotting.similarities_occupancy_bin --monkey Faure
+uv run python -m eye_pre_flash.plotting.similarities_transition --monkey Faure
 ```
 
-Output: `eye_data_plotting/out/<script name>/<monkey>/`.
+Output: `eye_pre_flash/plotting/out/<script name>/<monkey>/`.
 
 ---
 
@@ -84,10 +84,11 @@ Higher is better throughout this document, in every table.
 state covering everything) would score a perfect 1.0 while carrying zero
 information. Discriminability is the meaningful criterion here.
 
-This is also **not** the criterion the production codebook size is chosen by —
-that is codebook stability, in [choosing_k.md](choosing_k.md). This section asks
-the narrower question of which k separates *maze types*, and the two need not
-agree.
+This is also **not** the criterion the production codebook size was chosen by —
+that was codebook stability (held-out coverage × centroid reproducibility, which
+peaked at the production K; the selection scripts have since been retired). This
+section asks the narrower question of which k separates *maze types*, and the
+two need not agree.
 
 ## Reliability (mean diagonal)
 
@@ -170,7 +171,7 @@ occ-bin, 1.030, but loses on occupancy).
 Which individual maze is most reliable (its own diagonal cell) and most
 discriminable (its diagonal ÷ the mean of its own off-diagonal row), computed at
 each monkey's best-discriminating k above — **Faure k=12, Nielsen k=24**. Maze
-grouping per `eye_data_plotting/pre_flash_heatmaps_sum.py`: Faure hierarchical
+grouping per `data.labeler.MAZE_GROUPS`: Faure hierarchical
 1–3, sequential 4–6; Nielsen hierarchical 1–4, sequential 5–6.
 
 | Maze | F k12 occ diag | offdiag | ratio | F k12 bin diag | offdiag | ratio |

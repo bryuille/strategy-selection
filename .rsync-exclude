@@ -3,8 +3,8 @@
 #       byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/
 #
 # Pull results back:
-#   rsync -av byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/eye_data_classifier/out/ \
-#       ./eye_data_classifier/out/
+#   rsync -av byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/eye_pre_flash/classifier/out/ \
+#       ./eye_pre_flash/classifier/out/
 #
 # --delete removes dest files that are gone locally. Do not add
 # --delete-excluded (that would wipe dest data/mat/).
@@ -17,7 +17,7 @@
 # Leading '/' = repo root. Unanchored '*.mat' / '*.npz' catch strays.
 
 # Raw and derived data. The cloud already has data/mat/; everything else in
-# here is rebuilt there by `python -m eye_data_classifier.pipeline`.
+# here is rebuilt there by `python -m eye_pre_flash.classifier.pipeline`.
 /data/mat/
 /data/npz/
 /data/processed/

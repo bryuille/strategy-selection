@@ -7,9 +7,9 @@ hierarchical/sequential strategy state.
 | Document | Covers |
 | -------- | ------ |
 | [DATA_DICTIONARY.md](DATA_DICTIONARY.md) | every field in the raw `.mat` files |
-| [eye_data_classifier/classifier.md](eye_data_classifier/classifier.md) | strategy decoding from gaze: feature sets, models, CV design, how to read the tables |
+| [eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md) | strategy decoding from gaze: feature sets, models, CV design, how to read the tables |
+| [eye_post_flash/post_flash.md](eye_post_flash/post_flash.md) | post-feedback counterfactual saccades by strategy regime: the measure, the alternative-ranking model, alignment modes |
 | [alt_defense.md](alt_defense.md) | the reviewer-response framing the decoding results support, with the numbers behind it |
-| [choosing_k.md](choosing_k.md) | how the codebook size K is selected |
 | [similarity.md](similarity.md) | maze-to-maze split-half similarity CV, and results across k |
 | [cloud.md](cloud.md) | running the pipeline on Engaging (Slurm, quota, rsync) |
 
@@ -115,10 +115,16 @@ writes `<Monkey>_attractor_k{K}_eye_data.npz` for K in 4, 5, 6, 7, 8, 10, 12).
 Each trial stores snapped `(x, y)`, a state ID per sample, a validity mask, and a
 state-run table (`transition_*`).
 
-**Choosing K** is its own analysis — three scripts, only one of which can
-actually select it. See [choosing_k.md](choosing_k.md).
+K = 12 was selected by codebook stability (held-out coverage × centroid
+reproducibility); the selection scripts have since been retired.
 
-## Eye-data strategy classifier
+## Pre-flash eye data (`eye_pre_flash/`)
+
+Everything about gaze during the pre-fixation viewing period lives under
+`eye_pre_flash/`: the strategy classifier in `classifier/`, descriptive plots
+in `plotting/`.
+
+### Strategy classifier (`eye_pre_flash/classifier/`)
 
 Tests whether pre-fixation gaze predicts the trial's strategy label —
 behavioural evidence that the pre-fixation period involves active evaluation
@@ -139,26 +145,29 @@ monkey, and run in two training regimes:
   accuracy maze id alone buys.
 
 ```bash
-uv run python -m eye_data_classifier.pipeline            # everything, in order
-uv run python -m eye_data_classifier.decoding --scope publication
-uv run python -m eye_data_classifier.decoding --scope all
+uv run python -m eye_pre_flash.classifier.pipeline            # everything, in order
+uv run python -m eye_pre_flash.classifier.decoding --scope publication
+uv run python -m eye_pre_flash.classifier.decoding --scope all
 ```
 
-Output under `eye_data_classifier/out/decoding/<scope>/`. Full reference:
-[eye_data_classifier/classifier.md](eye_data_classifier/classifier.md).
+Output under `eye_pre_flash/classifier/out/decoding/<scope>/`. Full reference:
+[eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md).
 
-## Decision-variable traces
+## Decision-variable traces (`neural_traces/`)
+
+DV decoders refit from neural firing rates live in `neural_traces/decoders/`;
+the scripts below plot their single-trial and averaged traces.
 
 ```bash
-uv run -m decoders.lr                              # test the lr DV model
-uv run -m trace_plotting.lr_trial_traces
-uv run -m trace_plotting.lr_pre_flash_traces
-uv run -m trace_plotting.strategy_pre_flash_traces
-uv run -m trace_plotting.strategy_pre_flash_per_trial_traces
-uv run -m trace_plotting.strategy_post_flash_per_trial_traces
+uv run -m neural_traces.decoders.lr                              # test the lr DV model
+uv run -m neural_traces.lr_trial_traces
+uv run -m neural_traces.lr_pre_flash_traces
+uv run -m neural_traces.strategy_pre_flash_traces
+uv run -m neural_traces.strategy_pre_flash_per_trial_traces
+uv run -m neural_traces.strategy_post_flash_per_trial_traces
 ```
 
-Saved to `trace_plotting/out/` as `<decoder>_<window>_traces.png`:
+Saved to `neural_traces/out/` as `<decoder>_<window>_traces.png`:
 
 - `lr_trial_traces.png` — left/right DV during the trial (flash_one to ~200 ms
   after flash_three)
@@ -167,9 +176,9 @@ Saved to `trace_plotting/out/` as `<decoder>_<window>_traces.png`:
 - `strategy_pre_flash_traces.png` — hierarchical/sequential strategy DV prior to
   flash one (geo_present to flash_one)
 
-## Eye-data plots
+### Plots (`eye_pre_flash/plotting/`)
 
-Every script writes to `eye_data_plotting/out/<script name>/`. All take
+Every script writes to `eye_pre_flash/plotting/out/<script name>/`. All take
 `--monkey`; the per-trial viewers take `--session`, `--maze`, `--view`
 (`maze` / `trials` / `trial`), `--trial-id`, and `--mode`.
 
@@ -177,21 +186,21 @@ Every script writes to `eye_data_plotting/out/<script name>/`. All take
 
 | Script | Shows |
 | ------ | ----- |
-| `pre_flash_saccades` | pre-fixation gaze aligned to `fix_start`, per session and maze |
-| `pre_flash_labeled_saccades` | the same, with pymovements event labels |
-| `pre_flash_attractor_saccades` | the same, with codebook state assignments (`out/.../k<K>/maze_<n>/`) |
-| `pre_flash_movie` | eye-tracking QC movies for the june_24 session |
+| `saccades` | pre-fixation gaze aligned to `fix_start`, per session and maze |
+| `labeled_saccades` | the same, with pymovements event labels |
+| `attractor_saccades` | the same, with codebook state assignments (`out/.../k<K>/maze_<n>/`) |
+| `movie` | eye-tracking QC movies for the june_24 session |
 
 2D plots save by default; 3D plots (`--mode 3d`) display interactively unless
 `--save` is passed.
 
 ```bash
-uv run python -m eye_data_plotting.pre_flash_saccades --session june_24_g0 --maze 1
-uv run python -m eye_data_plotting.pre_flash_saccades --session june_24_g0 --maze 1 --view trials
-uv run python -m eye_data_plotting.pre_flash_attractor_saccades --session june_24_g0 --maze 3 --view trial --trial-id 141
+uv run python -m eye_pre_flash.plotting.saccades --session june_24_g0 --maze 1
+uv run python -m eye_pre_flash.plotting.saccades --session june_24_g0 --maze 1 --view trials
+uv run python -m eye_pre_flash.plotting.attractor_saccades --session june_24_g0 --maze 3 --view trial --trial-id 141
 ```
 
-**Gaze heatmaps.** `pre_flash_heatmaps` is per maze across all sessions (±20°,
+**Gaze heatmaps.** `heatmaps` is per maze across all sessions (±20°,
 linear count/trial). The `_sum` family pools hierarchical mazes against
 sequential mazes; the suffixes compose:
 
@@ -202,12 +211,12 @@ sequential mazes; the suffixes compose:
 | `_norm` | normalized to unit H |
 | `_diff` | hierarchical minus sequential, unit H only |
 
-giving `pre_flash_heatmaps_sum`, `_sum_log`, `_sum_norm`, `_sum_log_norm`,
+giving `heatmaps_sum`, `_sum_log`, `_sum_norm`, `_sum_log_norm`,
 `_sum_norm_diff`, and `_sum_log_norm_diff`.
 
 ```bash
-uv run python -m eye_data_plotting.pre_flash_heatmaps --monkey Faure --maze 1
-uv run python -m eye_data_plotting.pre_flash_heatmaps_sum_log_norm --monkey Nielsen
+uv run python -m eye_pre_flash.plotting.heatmaps --monkey Faure --maze 1
+uv run python -m eye_pre_flash.plotting.heatmaps_sum_log_norm --monkey Nielsen
 ```
 
 **Maze-to-maze similarity** (6×6 session-averaged split-half Pearson *r*).
@@ -215,25 +224,39 @@ Procedure and results: [similarity.md](similarity.md).
 
 | Script | Correlates |
 | ------ | ---------- |
-| `pre_flash_similarities_heatmap` | unit-H gaze maps, linear `count/trial` |
-| `pre_flash_similarities_heatmap_log` | the same, `log1p(count/trial)` |
-| `pre_flash_similarities_heatmap_fixations` | the same, fixation samples only |
-| `pre_flash_similarities_heatmap_saccades` | the same, saccade samples only |
-| `pre_flash_similarities_occupancy` | seconds per codebook state |
-| `pre_flash_similarities_occupancy_bin` | visited / not visited per state |
-| `pre_flash_similarities_transition` | bigram + trigram state-run paths |
+| `similarities_heatmap` | unit-H gaze maps, linear `count/trial` |
+| `similarities_heatmap_log` | the same, `log1p(count/trial)` |
+| `similarities_heatmap_fixations` | the same, fixation samples only |
+| `similarities_heatmap_saccades` | the same, saccade samples only |
+| `similarities_occupancy` | seconds per codebook state |
+| `similarities_occupancy_bin` | visited / not visited per state |
+| `similarities_transition` | bigram + trigram state-run paths |
 
 ```bash
-uv run python -m eye_data_plotting.pre_flash_similarities_heatmap --monkey Faure
-uv run python -m eye_data_plotting.pre_flash_similarities_occupancy --monkey Nielsen --k 12
+uv run python -m eye_pre_flash.plotting.similarities_heatmap --monkey Faure
+uv run python -m eye_pre_flash.plotting.similarities_occupancy --monkey Nielsen --k 12
 ```
 
-**Codebook size.** `pre_flash_centroid_stability_better`,
-`pre_flash_centroid_stability`, `pre_flash_mse_error` — see
-[choosing_k.md](choosing_k.md).
+## Post-flash eye data (`eye_post_flash/`)
+
+Quantifies voluntary post-feedback saccades toward the most likely unchosen
+alternative exit and compares them across the hierarchical/sequential regimes
+— by maze regime (`data.labeler.MAZE_GROUPS`) and by per-trial neural
+strategy label. Full reference:
+[eye_post_flash/post_flash.md](eye_post_flash/post_flash.md).
+
+```bash
+uv run python -m eye_post_flash.counterfactual                   # both monkeys
+uv run python -m eye_post_flash.counterfactual --align response  # no cluster step needed
+```
+
+`--align feedback` (the reviewer's definition) needs behavioral npz that carry
+`feedback_time` — one light cluster job, `sbatch slurm/run_post_flash.sbatch`.
+Output under `eye_post_flash/out/counterfactual/<align>/<monkey>/`.
 
 ## Running on the cluster
 
-The full classifier pipeline runs end to end on Engaging under Slurm. Push code
-up, run, pull figures back; `data/mat/` lives on the cluster and never moves.
-See [cloud.md](cloud.md).
+The full classifier pipeline runs end to end on Engaging under Slurm
+(`slurm/run_classifier.sbatch`), and the post-flash analysis has its own light
+job (`slurm/run_post_flash.sbatch`). Push code up, run, pull figures back;
+`data/mat/` lives on the cluster and never moves. See [cloud.md](cloud.md).

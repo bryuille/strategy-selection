@@ -7,8 +7,8 @@ from pymovements.events.detection import out_of_screen
 from sklearn.cluster import KMeans
 
 from data.builder import POSITION_LIMIT_DEG, trial_blink_mask, trial_fixation_mask
-from data.convert import load_npz
 from data.config import eye_npz_path, processed_npz
+from data.convert import load_npz
 
 CODEBOOK_SWEEP = (4, 5, 6, 7, 8, 10, 12)
 DEFAULT_K = 12
