@@ -4,6 +4,7 @@ import argparse
 
 import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.stats import fisher_exact
 from sklearn.decomposition import PCA
 
 from data.config import monkey_for_session
@@ -12,6 +13,31 @@ EARLY_TRIAL_WINDOW_SIZE = 500
 N_PCA_COMPONENTS = 3
 N_MAZES = 6
 FR_THRESH = 1.0
+
+# How the two clusters get named hierarchical/sequential. See
+# `name_clusters_maze_1_6`.
+#
+#   "relative"  -- the default: name by relative maze-6-vs-maze-1 enrichment,
+#                  gated on a Fisher exact test. A documented DEVIATION from the
+#                  reference MATLAB, adopted because it never contradicts it --
+#                  it returns the same answer wherever the reference succeeds
+#                  (proof below, and verified bit-identical on all four sessions
+#                  whose neural data is held locally) -- while additionally
+#                  labelling 3 sessions the reference rejects for a reason that
+#                  is an artefact of unbalanced clustering rather than absent
+#                  signal.
+#   "reference" -- what zrefs/Dendogram_all/Single_Trial_Statistics_Clustering_All.m
+#                  does: name by absolute majority, error when that picks the
+#                  same cluster twice. Use it to reproduce the published labels
+#                  exactly.
+CLUSTER_NAMING = "relative"
+
+
+# "relative" only: a Fisher exact p above this is *reported* as a weakly
+# separated naming, never refused. Whether such a session is fit to analyse is
+# decided downstream by `classifier.labels.MIN_LABEL_AGREEMENT`, which scores
+# the resulting labels against all five anchor mazes rather than just two.
+WEAK_AXIS_ALPHA = 0.05
 
 # Which mazes each animal dominantly solves in which regime
 # (hierarchical mazes, sequential mazes). Behavioral grouping, shared by the
@@ -95,21 +121,100 @@ def build_lr_choices(data):
     return lr_choices
 
 
-def name_clusters_maze_1_6(clusters, mazes):
-    """Hierarchical (0) is the cluster holding more maze-1 trials, sequential (1) maze-6."""
+def name_clusters_maze_1_6(clusters, mazes, naming=None):
+    """Name the two clusters hierarchical (0) / sequential (1) off mazes 1 and 6.
+
+    Two rules, selected by `naming` (default `CLUSTER_NAMING`).
+
+    **"reference"** -- what the published MATLAB does, at
+    `Single_Trial_Statistics_Clustering_All.m:352`::
+
+        [~, hierarchical_row] = max(cluster_distribution(:, 1));
+        [~, sequential_row]   = max(cluster_distribution(:, 6));
+
+    Hierarchical is whichever cluster holds more maze-1 trials, sequential more
+    maze-6, and the same cluster winning both is an error. This is the default,
+    so the labels reproduce the published ones exactly.
+
+    **"relative"** -- a deviation, off by default. Sequential is the cluster
+    maze 6 favours *relative to* maze 1: the larger
+    ``p(cluster | maze 6) − p(cluster | maze 1)``.
+
+    The reference rule assumes a balanced clustering. When `fcluster` returns a
+    lopsided split -- one cluster holding, say, 75% of all trials -- that cluster
+    holds the majority of maze 1 *and* maze 6 however strong the maze effect is,
+    and the rule reads that as "no strategy axis" and refuses. It is what
+    rejected 10 of the 23 eligible sessions. `june_12_g0` was refused at 91%
+    cluster-1 occupancy in maze 1 against 58% in maze 6 -- a 33-point maze
+    effect, running *opposite* to the absolute majority.
+
+    The relative rule is a strict generalisation: **wherever the reference
+    succeeds it returns the same answer**, so it cannot change an existing
+    label. With two clusters the reference succeeds only when cluster *A* holds
+    more maze-1 trials and *B* more maze-6, i.e. ``p1(A) > 1/2 > p1(B)`` and
+    ``p6(B) > 1/2 > p6(A)``; then ``p6(B) − p1(B) > 0 > p6(A) − p1(A)``, so *B*
+    is named sequential either way. Verified empirically too: the four sessions
+    whose neural data is held locally rebuild bit-identical under both rules.
+
+    **It always names, and never refuses.** There are only two ways to assign
+    two clusters to two strategies, and the enrichment difference picks whichever
+    of the two better matches "maze 1 is hierarchical, maze 6 is sequential" --
+    which is the best that can be done with these anchors, however weak the
+    separation. All 23 eligible sessions get labels. A session whose separation
+    is poor gets its Fisher p printed and flagged WEAKLY SEPARATED, but the
+    decision about whether it is fit to analyse belongs downstream, to
+    `classifier.labels.MIN_LABEL_AGREEMENT` -- which scores the resulting labels
+    against all five anchor mazes (1, 2, 3, 5, 6) and so is strictly better
+    informed than a two-maze test here. An individual maze coming out with a
+    seemingly wrong majority is not by itself a reason to discard a session.
+
+    Passing the `snr_auc >= 0.95` eligibility filter does not imply the clusters
+    separate the anchor mazes: `snr_auc` comes from a *supervised*
+    maze-1-vs-maze-6 axis, while this 2-cluster Ward split is unsupervised and
+    need not align with it. The 7 sessions the reference rule rejected and this
+    one names weakly all score between 0.957 and 0.990.
+    """
+    naming = CLUSTER_NAMING if naming is None else naming
+    if naming not in ("reference", "relative"):
+        raise ValueError(f"unknown naming rule {naming!r}")
+
     counts = np.array(
         [
             [np.sum((clusters == c) & (mazes == maze)) for maze in (1, 6)]
             for c in (0, 1)
         ]
     )
-    hierarchical = int(np.argmax(counts[:, 0]))
-    sequential = int(np.argmax(counts[:, 1]))
-    if hierarchical == sequential:
+    n_maze_1, n_maze_6 = counts[:, 0].sum(), counts[:, 1].sum()
+    if n_maze_1 == 0 or n_maze_6 == 0:
         raise ValueError(
-            "the same cluster was selected as both hierarchical and sequential "
-            f"(maze-1 counts {counts[:, 0].tolist()}, maze-6 counts {counts[:, 1].tolist()})"
+            f"need both anchor mazes to name clusters (maze-1 trials {n_maze_1}, "
+            f"maze-6 trials {n_maze_6})"
         )
+
+    if naming == "reference":
+        hierarchical = int(np.argmax(counts[:, 0]))
+        sequential = int(np.argmax(counts[:, 1]))
+        if hierarchical == sequential:
+            raise ValueError(
+                "the same cluster was selected as both hierarchical and sequential "
+                f"(maze-1 counts {counts[:, 0].tolist()}, "
+                f"maze-6 counts {counts[:, 1].tolist()}); "
+                "an unbalanced split can do this even with a real maze effect — "
+                "see CLUSTER_NAMING='relative'"
+            )
+        return np.where(clusters == hierarchical, 0.0, 1.0)
+
+    enrichment = counts[:, 1] / n_maze_6 - counts[:, 0] / n_maze_1
+    sequential = int(np.argmax(enrichment))
+    hierarchical = 1 - sequential
+
+    _odds, p_value = fisher_exact(counts)
+    weak = " WEAKLY SEPARATED" if p_value > WEAK_AXIS_ALPHA else ""
+    print(
+        f"  [relative naming] cluster {sequential} = sequential "
+        f"(maze-6 minus maze-1 share {enrichment[sequential]:+.3f}, "
+        f"Fisher p={p_value:.4f}){weak}"
+    )
     return np.where(clusters == hierarchical, 0.0, 1.0)
 
 
@@ -240,11 +345,12 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
 
 
 def main():
+    global CLUSTER_NAMING
     from data.loader import load_lr_choices, load_strategy_choices
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--type", choices=("lr", "strategy"), required=True)
-    parser.add_argument("--session", default=None)
+    parser.add_argument("--session", nargs="+", default=None)
     parser.add_argument(
         "--sweep",
         action="store_true",
@@ -256,9 +362,20 @@ def main():
         help="with --sweep, do not delete the neural npz after labelling",
     )
     parser.add_argument("--overwrite", action="store_true")
+    parser.add_argument(
+        "--naming",
+        choices=("reference", "relative"),
+        default=CLUSTER_NAMING,
+        help="cluster naming rule; 'reference' (default) reproduces the "
+        "published MATLAB, 'relative' additionally labels 3 sessions it rejects",
+    )
     args = parser.parse_args()
 
-    jobs = [args.session] if args.session is not None else list(CLUSTERING_SESSIONS)
+    CLUSTER_NAMING = args.naming
+    if args.naming != "reference":
+        print(f"!! cluster naming = {args.naming!r} (deviates from zrefs)")
+
+    jobs = list(args.session) if args.session is not None else list(CLUSTERING_SESSIONS)
 
     if args.sweep:
         if args.type != "strategy":

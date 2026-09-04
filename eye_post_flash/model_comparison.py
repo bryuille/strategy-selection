@@ -645,8 +645,9 @@ def _report(
             f"| {EXIT_NAMES[pred]} | {'yes' if obs == pred else 'NO'} |"
         )
 
-    (out_dir / "summary.md").write_text("\n".join(out) + "\n")
-    print(f"Saved {out_dir / 'summary.md'}")
+    # Printed rather than written: out/ carries figures and raw csv only, and
+    # the per-cell numbers behind this summary are in fits.csv beside it.
+    print("\n".join(out))
     return {
         "monkey": monkey,
         "records": records,

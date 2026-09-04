@@ -25,14 +25,54 @@ needs that session's neural recording, so the `labels` stage converts, labels
 and frees one session at a time. Analyses default to whichever eligible
 sessions already have a label built, and print which they skipped.
 
-**Only 13 of the 23 actually label** (full sweep completed on Engaging,
-2026-08-31): the other 10 fail the labeler's sanity check — the same neural
-cluster comes out as the majority for both maze 1 and maze 6, so there is no
-hierarchical/sequential axis to read off. Of the 13 that do label, 5 more fail
-the anchor-maze vetting below, leaving **8 analysed sessions: 4 per monkey**
-(Faure: june_8, june_24, june_16, june_22; Nielsen: Nov_3, Oct_22, Nov_6,
-Nov_1). Eligibility was a neural-SNR criterion; these two checks are what
-actually certify the labels.
+**All 23 label.** Naming the two clusters hierarchical/sequential needs the
+anchor mazes, and `data.labeler.CLUSTER_NAMING` picks how:
+
+| Rule | Names sequential by | Labels |
+| ---- | ------------------- | ------ |
+| `relative` (default) | larger `p(cluster \| maze 6) − p(cluster \| maze 1)` | 23 |
+| `reference` | absolute majority per anchor maze, error when one cluster wins both — what `Single_Trial_Statistics_Clustering_All.m:352` does | 13 |
+
+There are only two ways to map two clusters onto two strategies, and the
+relative rule picks whichever better matches "maze 1 hierarchical, maze 6
+sequential". That is the best these anchors can do, so it always names and
+never refuses.
+
+The reference rule instead assumes a balanced clustering. When `fcluster`
+returns a lopsided split — one cluster holding ~75% of all trials — that cluster
+holds the majority of maze 1 *and* maze 6 however strong the maze effect is, and
+the rule reads that as "the same cluster is both" and errors. That is what
+rejected 10 of the 23. `june_12_g0` was refused at 91% cluster-1 occupancy in
+maze 1 against 58% in maze 6: a 33-point maze effect, running *opposite* to the
+absolute majority.
+
+**The relative rule never contradicts the reference**, which is why it is the
+default despite deviating from the published MATLAB. Wherever the reference
+succeeds it returns the same answer: the reference succeeds only when cluster
+*A* holds more maze-1 trials and *B* more maze-6, i.e. `p1(A) > ½ > p1(B)` and
+`p6(B) > ½ > p6(A)`, whence `p6(B) − p1(B) > 0 > p6(A) − p1(A)` and *B* is named
+sequential either way. Verified as well as proved — all four sessions whose
+neural data is held locally rebuild bit-identical under both rules. Set
+`--naming reference` to reproduce the published 13 exactly.
+
+Naming quality varies, and the run says so rather than deciding for you. Each
+session prints its maze-6-minus-maze-1 enrichment and a two-sided Fisher exact
+p on the cluster × maze{1,6} table; above `WEAK_AXIS_ALPHA = 0.05` it is flagged
+`WEAKLY SEPARATED`. Seven sessions are (p = 0.065 to 1.0) — their Ward split ran
+along something other than the maze axis. They are still labelled: whether a
+session is fit to analyse is decided downstream by the anchor-maze vetting
+below, which scores labels against all five anchor mazes rather than two and is
+therefore better informed. An individual maze coming out with a seemingly wrong
+majority is not on its own a reason to discard a session.
+
+Passing the SNR filter does not imply the clusters separate the anchor mazes:
+`snr_auc` comes from a *supervised* maze-1-vs-maze-6 axis, while this 2-cluster
+Ward split is unsupervised and need not align with it. The seven weakly named
+sessions all score between 0.957 and 0.990.
+
+Of the 23 that label, the anchor-maze vetting below decides which enter `all`;
+`allplus` takes all 23. Eligibility was a neural-SNR criterion; the vetting is
+what actually certifies the labels.
 
 ---
 
@@ -141,7 +181,8 @@ neural labelling looks like, and such trials are label noise that can only
 dilute the tables. The observed distribution is bimodal (0.76–1.00 vs
 0.54–0.65), so the threshold sits in the gap and no session is borderline.
 Dropped sessions are printed with their agreement at the top of every run. All
-four `publication` sessions pass.
+four `publication` sessions pass. §6 lists the eight that pass, their per-maze
+label composition, and how they compare with the published clustering.
 
 Within a monkey, trials are **concatenated across the scope's sessions** and
 two training regimes run:
@@ -176,12 +217,12 @@ split. Each model reports two columns:
 
 ## 4. How to read the output
 
-Everything lands under `out/decoding/<scope>/`, as `.png`, `.md`, `.tex` and a
-combined `results_raw.csv`:
+Everything lands under `out/decoding/<scope>/`, as `.png` plus a combined
+`results_raw.csv`. Tables render as PNG only:
 
 | File | Contents |
 | ---- | -------- |
-| `counts_<Monkey>.md` | the census: per-maze trial counts by strategy, and which mazes support per-maze CV. **Read this first** |
+| `counts_<Monkey>.png` | the census: per-maze trial counts by strategy, and which mazes support per-maze CV. **Read this first** |
 | `permaze_<Monkey>` | per-maze decoding table (degrees features), pooled over mazes |
 | `permaze_by_maze_<Monkey>` | the same CV numbers broken out per maze; both models per cell, each bolded against its own best |
 | `crossmaze_<Monkey>` | across-maze decoding table (unit-H features), maze-identity reference in the last row |
@@ -189,7 +230,7 @@ combined `results_raw.csv`:
 
 Reading order:
 
-1. **`counts_<Monkey>.md`.** Strategy is close to a deterministic function of
+1. **`counts_<Monkey>.png`.** Strategy is close to a deterministic function of
    (session, maze), so many mazes are heavily one-sided; the census shows how
    much data each number stands on.
 2. **Per-maze CV column.** The cleanest read of strategy-dependent sampling:
@@ -209,3 +250,193 @@ from gaze on these recording days", not as generalisation to unseen days — a
 day-level claim would need session-held-out evaluation. And the `publication`
 scope is two sessions per monkey; treat it as a consistency check on the
 audience-facing sessions, not as the powered result.
+
+---
+
+## 5. Pairwise maze-identity decoding (`pairwise.py`)
+
+A different question, and **no strategy labels are involved**: can a classifier
+tell *which maze was on the screen* from where the animal looked? Maze identity
+is known for every trial without any neural recording, so this runs on every
+trial of a scope's sessions — including the strategy-unlabelled ones the
+decoding tables drop. (`--labelled-only` restores their exact trial set when the
+two need comparing cell for cell.)
+
+```bash
+uv run python -m eye_pre_flash.classifier.pipeline --only pairs-all
+uv run python -m eye_pre_flash.classifier.pairwise --scope all --space unith
+```
+
+It exists because "gaze does not predict strategy" is only worth reading next to
+evidence that these features detect *anything*. If gaze cannot even distinguish
+the mazes, the strategy nulls in §3 are uninformative about behaviour and merely
+report weak features.
+
+**Pairwise, not 6-way.** Each of the **15 maze pairs** gets its own binary
+classifier — maze *i* vs maze *j* — instead of one 6-way multiclass fit. Three
+reasons:
+
+1. Chance is **0.500**, the same as every table in §3, so the numbers are
+   directly comparable to the strategy results rather than sitting against an
+   awkward 0.167.
+2. A single multiclass accuracy cannot distinguish "no maze is separable" from
+   "only mazes 3 and 4 are confusable". The matrix shows which.
+3. The **gradient** across cells is the actual result. Geometrically extreme
+   pairs (1 vs 6) should decode far above neighbouring pairs (1 vs 3). Graded
+   discriminability tracking geometry is much stronger evidence that gaze
+   follows the maze than any one number exceeding chance.
+
+The matrix is symmetric (*i* vs *j* is the same problem as *j* vs *i*). Its
+**diagonal is the split-half null**: the same classifier asked to separate one
+maze's own trials into two random halves, averaged over 5 halvings. A maze
+cannot be told from itself, so this measures the floor the off-diagonal cells
+are read against instead of assuming it is 0.500.
+
+Read the diagonal first. Near 0.500 it says the CV and the balanced-accuracy
+metric are behaving on that feature set. Well above 0.500 it says a random half
+of one maze's trials is separable from the other half, which can only come from
+structure the split does not control — session or day effects, drift across the
+recording — and that same structure inflates the off-diagonal cells by an
+unknown amount. Observed: every feature set lands at **0.488–0.510** in both
+monkeys, against off-diagonal means of 0.553–0.659, so the floor is where it
+should be. Row means and ranges exclude the diagonal throughout.
+
+**Features are in `deg`, not `unith`** — the one place in this package where
+that is the entire point. The question is whether gaze tracks the geometry
+actually on the screen, and the unit-H warp exists to remove that geometry.
+`--space unith` is therefore the control: a much flatter matrix is the warp
+working as intended, and is the direct check on the assumption behind the
+across-maze regime in §3.
+
+Metric, CV, models and scopes are unchanged from §3 — balanced accuracy,
+stratified 5-fold, fixed seed, the same two models, the same three scopes. The
+label-quality vetting still selects the sessions, purely so the pools match the
+decoding tables; it is a *label* filter and has no bearing on maze identity.
+
+Accuracies are **uncorrected over the 15 cells**, so read a single marginal cell
+with that in mind. The gradient is the claim, not any one pair.
+
+### Output
+
+Everything lands under `out/pairwise/<scope>/`. Tables render as **PNG only** —
+the `out/` trees carry figures and `results_raw.csv`, nothing else:
+
+| File | Contents |
+| ---- | -------- |
+| `counts_<Monkey>.png` | trials per maze in the pool. **Read this first** |
+| `pairs_<Monkey>_<feature>.png` | the 6×6 accuracy matrix, **one per feature set**, coloured like the [similarity.md](../../similarity.md) maze matrices |
+| `pairs_<Monkey>_<feature>_table.png` | the same matrix as numbers, plus each maze's mean against the other five |
+| `summary_<Monkey>` | all eight feature sets collapsed to the mean and min–max of their 15 pairwise accuracies, both models — for ranking the feature sets at a glance and for the forest's train/CV gap |
+| `results_raw.csv` | every pair × feature set × model in long format |
+
+`<feature>` is the block and what parameterises it — `occ_ms_k6`, `occ_ms_k12`,
+`occ_bin_k6`, `occ_bin_k12`, `bigram_k6`, `bigram_k12`, `heatmap_5x5`,
+`heatmap_10x10`. The heatmaps are codebook-free, so they are named by their grid
+rather than by a K that does not apply to them.
+
+**The matrices are drawn for the logistic only.** One model keeps each matrix a
+plain grid of numbers, and the forest's contribution in §3 is its train/CV gap
+as an overfitting readout — something a matrix has no room to show. It still
+runs, into `summary_<Monkey>` and the raw csv, next to the logistic.
+
+Two reading aids are deliberate. Every matrix is anchored at **vmin = 0.5**, so a
+matrix with no signal reads as washed out instead of being stretched to look
+structured. And one monkey's eight matrices share a **single colour ceiling**, so
+they can be compared with each other by eye — a weak feature set stays visibly
+weak rather than filling its own range.
+
+---
+
+## 6. Label composition by session and maze (`all` scope)
+
+What the labels the `all` scope analyses actually look like, broken out per
+session — the census in `counts_<Monkey>.png` pools the scope's sessions, so
+the pooled row here is that census and the rows above it are what it hides.
+Cut 2026-09-04, the eight sessions that pass vetting: the four `publication`
+sessions plus `june_16_g0`, `june_22_g0`, `Nov_6_g0`, `Nov_1_g0` (the other 15
+of the 23 drop at agreements 0.486–0.653). Each cell is the **fraction
+hierarchical**, with `hierarchical/total` trials; `Agreement` is the
+anchor-maze score the §3 vetting thresholds at 0.70.
+
+**Faure**
+
+| Session | m1 | m2 | m3 | m4 | m5 | m6 | Agreement |
+|---|---|---|---|---|---|---|---|
+| `june_24_g0` | 0.98 (43/44) | 0.70 (35/50) | 0.92 (48/52) | 0.19 (12/62) | 0.20 (18/90) | 0.16 (11/69) | 0.839 |
+| `june_8_g0` | 1.00 (44/44) | 0.83 (34/41) | 1.00 (43/43) | 0.02 (1/49) | 0.03 (2/62) | 0.00 (0/54) | 0.963 |
+| `june_16_g0` | 0.85 (51/60) | 0.05 (2/37) | 0.74 (34/46) | 0.03 (2/58) | 0.09 (5/55) | 0.04 (3/70) | 0.761 |
+| `june_22_g0` | 0.93 (43/46) | 0.80 (39/49) | 0.89 (47/53) | 0.34 (15/44) | 0.40 (21/52) | 0.17 (11/65) | 0.808 |
+| **pooled** | **0.93** (181/194) | **0.62** (110/177) | **0.89** (172/194) | **0.14** (30/213) | **0.18** (46/259) | **0.10** (25/258) | |
+
+**Nielsen**
+
+| Session | m1 | m2 | m3 | m4 | m5 | m6 | Agreement |
+|---|---|---|---|---|---|---|---|
+| `Nov_6_g0` | 0.94 (51/54) | 0.75 (42/56) | 0.86 (59/69) | 0.42 (22/52) | 0.03 (2/62) | 0.00 (0/79) | 0.909 |
+| `Oct_22_g0` | 0.71 (44/62) | 0.64 (44/69) | 0.74 (57/77) | 0.26 (21/82) | 0.03 (3/91) | 0.01 (1/78) | 0.822 |
+| `Nov_3_g0` | 1.00 (65/65) | 0.99 (85/86) | 1.00 (82/82) | 0.52 (44/85) | 0.01 (1/96) | 0.00 (0/84) | 0.995 |
+| `Nov_1_g0` | 0.88 (46/52) | 0.80 (43/54) | 0.76 (48/63) | 0.56 (45/81) | 0.18 (14/79) | 0.06 (5/88) | 0.848 |
+| **pooled** | **0.88** (206/233) | **0.81** (214/265) | **0.85** (246/291) | **0.44** (132/300) | **0.06** (20/328) | **0.02** (6/329) | |
+
+### Against the expected maze→strategy map
+
+Mazes 1–3 hierarchical, 5–6 sequential, per session rather than pooled over
+the scope. Two deviations, and only one of them is a surprise:
+
+- **`june_16_g0`, maze 2 at 0.05** — a clean majority the wrong way, not a
+  near-tie. Its mazes 1 and 3 are ordinary (0.85, 0.74), so this is maze 2
+  specifically, and it is the only anchor-maze majority inversion in the eight
+  sessions. It still enters `all` because `MIN_LABEL_AGREEMENT` scores pooled
+  anchor trials rather than per-maze majorities; at 0.761 it is the lowest of
+  the eight, well clear of the 0.70 threshold and of the 0.54–0.65 band the
+  dropped sessions occupy. Per §1's note on weak naming, one maze with a wrong
+  majority is not on its own a reason to discard a session.
+- **Nielsen maze 4 is not hierarchical-majority** — 0.44 pooled, and
+  hierarchical in only two of four sessions, both barely (0.52, 0.56) against
+  0.42 and 0.26 the other way. Expected: maze 4 is the boundary maze, which is
+  exactly why §3 leaves it out of `ANCHOR_MAJORITY`. So a claim that Nielsen
+  solves 1–**4** hierarchically is not supported by these labels; 1–3 is.
+
+Everything else lands as expected. Faure 4–6 and Nielsen 5–6 are
+sequential-majority in every session, the closest to a tie being Faure
+`june_22_g0` maze 5 at 0.40. Faure maze 2 pooled (0.62) is dragged down almost
+entirely by `june_16_g0`; the other three sessions sit at 0.70–0.83.
+
+### Agreement with the four-session clustering in `zrefs/`
+
+`zrefs/Dendogram_all/<Monkey>/_Cluster_Distributions_PCA_All_<session>.mat`
+holds the published clustering for the four `publication` sessions, as
+`cluster_distribution` (2 × 6 counts) and `cluster_trial_ids` (the trial ids
+per cluster × maze). Naming the reference's clusters by the repo's rule — the
+cluster with more maze-1 trials is hierarchical — the two agree per trial:
+
+| Session | Per-trial agreement | Per-maze counts |
+| ------- | ------------------- | --------------- |
+| `june_24_g0` | 367/367 | identical in all 6 cells |
+| `june_8_g0` | 293/293 | identical in all 6 cells |
+| `Nov_3_g0` | 498/498 | identical in all 6 cells |
+| `Oct_22_g0` | **448/459** | 11 trials shifted, all reference-hierarchical → ours-sequential |
+
+So three of the four publication sessions reproduce the published clustering
+exactly, trial for trial, including the cluster→strategy naming. `Oct_22_g0`'s
+11 trials (2.4% of the session) land as m3 −1, m4 −7, m5 −2, m6 −1
+hierarchical. **No maze's majority changes**: on the reference counts maze 4
+reads 28/82 = 0.34 hierarchical against our 0.26, still sequential-majority,
+and every other maze moves by at most 0.03. The Nielsen maze-4 conclusion above
+therefore holds under the reference clustering too.
+
+That gap was traced on 2026-09-02 and is **not** tie-breaking, row order,
+floating point, the `neuron_ok` filter or a different cut of the same tree —
+all tested and ruled out; the reference partition is not the leaf set of any
+node in our dendrogram. `SNR_All_Sessions/all_session_snr_results.csv` records
+the same neuron and maze-1/maze-6 trial counts as ours (Oct_22: 71 neurons, 62,
+78), so the feature matrix has the same shape, trials and neurons with
+different *values* — the leading hypothesis is that Oct_22's stored mat was
+built from a slightly different export of that session's firing rates. The
+decisive test would be rerunning `Single_Trial_Statistics_Clustering_All.m` on
+the current Oct_22 neural mat.
+
+When reading these mats, **skip cells whose `MATLAB_empty` attribute is set** —
+a v7.3 empty cell stores its dimensions as data, so reading it naively invents
+trial ids 0 and 1 and fabricates disagreements. Validate each cell's length
+against `cluster_distribution`.

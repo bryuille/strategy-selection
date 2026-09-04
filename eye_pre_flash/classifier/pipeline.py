@@ -16,6 +16,8 @@ same command serves a cold cloud checkout and a re-run after a code change; use
     decode-pub  decoding tables, the 4 publication clustering sessions
     decode-all  the same over every snr_auc >= 0.95 session (label-vetted)
     decode-allplus  the same without the label vetting, as a robustness check
+    pairs-pub / pairs-all / pairs-allplus
+                pairwise maze-identity-from-gaze matrices, per scope
 
 The decoding runs in **two scopes**. `publication` is the four sessions the
 published clustering was defined on -- the strictest audience-facing set. `all`
@@ -56,6 +58,11 @@ def stages():
         # Same sessions as decode-all but without the anchor-maze label
         # vetting -- the robustness check on what vetting removes.
         "decode-allplus": ["eye_pre_flash.classifier.decoding", "--scope", "allplus"],
+        # Pairwise maze-identity decoding. No strategy labels involved, so
+        # these depend only on the feature caches, not on the labels stage.
+        "pairs-pub": ["eye_pre_flash.classifier.pairwise", "--scope", "publication"],
+        "pairs-all": ["eye_pre_flash.classifier.pairwise", "--scope", "all"],
+        "pairs-allplus": ["eye_pre_flash.classifier.pairwise", "--scope", "allplus"],
     }
 
 
@@ -102,7 +109,8 @@ def main():
         run(name, plan[name], dry_run=args.dry_run)
     print(
         f"\n{'=' * 72}\npipeline finished in {(time.time() - t0) / 60:.1f} min\n"
-        f"Results under eye_pre_flash/classifier/out/decoding/\n{'=' * 72}",
+        f"Results under eye_pre_flash/classifier/out/"
+        f"{{decoding,pairwise}}/\n{'=' * 72}",
         flush=True,
     )
 

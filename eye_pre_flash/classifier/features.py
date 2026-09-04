@@ -54,13 +54,13 @@ from data.occupancy import (
     fix_start_ms,
     ngram_proportions,
 )
-from eye_pre_flash.plotting.plot_io import PRE_FIX_START_MS
+from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
 
 KS = (6, 12)
 SPACES = ("unith", "deg")
 
 DEFAULT_START_MS = PRE_FIX_START_MS
-DEFAULT_END_MS = 0
+DEFAULT_END_MS = PRE_FIX_END_MS
 
 GRID_LO = 5
 GRID_HI = 10

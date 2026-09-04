@@ -178,31 +178,41 @@ Saved to `neural_traces/plotting/out/` as `<decoder>_<window>_traces.png`:
 
 ### Plots (`eye_pre_flash/plotting/`)
 
-Every script writes to `eye_pre_flash/plotting/out/<script name>/`. All take
-`--monkey`; the per-trial viewers take `--session`, `--maze`, `--view`
-(`maze` / `trials` / `trial`), `--trial-id`, and `--mode`.
+Five families, one subpackage each; every script writes to
+`eye_pre_flash/plotting/out/<family>/<script>/`. All take `--monkey`; the
+per-trial viewers take `--session`, `--maze`, `--view` (`maze` / `trials` /
+`trial`), `--trial-id`, and `--mode`.
 
-**Per-trial and per-maze gaze**
+| Family | Contents |
+| ------ | -------- |
+| `saccades/` | per-trial and per-maze gaze traces |
+| `heatmap_maze/` | gaze heatmaps grouped by maze regime |
+| `heatmap_label/` | the same renderings grouped by decoded neural label |
+| `similarities/` | maze-to-maze similarity matrices |
+| `movie/` | eye-tracking QC movies |
+
+**Per-trial and per-maze gaze** (`saccades/`, `movie/`)
 
 | Script | Shows |
 | ------ | ----- |
-| `saccades` | pre-fixation gaze aligned to `fix_start`, per session and maze |
-| `labeled_saccades` | the same, with pymovements event labels |
-| `attractor_saccades` | the same, with codebook state assignments (`out/.../k<K>/maze_<n>/`) |
-| `movie` | eye-tracking QC movies for the june_24 session |
+| `saccades.traces` | pre-fixation gaze aligned to `fix_start`, per session and maze |
+| `saccades.labeled` | the same, with pymovements event labels |
+| `saccades.attractor` | the same, with codebook state assignments (`out/.../k<K>/maze_<n>/`) |
+| `movie.qc` | eye-tracking QC movies for the june_24 session |
 
 2D plots save by default; 3D plots (`--mode 3d`) display interactively unless
 `--save` is passed.
 
 ```bash
-uv run python -m eye_pre_flash.plotting.saccades --session june_24_g0 --maze 1
-uv run python -m eye_pre_flash.plotting.saccades --session june_24_g0 --maze 1 --view trials
-uv run python -m eye_pre_flash.plotting.attractor_saccades --session june_24_g0 --maze 3 --view trial --trial-id 141
+uv run python -m eye_pre_flash.plotting.saccades.traces --session june_24_g0 --maze 1
+uv run python -m eye_pre_flash.plotting.saccades.traces --session june_24_g0 --maze 1 --view trials
+uv run python -m eye_pre_flash.plotting.saccades.attractor --session june_24_g0 --maze 3 --view trial --trial-id 141
 ```
 
-**Gaze heatmaps.** `heatmaps` is per maze across all sessions (±20°,
-linear count/trial). The `_sum` family pools hierarchical mazes against
-sequential mazes; the suffixes compose:
+**Gaze heatmaps by maze regime** (`heatmap_maze/`). `core` is per maze across
+all sessions (±20°, linear count/trial). The `sum` family pools hierarchical
+mazes against sequential mazes (`data.labeler.MAZE_GROUPS`); the suffixes
+compose:
 
 | Suffix | Effect |
 | ------ | ------ |
@@ -211,30 +221,48 @@ sequential mazes; the suffixes compose:
 | `_norm` | normalized to unit H |
 | `_diff` | hierarchical minus sequential, unit H only |
 
-giving `heatmaps_sum`, `_sum_log`, `_sum_norm`, `_sum_log_norm`,
-`_sum_norm_diff`, and `_sum_log_norm_diff`.
+giving `sum`, `sum_log`, `sum_norm`, `sum_log_norm`, `sum_norm_diff`, and
+`sum_log_norm_diff`.
 
 ```bash
-uv run python -m eye_pre_flash.plotting.heatmaps --monkey Faure --maze 1
-uv run python -m eye_pre_flash.plotting.heatmaps_sum_log_norm --monkey Nielsen
+uv run python -m eye_pre_flash.plotting.heatmap_maze.core --monkey Faure --maze 1
+uv run python -m eye_pre_flash.plotting.heatmap_maze.sum_log_norm --monkey Nielsen
 ```
 
-**Maze-to-maze similarity** (6×6 session-averaged split-half Pearson *r*).
-Procedure and results: [similarity.md](similarity.md).
+**Gaze heatmaps by decoded label** (`heatmap_label/`). The same six
+renderings, with the same module names, but the two pools are the trials the
+neural clustering *labelled* hierarchical and sequential rather than the mazes
+assumed to be solved that way — all six mazes mix into both pools. Only
+sessions carrying a neural label contribute, so these take `--scope`
+(`publication` / `all` / `allplus`, exactly as in `classifier/`) and default to
+generating all three:
+
+```bash
+uv run python -m eye_pre_flash.plotting.heatmap_label.sum
+uv run python -m eye_pre_flash.plotting.heatmap_label.sum_log_norm --scope publication
+uv run python -m eye_pre_flash.plotting.heatmap_label.sum_norm_diff --monkey Faure --scope all
+```
+
+Output is `out/heatmap_label/<scope>/<script>/<monkey>/`, one level deeper than
+the maze family. Compare a pair side by side to see how much of a maze-grouped
+contrast survives when the grouping stops assuming the maze fixes the strategy.
+
+**Maze-to-maze similarity** (`similarities/`, 6×6 session-averaged split-half
+Pearson *r*). Procedure and results: [similarity.md](similarity.md).
 
 | Script | Correlates |
 | ------ | ---------- |
-| `similarities_heatmap` | unit-H gaze maps, linear `count/trial` |
-| `similarities_heatmap_log` | the same, `log1p(count/trial)` |
-| `similarities_heatmap_fixations` | the same, fixation samples only |
-| `similarities_heatmap_saccades` | the same, saccade samples only |
-| `similarities_occupancy` | seconds per codebook state |
-| `similarities_occupancy_bin` | visited / not visited per state |
-| `similarities_transition` | bigram + trigram state-run paths |
+| `similarities.heatmap` | unit-H gaze maps, linear `count/trial` |
+| `similarities.heatmap_log` | the same, `log1p(count/trial)` |
+| `similarities.heatmap_fixations` | the same, fixation samples only |
+| `similarities.heatmap_saccades` | the same, saccade samples only |
+| `similarities.occupancy` | seconds per codebook state |
+| `similarities.occupancy_bin` | visited / not visited per state |
+| `similarities.transition` | bigram + trigram state-run paths |
 
 ```bash
-uv run python -m eye_pre_flash.plotting.similarities_heatmap --monkey Faure
-uv run python -m eye_pre_flash.plotting.similarities_occupancy --monkey Nielsen --k 12
+uv run python -m eye_pre_flash.plotting.similarities.heatmap --monkey Faure
+uv run python -m eye_pre_flash.plotting.similarities.occupancy --monkey Nielsen --k 12
 ```
 
 ## Post-flash eye data (`eye_post_flash/`)

@@ -691,9 +691,7 @@ def run(
     else:
         out.append("\n(no per-trial neural strategy labels available)")
 
-    md_path = out_dir / "summary.md"
-    md_path.write_text("\n".join(out) + "\n")
-    print(f"Saved {md_path}")
+    # The summary is printed only; out/ carries figures and raw csv.
     print("\n".join(out))
 
     _figure(correct_rows, monkey, align, out_dir)

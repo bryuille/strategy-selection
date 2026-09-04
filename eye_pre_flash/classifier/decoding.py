@@ -39,10 +39,7 @@ from sklearn.model_selection import StratifiedKFold
 
 from eye_pre_flash.classifier.classifier_io import (
     out_dir,
-    render_table_latex,
-    render_table_markdown,
     render_table_png,
-    save_text,
 )
 from eye_pre_flash.classifier.features import GRID_HI, GRID_LO, N_MAZES, load_features
 from eye_pre_flash.classifier.labels import (
@@ -246,22 +243,6 @@ def bymaze_max_mask(rows):
     return mask
 
 
-def embolden(rows, mask, wrap):
-    """Rows with masked cells wrapped -- for the markdown and LaTeX renders."""
-    return [
-        [wrap(cell) if flag else cell for cell, flag in zip(row, mrow)]
-        for row, mrow in zip(rows, mask)
-    ]
-
-
-def md_bold(cell):
-    return f"**{cell}**"
-
-
-def tex_bold(cell):
-    return f"\\textbf{{{cell}}}"
-
-
 def run_monkey(monkey, sessions, *, scope, n_splits, seed):
     """Both regime tables for one monkey; returns raw long-format rows."""
     models = make_models()
@@ -273,13 +254,16 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
     mazes = np.asarray(data["maze_id"], dtype=int)
     census = counts_rows(y, mazes)
     census_cols = ["Maze", "Trials", "Hierarchical", "Sequential", "Per-maze CV"]
-    save_text(
-        f"{monkey}, scope `{scope}`: {len(sessions)} session(s) pooled: "
-        f"{', '.join(sessions)}\n\n"
-        + render_table_markdown(census_cols, census),
-        f"counts_{monkey}",
-        ".md",
+    render_table_png(
+        census_cols,
+        census,
+        stem=f"counts_{monkey}",
         rel_dir=rel_dir,
+        title=(
+            f"{monkey} -- trial census (scope: {scope}): "
+            f"{len(sessions)} session(s) pooled"
+        ),
+        footnote=", ".join(sessions),
     )
 
     for regime, space in REGIMES.items():
@@ -414,45 +398,20 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
             # value per maze, and the two verdicts render side by side in one
             # cell with independent bolding.
             masks = {m: bymaze_max_mask(by_maze[m]) for m in model_names}
-            png_rows, md_rows, tex_rows = [], [], []
+            png_rows = []
             for i in range(len(by_maze[model_names[0]])):
-                label_cell = by_maze[model_names[0]][i][0]
-                png_row, md_row, tex_row = [label_cell], [label_cell], [label_cell]
+                png_row = [by_maze[model_names[0]][i][0]]
                 for j in range(1, N_MAZES + 1):
-                    segs = [(by_maze[m][i][j], masks[m][i][j]) for m in model_names]
-                    png_row.append(tuple(segs))
-                    md_row.append(" / ".join(md_bold(t) if b else t for t, b in segs))
-                    tex_row.append(
-                        " / ".join(tex_bold(t) if b else t for t, b in segs)
+                    png_row.append(
+                        tuple(
+                            (by_maze[m][i][j], masks[m][i][j]) for m in model_names
+                        )
                     )
                 png_rows.append(png_row)
-                md_rows.append(md_row)
-                tex_rows.append(tex_row)
             maze_breaks = {i for i in range(2, len(png_rows), 2)}
             render_table_png(
                 maze_cols, png_rows, stem=maze_stem, rel_dir=rel_dir,
                 title=maze_title, group_breaks=maze_breaks, footnote=maze_note,
-            )
-            save_text(
-                maze_title
-                + "\n\n"
-                + render_table_markdown(maze_cols, md_rows)
-                + f"\n{maze_note}\n",
-                maze_stem,
-                ".md",
-                rel_dir=rel_dir,
-            )
-            save_text(
-                render_table_latex(
-                    maze_cols,
-                    tex_rows,
-                    caption=maze_title,
-                    label=f"tab:{maze_stem}",
-                    footnote=maze_note,
-                ),
-                maze_stem,
-                ".tex",
-                rel_dir=rel_dir,
             )
 
         stem = f"{'permaze' if regime == 'per-maze' else 'crossmaze'}_{monkey}"
@@ -471,27 +430,6 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
         render_table_png(
             columns, table, stem=stem, rel_dir=rel_dir, title=title,
             group_breaks=breaks, bold_mask=mask, footnote=note,
-        )
-        save_text(
-            title
-            + "\n\n"
-            + render_table_markdown(columns, embolden(table, mask, md_bold))
-            + f"\n{note}\n",
-            stem,
-            ".md",
-            rel_dir=rel_dir,
-        )
-        save_text(
-            render_table_latex(
-                columns,
-                embolden(table, mask, tex_bold),
-                caption=title,
-                label=f"tab:{stem}",
-                footnote=note,
-            ),
-            stem,
-            ".tex",
-            rel_dir=rel_dir,
         )
     return raw
 

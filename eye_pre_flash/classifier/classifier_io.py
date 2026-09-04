@@ -6,9 +6,14 @@ Mirrors ``eye_pre_flash.plotting.plot_io``: everything lands under
 
 from __future__ import annotations
 
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+
+# Vertical advance per wrapped caption line, in table-row units.
+TITLE_LINE = 0.62
+FOOT_LINE = 0.52
 
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 
@@ -92,11 +97,40 @@ def render_table_png(
     total_w = sum(widths)
 
     fig_w = total_w * 0.098 + 0.4
-    fig_h = (n_rows + 3.6) * row_height + (0.42 if title else 0)
+
+    # Title and footnote are wrapped to the table's own width. `total_w` is in
+    # units of one body character, and these two render at different sizes, so
+    # each gets its own budget scaled by its font size -- without this a long
+    # caption is drawn as one line and `bbox_inches="tight"` widens the saved
+    # png to fit it, leaving the text hanging far past the table's right edge.
+    def wrapped(text, size):
+        """Wrap to the table width, honouring the caller's own line breaks.
+
+        `textwrap.wrap` treats a newline as ordinary whitespace, so a caption
+        written with a deliberate break has to be split on it first or the
+        break is silently collapsed into a space.
+        """
+        if not text:
+            return []
+        budget = max(24, int(total_w * fontsize / size))
+        out = []
+        for para in text.split("\n"):
+            out.extend(textwrap.wrap(para, width=budget) or [""])
+        return out
+
+    title_lines = wrapped(title, fontsize + 1.0)
+    foot_lines = wrapped(footnote, fontsize - 1.5)
+
+    # Room for however many lines the wrap produced, above and below the rules.
+    head_room = 0.4 + TITLE_LINE * len(title_lines)
+    foot_room = 0.55 + FOOT_LINE * len(foot_lines)
+    y_hi = n_rows + 2.2 + head_room
+    y_lo = -foot_room
+    fig_h = (y_hi - y_lo) * row_height
     fig, ax = plt.subplots(figsize=(fig_w, fig_h))
     ax.set_axis_off()
     ax.set_xlim(0, total_w)
-    ax.set_ylim(0, n_rows + 3.6)
+    ax.set_ylim(y_lo, y_hi)
 
     edges = [0.0]
     for w in widths:
@@ -167,11 +201,11 @@ def render_table_png(
             )
     bottom = mid - 0.68 - (n_rows - 1) - 0.5
     ax.plot([0, total_w], [bottom, bottom], color="black", lw=1.5, clip_on=False)
-    if footnote:
+    for i, line in enumerate(foot_lines):
         ax.text(
             0,
-            bottom - 0.55,
-            footnote,
+            bottom - 0.55 - FOOT_LINE * i,
+            line,
             ha="left",
             va="top",
             fontsize=fontsize - 1.5,
@@ -179,11 +213,13 @@ def render_table_png(
             clip_on=False,
         )
 
-    if title:
+    # Drawn bottom-up so the first line ends up highest and the block sits
+    # directly above the top rule however many lines it runs to.
+    for i, line in enumerate(reversed(title_lines)):
         ax.text(
             0,
-            top + 0.55,
-            title,
+            top + 0.45 + TITLE_LINE * i,
+            line,
             ha="left",
             va="bottom",
             fontsize=fontsize + 1.0,
