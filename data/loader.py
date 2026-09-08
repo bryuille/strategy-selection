@@ -25,6 +25,7 @@ from data.convert import load_npz, load_session_data
 from data.labeler import (
     build_lr_choices,
     build_strategy_choices,
+    build_svm_choices,
 )
 
 
@@ -152,6 +153,28 @@ def load_strategy_choices(session=None):
             )
         },
     )["strategy_choices"]
+
+
+def load_svm_choices(session=None):
+    """Maze-1-vs-6 SVM strategy labels and CV diagnostics for `session`.
+
+    Mirrors `load_strategy_choices`'s cache convention (same key,
+    ``strategy_choices``, so `eye_pre_flash.classifier.labels` reads either
+    with only a stem change) but returns the full dict -- `svm_auc` and the
+    rest of `build_svm_choices`'s diagnostics are cached alongside it, not
+    thrown away.
+    """
+    session = resolve_session(session)
+    monkey = monkey_for_session(session)
+
+    return ensure_npz(
+        processed_npz(f"{session}_strategy_svm"),
+        lambda: build_svm_choices(
+            load_trial_timebins(session),
+            load_npz(behavioral_npz_path(monkey, session)),
+            *load_single_trial_range(session),
+        ),
+    )
 
 
 ########## Eye data (all sessions)

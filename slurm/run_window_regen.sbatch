@@ -76,7 +76,7 @@ echo
 
 # The six renderings of the maze heatmaps, plus the per-maze pass. Each takes
 # --monkey and defaults to Faure, so both are named explicitly.
-echo "=== 1/4  heatmap_maze ==="
+echo "=== 1/3  heatmap_maze ==="
 for mod in core sum sum_log sum_log_norm sum_log_norm_diff sum_norm sum_norm_diff; do
     for monkey in Faure Nielsen; do
         echo "--- heatmap_maze.$mod --monkey $monkey"
@@ -86,24 +86,17 @@ done
 
 # These default to every monkey and every scope, so a bare call is the full set.
 echo
-echo "=== 2/4  heatmap_label ==="
+echo "=== 2/3  heatmap_label ==="
 for mod in sum sum_log sum_log_norm sum_log_norm_diff sum_norm sum_norm_diff; do
     echo "--- heatmap_label.$mod"
     uv run python -m "eye_pre_flash.plotting.heatmap_label.$mod"
 done
 
 echo
-echo "=== 3/4  similarities.heatmap_eq ==="
+echo "=== 3/3  similarities.heatmap_eq ==="
 for monkey in Faure Nielsen; do
     echo "--- heatmap_eq --monkey $monkey"
     uv run python -m eye_pre_flash.plotting.similarities.heatmap_eq --monkey "$monkey"
-done
-
-echo
-echo "=== 4/4  similarities.heatmap_labels ==="
-for monkey in Faure Nielsen; do
-    echo "--- heatmap_labels --monkey $monkey"
-    uv run python -m eye_pre_flash.plotting.similarities.heatmap_labels --monkey "$monkey"
 done
 
 echo

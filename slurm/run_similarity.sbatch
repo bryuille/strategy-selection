@@ -11,8 +11,15 @@
 #      to 14 GB, converted and freed one session at a time. Sessions whose label
 #      already exists are skipped, so this is cheap once warm.
 #
-#   2. `similarities.heatmap_labels` builds the 12x12 (maze x decoded strategy)
-#      matrices for both monkeys, every scope, both bin widths.
+#   2. `corr.run --source dendro` builds the 12x12 (maze x decoded strategy)
+#      matrices for both monkeys, every feature, variant and scope, off the
+#      dendrogram labels this job builds. It replaced
+#      `similarities.heatmap_labels`, which needed both the H and S side of
+#      every maze thick enough to split -- `corr` instead computes every cell
+#      regardless of count and marks thin ones. The SVM label source
+#      (`--source svm`) needs its own label sweep first
+#      (`data.labeler --sweep --with-svm`); see `slurm/run_corr.sbatch` for
+#      the job that builds both label sources and runs the full sweep.
 #
 # Why this run exists: `data.labeler.CLUSTER_NAMING` now defaults to
 # "relative", which names the clusters by which one maze 6 favours over maze 1
@@ -25,10 +32,10 @@
 # and a WEAKLY SEPARATED flag. They are labelled anyway; anchor-maze vetting
 # decides downstream whether they enter `all`.
 #
-# Results leave ~/strategy-selection/eye_pre_flash/plotting/out/similarities/
+# Results leave ~/strategy-selection/eye_pre_flash/corr/out/dendro/
 # (run on the laptop):
-#   rsync -av engaging:strategy-selection/eye_pre_flash/plotting/out/similarities/ \
-#       ./eye_pre_flash/plotting/out/similarities/
+#   rsync -av engaging:strategy-selection/eye_pre_flash/corr/out/dendro/ \
+#       ./eye_pre_flash/corr/out/dendro/
 
 #SBATCH -J eyesim
 #SBATCH -p mit_normal
@@ -87,10 +94,8 @@ echo
 echo "labels on disk  $(ls data/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
 echo
 
-echo "=== 2/2  strategy-labelled similarity matrices ==="
-for monkey in Faure Nielsen; do
-    uv run python -m eye_pre_flash.plotting.similarities.heatmap_labels --monkey "$monkey"
-done
+echo "=== 2/2  (maze x strategy) occupancy similarity matrices (dendro labels) ==="
+uv run python -u -m eye_pre_flash.corr.run --source dendro "$@"
 
 echo
 echo "neural npz  $(du -sh data/npz/Neural_Data 2>/dev/null | cut -f1)"

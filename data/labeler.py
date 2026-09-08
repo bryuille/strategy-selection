@@ -6,6 +6,11 @@ import numpy as np
 from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.stats import fisher_exact
 from sklearn.decomposition import PCA
+from sklearn.metrics import balanced_accuracy_score, roc_auc_score
+from sklearn.model_selection import StratifiedKFold
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 from data.config import monkey_for_session
 
@@ -13,6 +18,13 @@ EARLY_TRIAL_WINDOW_SIZE = 500
 N_PCA_COMPONENTS = 3
 N_MAZES = 6
 FR_THRESH = 1.0
+
+# SVM labeller: maze-1-vs-6 stratified CV, same spec as
+# `eye_pre_flash.classifier.decoding.cv_pool` (N_SPLITS=5, SEED=0). Defined
+# locally rather than imported, so this module -- built to run standalone on
+# a compute node -- does not pull in `eye_pre_flash`.
+SVM_N_SPLITS = 5
+SVM_SEED = 0
 
 # How the two clusters get named hierarchical/sequential. See
 # `name_clusters_maze_1_6`.
@@ -94,6 +106,37 @@ CLUSTERING_SESSIONS = (
     "Nov_4_g0",
     "Nov_9_g0",
 )
+
+# Maze-1-vs-6 SVM ROC-AUC for each of the 23 `CLUSTERING_SESSIONS`, transcribed
+# from `zrefs/Dendogram_all/SNR_All_Sessions/all_session_snr_results.csv`. The
+# same quantity `build_svm_choices` recomputes below (its `svm_auc` should
+# match these to within CV-fold-assignment noise); kept here as a fixed
+# reference so a session's rank does not shift as label caches are rebuilt.
+SNR_AUC = {
+    "june_24_g0": 0.999341238471673,
+    "june_8_g0": 0.998737373737374,
+    "june_28_g0": 0.993063812921126,
+    "june_29_g0": 0.983380681818182,
+    "june_16_g0": 0.977857142857143,
+    "june_09_09_g0": 0.977531857813548,
+    "june_18_g0": 0.976758663623158,
+    "june_10_g0": 0.972524154589372,
+    "june_22_g0": 0.97123745819398,
+    "june_12_g0": 0.970520799213888,
+    "june_17_g0": 0.968567251461988,
+    "April_8_g0": 0.962453358208955,
+    "june_11_g0": 0.952031839128613,
+    "Nov_6_g0": 1.0,
+    "Oct_22_g0": 0.999896608767576,
+    "Nov_3_g0": 0.999725274725275,
+    "Nov_18_g0": 0.990064289888954,
+    "Oct_21_g0": 0.990039008080245,
+    "Nov_7_g0": 0.973597359735974,
+    "Oct_25_g0": 0.969401041666667,
+    "Nov_1_g0": 0.96875,
+    "Nov_4_g0": 0.965494505494505,
+    "Nov_9_g0": 0.957720588235294,
+}
 
 
 def build_lr_choices(data):
@@ -218,7 +261,17 @@ def name_clusters_maze_1_6(clusters, mazes, naming=None):
     return np.where(clusters == hierarchical, 0.0, 1.0)
 
 
-def build_strategy_choices(trial_timebins, data, min_value, max_value):
+def strategy_pc_scores(trial_timebins, data, min_value, max_value):
+    """The (n, 3) PCA space both the dendrogram and SVM labellers share.
+
+    Neuron QC (recorded on every trial of the window), the 501-bin post-flash
+    window mean (MATLAB's inclusive ``start:start+500`` slice), a per-neuron
+    z-score, then PCA to 3 components -- everything `build_strategy_choices`
+    used to do before naming clusters, factored out so a second labeller can
+    reuse the identical feature space rather than re-deriving it.
+
+    Returns ``(pc_scores, trial_ids, mazes, n_neurons)``.
+    """
     nrns = data["nrns"].astype(int)
     trials = data["trial_indices_all"].astype(int)
 
@@ -263,6 +316,13 @@ def build_strategy_choices(trial_timebins, data, min_value, max_value):
     pc_scores = PCA(n_components=N_PCA_COMPONENTS, random_state=0).fit_transform(
         features
     )
+    return pc_scores, trial_ids, mazes, features.shape[1]
+
+
+def build_strategy_choices(trial_timebins, data, min_value, max_value):
+    pc_scores, trial_ids, mazes, n_features = strategy_pc_scores(
+        trial_timebins, data, min_value, max_value
+    )
     clusters = (
         fcluster(linkage(pc_scores, method="ward"), t=2, criterion="maxclust") - 1
     )
@@ -271,32 +331,200 @@ def build_strategy_choices(trial_timebins, data, min_value, max_value):
     strategy_choices[trial_ids - 1] = name_clusters_maze_1_6(clusters, mazes)
     print(
         f"trials {min_value}-{max_value} ({trial_ids.size}) | "
-        f"neurons {features.shape[1]}/{nrns.max()} | "
+        f"neurons {n_features}/{data['nrns'].astype(int).max()} | "
         f"hierarchical {int(np.sum(strategy_choices == 0))} "
         f"sequential {int(np.sum(strategy_choices == 1))}"
     )
     return strategy_choices
 
 
+def build_svm_choices(
+    trial_timebins, data, min_value, max_value, *, n_splits=SVM_N_SPLITS, seed=SVM_SEED
+):
+    """Strategy labels from a maze-1-vs-6 linear SVM, projected onto all mazes.
 
-def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
-    """Build a strategy label for each session, converting and freeing as it goes.
+    Fits a linear SVM to separate maze-1 from maze-6 trials on the same 3-PC
+    space `build_strategy_choices` clusters -- the assumption being that these
+    two mazes anchor the ends of the strategy spectrum -- then classifies
+    every trial (mazes 1-6) as hierarchical/sequential from that fit. This is
+    a *supervised* alternative to the unsupervised Ward split: it can track a
+    nonlinear session shape the dendrogram's 2-cluster maxclust cannot, at the
+    cost of being defined by (and validated only on) mazes 1 and 6.
+
+    CV mirrors the reference MATLAB SVM used for session eligibility
+    (`zrefs/Dendogram_all/Compute_All_Session_SNR.m`): `K = min(n_splits,
+    n_maze_1, n_maze_6)`-fold stratified CV over the anchor trials only,
+    `SVC(kernel="linear")` behind a `StandardScaler` fit per training fold
+    (`'Standardize', true` there), `class_weight="balanced"` because anchor
+    counts run noticeably unequal (typically ~45 vs ~70) and an unweighted
+    boundary would shift toward the majority class -- which would then
+    systematically over-label mazes 2-5 with it.
+
+    Anchor trials (maze 1, 6) get their **out-of-fold** prediction, so cells
+    built from them are a real held-out measurement, not a definitional
+    artifact. Mazes 2-5 never appear in any fold's training or test split, so
+    there is no notion of "out-of-fold" for them; each gets the **mode**
+    across the `K` fold models' predictions (ties impossible at odd `K`; at
+    even `K`, broken by the sign of the mean decision function).
+
+    Returns a dict with the same ``strategy_choices`` convention as
+    `build_strategy_choices` (0.0 hierarchical / 1.0 sequential / NaN
+    unlabelled, indexed ``trial_id - 1``) plus the diagnostics needed to audit
+    and revisit the anchor/mode split: ``fold_labels`` (K, n_trials),
+    ``fold_agreement``, ``oof_pred``, ``oof_score``, ``svm_auc``,
+    ``oof_balanced_acc``, ``n_folds``, ``n_maze_1``, ``n_maze_6``,
+    ``n_neurons``, ``seed``, ``status``.
+    """
+    pc_scores, trial_ids, mazes, n_features = strategy_pc_scores(
+        trial_timebins, data, min_value, max_value
+    )
+    n_trials = trial_timebins.shape[0]
+    mazes = mazes.astype(int)
+
+    anchor = np.isin(mazes, (1, 6))
+    n_maze_1 = int(np.sum(mazes == 1))
+    n_maze_6 = int(np.sum(mazes == 6))
+    empty = {
+        "strategy_choices": np.full(n_trials, np.nan),
+        "fold_labels": np.empty((0, trial_ids.size)),
+        "fold_agreement": np.full(trial_ids.size, np.nan),
+        "oof_pred": np.full(trial_ids.size, np.nan),
+        "oof_score": np.full(trial_ids.size, np.nan),
+        "svm_auc": np.nan,
+        "oof_balanced_acc": np.nan,
+        "n_folds": 0,
+        "n_maze_1": n_maze_1,
+        "n_maze_6": n_maze_6,
+        "n_neurons": n_features,
+        "seed": seed,
+    }
+    k_folds = min(n_splits, n_maze_1, n_maze_6)
+    if k_folds < 2:
+        print(
+            f"  [svm] insufficient anchor trials for CV "
+            f"(maze-1={n_maze_1}, maze-6={n_maze_6}); skipping"
+        )
+        return {**empty, "status": "insufficient CV folds"}
+
+    y_anchor = (mazes[anchor] == 6).astype(int)  # 0 hierarchical, 1 sequential
+    X_anchor = pc_scores[anchor]
+
+    oof_score = np.full(y_anchor.shape, np.nan)
+    oof_pred = np.full(y_anchor.shape, np.nan)
+    fold_labels = np.full((k_folds, trial_ids.size), np.nan)
+
+    skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=seed)
+    for f, (train_idx, test_idx) in enumerate(skf.split(X_anchor, y_anchor)):
+        model = Pipeline(
+            [
+                ("scale", StandardScaler()),
+                (
+                    "clf",
+                    SVC(kernel="linear", class_weight="balanced", random_state=seed),
+                ),
+            ]
+        )
+        model.fit(X_anchor[train_idx], y_anchor[train_idx])
+        oof_score[test_idx] = model.decision_function(X_anchor[test_idx])
+        oof_pred[test_idx] = model.predict(X_anchor[test_idx])
+        fold_labels[f] = model.predict(pc_scores)
+
+    svm_auc = float(roc_auc_score(y_anchor, oof_score))
+    oof_balanced_acc = float(balanced_accuracy_score(y_anchor, oof_pred))
+
+    # Mode across folds for every trial; ties are impossible at odd k_folds,
+    # and at even k_folds are broken by the sign of the mean decision value
+    # (the fold models agree on the boundary even when the vote splits).
+    counts_seq = fold_labels.sum(axis=0)
+    mode_label = (counts_seq > k_folds / 2).astype(float)
+    tied = counts_seq == k_folds / 2
+    if tied.any():
+        mean_score = np.array(
+            [
+                Pipeline(
+                    [
+                        ("scale", StandardScaler()),
+                        (
+                            "clf",
+                            SVC(
+                                kernel="linear",
+                                class_weight="balanced",
+                                random_state=seed,
+                            ),
+                        ),
+                    ]
+                )
+                .fit(X_anchor, y_anchor)
+                .decision_function(pc_scores[[i]])[0]
+                for i in np.flatnonzero(tied)
+            ]
+        )
+        mode_label[tied] = (mean_score > 0).astype(float)
+    fold_agreement = np.maximum(counts_seq, k_folds - counts_seq) / k_folds
+
+    labels = mode_label.copy()
+    anchor_idx = np.flatnonzero(anchor)
+    labels[anchor_idx] = oof_pred
+
+    full_oof_score = np.full(trial_ids.size, np.nan)
+    full_oof_pred = np.full(trial_ids.size, np.nan)
+    full_oof_score[anchor_idx] = oof_score
+    full_oof_pred[anchor_idx] = oof_pred
+
+    strategy_choices = np.full(n_trials, np.nan)
+    strategy_choices[trial_ids - 1] = labels
+    print(
+        f"  [svm] {k_folds}-fold CV | anchor AUC {svm_auc:.4f} | "
+        f"balanced acc {oof_balanced_acc:.4f} | "
+        f"hierarchical {int(np.sum(labels == 0))} sequential {int(np.sum(labels == 1))}"
+    )
+    return {
+        "strategy_choices": strategy_choices,
+        "fold_labels": fold_labels,
+        "fold_agreement": fold_agreement,
+        "oof_pred": full_oof_pred,
+        "oof_score": full_oof_score,
+        "svm_auc": svm_auc,
+        "oof_balanced_acc": oof_balanced_acc,
+        "n_folds": k_folds,
+        "n_maze_1": n_maze_1,
+        "n_maze_6": n_maze_6,
+        "n_neurons": n_features,
+        "seed": seed,
+        "status": "passed",
+    }
+
+
+
+def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False, builders=None):
+    """Build strategy label(s) for each session, converting and freeing as it goes.
 
     A label is ~5 KB but is derived from a neural npz of up to ~14 GB -- `np.savez`
     is uncompressed where the mat is compressed HDF5, so the npz runs 3-6x its
     source -- plus a ~1.5 GB `trial_timebins` cache. The 23 eligible sessions
     would be ~170 GB held together, so this converts one session, writes its
-    label, then deletes both intermediates before starting the next. Peak extra
-    usage is one session, not the pool.
+    label(s), then deletes both intermediates before starting the next. Peak
+    extra usage is one session, not the pool.
 
-    A session whose label already exists is skipped, so the sweep resumes cleanly
-    after an interruption -- but its intermediates are still reclaimed, because a
-    label built by an earlier run leaves its npz behind and nothing downstream
-    reads it again.
+    `builders` (default: just the dendrogram label) is an iterable of
+    zero-argument loader callables to run against the same converted session
+    before it is freed -- e.g. ``(load_strategy_choices, load_svm_choices)``
+    runs both label kinds off one conversion instead of two, halving the
+    conversion cost when both are wanted. Each builder is resumable
+    independently: a label whose npz already exists is skipped even if a
+    sibling builder for the same session still needs to run.
+
+    A session whose *every* builder's label already exists is skipped
+    entirely, so the sweep resumes cleanly after an interruption -- but its
+    intermediates are still reclaimed, because a label built by an earlier run
+    leaves its npz behind and nothing downstream reads it again.
     """
     from data.config import neural_npz_path, processed_npz
     from data.convert import convert_kinds
     from data.loader import load_strategy_choices
+
+    if builders is None:
+        builders = (load_strategy_choices,)
 
     def reclaim(monkey, session, why):
         """Delete a session's neural intermediates. Rebuildable from `data/mat/`."""
@@ -312,21 +540,42 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
             print(f"    freed {freed:.1f} GB ({why})", flush=True)
         return freed
 
+    def label_paths(session):
+        # Each builder's cache stem, keyed by its own module-level convention
+        # (`load_strategy_choices` -> `_strategy_choices`, `load_svm_choices`
+        # -> `_strategy_svm`). Read from the function name so a new builder
+        # needs no change here.
+        stems = {
+            "load_strategy_choices": "strategy_choices",
+            "load_svm_choices": "strategy_svm",
+        }
+        return [
+            processed_npz(f"{session}_{stems[b.__name__]}")
+            for b in builders
+            if b.__name__ in stems
+        ]
+
     built, skipped, failed, reclaimed = [], [], [], 0.0
     for session in sessions:
         monkey = monkey_for_session(session)
-        label_path = processed_npz(f"{session}_strategy_choices")
-        if label_path.exists() and not overwrite:
+        paths = label_paths(session)
+        pending = [b for b, p in zip(builders, paths) if overwrite or not p.exists()]
+        if not pending:
             skipped.append(session)
-            print(f"=== {monkey} {session}: label already built ===")
+            print(f"=== {monkey} {session}: label(s) already built ===")
             if not keep_neural:
-                reclaimed += reclaim(monkey, session, "stale, label already built")
+                reclaimed += reclaim(monkey, session, "stale, labels already built")
             continue
 
-        print(f"=== {monkey} {session}: convert -> label -> free ===", flush=True)
+        print(
+            f"=== {monkey} {session}: convert -> "
+            f"{'+'.join(b.__name__ for b in pending)} -> free ===",
+            flush=True,
+        )
         try:
             convert_kinds(["neural"], monkey=monkey, sessions=[session])
-            load_strategy_choices(session)
+            for builder in pending:
+                builder(session)
             built.append(session)
         except Exception as exc:  # noqa: BLE001 - one bad session must not stop the sweep
             failed.append((session, repr(exc)))
@@ -346,7 +595,7 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False):
 
 def main():
     global CLUSTER_NAMING
-    from data.loader import load_lr_choices, load_strategy_choices
+    from data.loader import load_lr_choices, load_strategy_choices, load_svm_choices
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--type", choices=("lr", "strategy"), required=True)
@@ -355,6 +604,12 @@ def main():
         "--sweep",
         action="store_true",
         help="strategy only: convert, label and free each session in turn",
+    )
+    parser.add_argument(
+        "--with-svm",
+        action="store_true",
+        help="strategy/--sweep only: also build the maze-1-vs-6 SVM label off "
+        "the same conversion, instead of a second cold sweep later",
     )
     parser.add_argument(
         "--keep-neural",
@@ -380,15 +635,23 @@ def main():
     if args.sweep:
         if args.type != "strategy":
             parser.error("--sweep only applies to --type strategy")
+        builders = (load_strategy_choices, load_svm_choices) if args.with_svm else None
         sweep_strategy_labels(
-            jobs, keep_neural=args.keep_neural, overwrite=args.overwrite
+            jobs, keep_neural=args.keep_neural, overwrite=args.overwrite, builders=builders
         )
         return
 
-    load = load_lr_choices if args.type == "lr" else load_strategy_choices
+    if args.type == "lr":
+        loads = [load_lr_choices]
+    else:
+        loads = [load_strategy_choices, load_svm_choices] if args.with_svm else [load_strategy_choices]
     for session in jobs:
-        print(f"=== {monkey_for_session(session)} {session} {args.type} ===")
-        load(session)
+        for load in loads:
+            print(
+                f"=== {monkey_for_session(session)} {session} "
+                f"{args.type}{'' if load is not load_svm_choices else ' (svm)'} ==="
+            )
+            load(session)
 
 
 if __name__ == "__main__":

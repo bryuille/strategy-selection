@@ -1,0 +1,11 @@
+Faure | scope=all | space=deg | center=none | n=1843 trials (1295 labelled)
+
+maze trend (Spearman ρ, maze index vs gaze):
+  x: ρ=+0.157 p=1.42e-11 n=1843 | within-session mean ρ=+0.165 over 4 session(s)
+  y: ρ=-0.042 p=7.07e-02 n=1843 | within-session mean ρ=-0.041 over 4 session(s)
+
+decoded-strategy effect (sequential − hierarchical, deg):
+  x: Δ=+0.174 d=+0.327 t-p=5.65e-09 MW-p=1.11e-09 (n=564 vs 731)
+     maze-stratified Δ=+0.130 over 6 maze(s) with ≥10 trials per label
+  y: Δ=-0.031 d=-0.044 t-p=4.35e-01 MW-p=5.93e-01 (n=564 vs 731)
+     maze-stratified Δ=+0.083 over 6 maze(s) with ≥10 trials per label

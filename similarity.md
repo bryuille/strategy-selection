@@ -61,7 +61,7 @@ Output: `eye_pre_flash/plotting/out/similarities/<script name>/<monkey>/`.
 
 ---
 
-## 2. Equal trial counts: `heatmap_eq` and `heatmap_labels`
+## 2. Equal trial counts: `heatmap_eq`
 
 Every matrix in §1 is biased by trial count, and the bias runs in exactly the
 direction that makes the sequential mazes look like a block.
@@ -81,7 +81,7 @@ directly against each other:
 | Script | Matrix | Question |
 | ------ | ------ | -------- |
 | `similarities.heatmap_eq` | 6×6, maze × maze | do two mazes elicit the same gaze map, once no maze is measured better than any other? |
-| `similarities.heatmap_labels` | 12×12, (maze × decoded strategy) | inside one maze, do trials sharing a decoded strategy produce more similar gaze maps than trials that don't? |
+| `corr.run` | 12×12, (maze × strategy) | inside one maze, do trials sharing a decoded strategy produce more similar gaze? (see below) |
 
 ### `heatmap_eq` — the maze matrix with counts equalised
 
@@ -99,89 +99,36 @@ Only equalisation is applied — no disattenuation, no rescaling. The diagonal
 stays a measured quantity, and a maze whose gaze map is genuinely less
 reproducible than another's still shows it.
 
-### `heatmap_labels` — the same matrix split by decoded strategy
-
-The 6×6 matrices cannot separate strategy from geometry. Strategy is close to a
-deterministic function of (session, maze), so "mazes 4–6 resemble each other"
-and "sequentially-solved trials resemble each other" are the same statement
-about the same trials — which is the passive-visual-geometry alternative that
-`eye_pre_flash/classifier/classifier.md`'s reviewer response exists to rule out.
-Nothing computed across mazes can rule it out.
-
-So each maze's trials are split by their **decoded neural label**, giving a
-12×12 matrix over the (maze, strategy) cells: mazes 1–6 labelled hierarchical,
-then mazes 1–6 labelled sequential. Cell `(i, j)` is the split-half CV Pearson
-*r* between two cells' gaze maps, computed exactly as in §1, so the diagonal is
-again each cell's own reliability.
-
-Three readings, in order of how much they can settle:
-
-1. **Within a maze, H vs S** — the boxed cells. Geometry is identical on both
-   sides, so `r(H, S)` sitting below that maze's two same-strategy diagonals is
-   strategy-dependent sampling with the visual confound removed by
-   construction. This is the decisive comparison, and the report tabulates it.
-2. **Same strategy, different maze** — inside a quadrant. Does a decoded
-   strategy look like itself across geometries?
-3. **The two off-diagonal quadrants** — cross-strategy similarity overall.
-
-Counts are balanced across all twelve cells, not just across mazes. Without
-that, the majority strategy in each maze would carry the higher reliability and
-correlate higher with everything — the same bias `heatmap_eq` removes, running
-along the strategy axis and manufacturing the effect being looked for.
-
-**The matrix rests on one common session set.** Cells qualify in different
-numbers of sessions, and sessions differ enormously in overall correlation
-level — in Faure's `all` scope one session carries roughly double everyone
-else's reliability and supplies *only* the six majority cells. Letting each pair
-average over whichever sessions hold its two cells therefore inflates every pair
-that happens to include that day, and the inflation reads as block structure:
-before this was fixed, `4S` looked more similar to `1H`–`3H` (0.425) than to its
-own maze's `4H` (0.318). Restricted to the sessions holding both, the ordering
-reverses to 0.297 vs 0.316 — same maze, different strategy is the *higher* one,
-as shared geometry predicts.
-
-So `common_cell_set` identifies the **comparable core**: the largest cell set
-that a single shared set of sessions all supply, maximising cells and then
-sessions. Nothing is dropped for it — every cell is still plotted and reported,
-because hiding thin cells hides how thin the design is. Instead, entries that do
-not rest on the core's shared sessions are marked `*` (and so are the axis
-labels of cells outside it). A marked value is a real measurement; it just
-averages over different recording days than an unmarked one, so **a marked entry
-must not be read against an unmarked one**. The report also gives the core
-recomputed on its single session set, where everything is comparable with
-everything else.
-
-The within-maze table uses its own, more permissive matching: for each maze,
-the sessions where both of *that* maze's cells qualified. That is a per-maze
-comparison, so it does not need one global session set and keeps more data.
-
-A cell needs `--min-trials` trials in a session to enter at all, and one thin
-cell lowers the half size for every other cell in that session, so raising
-`--min-trials` trades cells for cleaner maps.
-
-### Scopes
-
-`heatmap_labels` needs neural labels, so it runs each label scope separately
-into its own subfolder, matching `classifier/out/decoding/`:
-
-| Scope | Sessions |
-| ----- | -------- |
-| `publication` | the 4 the published clustering was defined on (2 per monkey) |
-| `all` | SNR-eligible and label-vetted — the primary set (8 in practice) |
-| `allplus` | SNR-eligible, vetting skipped (13 in practice) |
-
-`heatmap_eq` needs no labels and runs on every session, like the rest of §1.
-
 ```bash
 uv run python -m eye_pre_flash.plotting.similarities.heatmap_eq --monkey Faure
 uv run python -m eye_pre_flash.plotting.similarities.heatmap_eq --monkey Nielsen --n-half 20
-uv run python -m eye_pre_flash.plotting.similarities.heatmap_labels --monkey Nielsen
-uv run python -m eye_pre_flash.plotting.similarities.heatmap_labels --monkey Faure --scope all --min-trials 10
 ```
 
-Output: `heatmap_eq/<monkey>/` and `heatmap_labels/<scope>/<monkey>/` under
-`eye_pre_flash/plotting/out/similarities/`, as `.png`; `heatmap_labels` also
-writes a `.md` with the census, the within-maze table and the full matrix.
+Output: `heatmap_eq/<monkey>/` under `eye_pre_flash/plotting/out/similarities/`,
+as `.png`.
+
+### Splitting a maze by decoded strategy
+
+This section used to carry `heatmap_labels`, a 12×12 over the (maze × decoded
+strategy) cells built the same split-half way as `heatmap_eq`, against
+102,400-dim spatial gaze maps. It has been **replaced by**
+[`eye_pre_flash/corr/corr.md`](eye_pre_flash/corr/corr.md), which asks the same
+group-vs-group question against low-dimensional codebook-occupancy vectors
+(d = 6–144) instead — a deliberately different fix for the same coverage
+problem, not a different method.
+
+The reason `heatmap_labels` was retired is coverage: group-vs-group needs every
+cell thick enough to split, so both the H *and* S side of every maze had to
+clear `--min-trials` — which forced the analysis onto `allplus` and still left
+most cells blank. `corr` answers this by **computing every cell regardless of
+count** and marking thin ones (`*`) rather than dropping them, and by adding a
+second, supervised label source (a maze-1-vs-6 linear SVM) alongside the
+dendrogram clustering. It does not column-centre; instead it reports two
+feature variants (`no_origin`, `pc1_removed`) that strip the dominant
+central-fixation profile the low-dimensional vectors share, and a
+within-(session, maze) label-shuffle permutation null in place of an assumed
+error bar, since a Pearson over as few as 6–12 points should have its noise
+floor measured rather than assumed.
 
 ---
 

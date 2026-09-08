@@ -11,6 +11,7 @@ hierarchical/sequential strategy state.
 | [eye_post_flash/post_flash.md](eye_post_flash/post_flash.md) | post-feedback counterfactual saccades by strategy regime: the measure, the alternative-ranking model, alignment modes |
 | [alt_defense.md](alt_defense.md) | the reviewer-response framing the decoding results support, with the numbers behind it |
 | [similarity.md](similarity.md) | maze-to-maze split-half similarity CV, and results across k |
+| [eye_pre_flash/corr/corr.md](eye_pre_flash/corr/corr.md) | the 12×12 (maze × strategy) occupancy similarity matrix: dendro vs. SVM labels, the origin/PC1 variants, the permutation null |
 | [cloud.md](cloud.md) | running the pipeline on Engaging (Slurm, quota, rsync) |
 
 ## Setup
@@ -264,6 +265,38 @@ Pearson *r*). Procedure and results: [similarity.md](similarity.md).
 uv run python -m eye_pre_flash.plotting.similarities.heatmap --monkey Faure
 uv run python -m eye_pre_flash.plotting.similarities.occupancy --monkey Nielsen --k 12
 ```
+
+**One 12×12 matrix over (maze × strategy)** (`eye_pre_flash/corr/`). The 6×6
+matrices above cannot separate strategy from geometry, because strategy is
+close to a deterministic function of (session, maze). This splits each maze's
+trials by a decoded neural strategy label and correlates the resulting
+codebook-occupancy vectors, in the same split-half CV style as
+`similarities.heatmap_eq` extended to the label axis — independent trial
+halves throughout, so the diagonal is a cell's own split-half reliability. It
+replaced `similarities.heatmap_labels`.
+
+| | Fixed | Varied | Where |
+| --- | --- | --- | --- |
+| **boxed cells** | maze | strategy | same maze, H vs S — the decisive read |
+| **quadrant** | strategy | maze | inside one strategy block |
+
+Read as `(r(H,H)+r(S,S))/2 − r(H,S)`, which self-normalises: a group whose
+trials are less correlatable lowers its own diagonal too. Two label sources —
+the existing dendrogram (Ward) clustering, and a maze-1-vs-6 linear SVM
+projected onto every trial, for sessions whose neural strategy shape the
+dendrogram's 2-cluster split can't separate — and three feature variants
+(`full`, `no_origin`, `pc1_removed`) that test whether central fixation is
+what compresses the 6×6 matrices' dynamic range. A within-(session, maze)
+label-shuffle permutation null stands in for a bootstrap CI, since the
+estimator's noise floor at d = 6–144 should be measured, not assumed. Full
+reference: [eye_pre_flash/corr/corr.md](eye_pre_flash/corr/corr.md).
+
+```bash
+uv run python -m eye_pre_flash.corr.run --scope allplus
+uv run python -m eye_pre_flash.corr.run --source svm --feature occupancy --monkey Faure
+```
+
+Output: `eye_pre_flash/corr/out/<source>/<feature>/<variant>/<scope>/`.
 
 ## Post-flash eye data (`eye_post_flash/`)
 

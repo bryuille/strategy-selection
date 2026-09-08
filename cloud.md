@@ -229,6 +229,27 @@ sbatch slurm/run_post_flash.sbatch
 rsync -av engaging:strategy-selection/eye_post_flash/out/ ./eye_post_flash/out/
 ```
 
+**Maze x decoded-strategy occupancy similarity (`eye_pre_flash/corr/`).** This
+is the job that needs the cluster, not the laptop: its SVM label source
+(`--source svm`) needs the same cold ~23-session neural conversion the
+dendrogram label sweep already paid once, and only 4 sessions' neural npz
+stay on disk locally. `--with-svm` builds both label kinds off one
+conversion, so this is one job, not two:
+
+```bash
+sbatch slurm/run_corr.sbatch
+# a single source, feature or scope re-runs without editing the script:
+sbatch slurm/run_corr.sbatch --source svm --scope allplus --monkey Faure
+# results leave ~/strategy-selection/eye_pre_flash/corr/out/ (run on the laptop):
+rsync -av engaging:strategy-selection/eye_pre_flash/corr/out/ ./eye_pre_flash/corr/out/
+```
+
+The analysis half is quick once labels exist — the 12x12 per-split
+correlation is vectorised (two matrix multiplies, not 144 individual
+`pearson()` calls), measured at ~40s per (source, feature, variant, monkey,
+k, space) leaf's `allplus` scope with `--n-perm 1000` — so the 12h budget is
+headroom for the label sweep, not the analysis.
+
 ## Monitor
 
 ```bash

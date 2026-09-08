@@ -105,7 +105,7 @@ def _collect_trials(
     With `label_lookup` (``(session, trial_id) -> 0/1``, from
     `classifier.labels.strategy_label_lookup`), trials without a decoded
     strategy label are dropped and each entry becomes ``(x, y, label)`` instead
-    of ``(x, y)`` -- what `similarities.heatmap_labels` needs to split a maze's
+    of ``(x, y)`` -- what a caller needs to split a maze's
     trials by strategy.
     """
     lookup = _behavioral_lookup(behavioral)
