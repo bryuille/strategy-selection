@@ -51,6 +51,10 @@ cd "$SLURM_SUBMIT_DIR"
 # uv installs to ~/.local/bin and is not on PATH in a non-login shell.
 export PATH="$HOME/.local/bin:$PATH"
 
+# mat/npz/processed live on scratch, not the 200G /home quota -- see
+# cloud.md "Storage: scratch, not /home".
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
+
 # Nested parallelism is the classic way to make an HPC job slower than a laptop.
 # RandomForest uses n_jobs=-1, so joblib forks one worker per core; if each
 # worker also gets a full BLAS thread pool they fight over the same cores.
@@ -68,7 +72,7 @@ echo "host        $(hostname)"
 echo "cores       ${SLURM_CPUS_PER_TASK:-?}"
 echo "mem         ${SLURM_MEM_PER_NODE:-?} MB"
 echo "started     $(date)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo
 
 uv run python -m eye_pre_flash.classifier.pipeline "$@"
@@ -76,6 +80,6 @@ uv run python -m eye_pre_flash.classifier.pipeline "$@"
 echo
 # The sweep frees each session before starting the next, so this should sit near
 # one session's size. If it has grown to tens of GB, the reclaim is not firing.
-echo "neural npz  $(du -sh data/npz/Neural_Data 2>/dev/null | cut -f1)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "neural npz  $(du -sh "$STRATEGY_DATA_ROOT/npz/Neural_Data" 2>/dev/null | cut -f1)"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo "finished    $(date)"

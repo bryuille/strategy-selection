@@ -14,20 +14,26 @@
 #
 #   1. `data.labeler --sweep --with-svm` builds any missing strategy label,
 #      of BOTH kinds, off one conversion per session -- a label is ~5 KB but
-#      comes from a neural recording of up to 14 GB, converted and freed one
-#      session at a time. This is why `--with-svm` matters here: converting
-#      once and building both labels before freeing the neural npz halves the
-#      cluster cost against running the dendrogram sweep and a later SVM
-#      sweep separately. Sessions whose label(s) already exist are skipped,
-#      so this is cheap once warm.
+#      comes from a neural recording of up to 14 GB. This is why `--with-svm`
+#      matters here: converting once and building both labels off it avoids a
+#      second cold conversion pass against running the dendrogram sweep and a
+#      later SVM sweep separately. Sessions whose label(s) already exist are
+#      skipped, so this is cheap once warm. The converted neural npz and
+#      `trial_timebins` cache are left in place afterward, not deleted --
+#      `STRATEGY_DATA_ROOT` (below) points them at scratch, not the 200G
+#      /home quota that used to make deleting them worth it -- so a later
+#      rerun or a different analysis over the same sessions does not pay the
+#      conversion cost again. Pass `--reclaim-neural` to `data.labeler` to
+#      restore the old delete-as-you-go behaviour.
 #
 #   2. `classifier.features` builds any missing occupancy/bigram feature
-#      cache (both K, both spaces, both monkeys) -- cheap once warm, since it
-#      is keyed off the eye data, not the neural data.
+#      cache (both K, both monkeys) -- cheap once warm, since it is keyed off
+#      the eye data, not the neural data. `corr` is unit-H only (`corr.md`
+#      section 5), so the `deg` caches are not built for it.
 #
 #   3. `corr.run` sweeps 2 label sources x 3 features x 3 variants x 3 scopes
-#      x 2 monkeys x 2 K x 2 spaces and writes figures plus `results_raw.csv`
-#      / `nulls.csv` / `examples*.csv` per leaf.
+#      x 2 monkeys x 2 K and writes figures plus `results_raw_k<K>.csv`
+#      / `nulls_k<K>.csv` / `examples*_k<K>.csv` per leaf.
 #
 # `corr` revives the retired `similarities.heatmap_labels` (a 12x12 over
 # (maze x decoded strategy) built the same split-half way, against
@@ -70,14 +76,15 @@
 #
 #   time   two costs stack here. The label sweep is a cold ~23-session neural
 #          conversion the first time either label kind is built (only 4
-#          sessions' neural npz stay on disk locally; the sweep frees the
-#          rest as it goes) -- this is why the job runs on the cluster rather
-#          than the laptop. The analysis half is vectorised (the 12x12
+#          sessions' neural npz stay on disk on the laptop; scratch on the
+#          cluster has room to keep all 23, so a rerun after this job is warm
+#          throughout) -- this is why the job runs on the cluster rather than
+#          the laptop. The analysis half is vectorised (the 12x12
 #          per-split correlation is two matrix multiplies, not 144 individual
 #          `pearson()` calls) -- measured at ~40s for one (source, feature,
-#          variant, monkey, k, space) leaf's `allplus` scope (23 sessions,
+#          variant, monkey, k) leaf's `allplus` scope (23 sessions,
 #          --n-perm 1000, the expensive scope; `publication`/`all` are much
-#          cheaper). The full sweep is 144 such leaves, so well under 2h once
+#          cheaper). The full sweep is 72 such leaves, so well under 2h once
 #          labels exist; the 12h budget is headroom for a cold label sweep,
 #          which is resumable if it is cut short. Both halves are resumable:
 #          labels that exist are skipped, and a partial `corr.run` can be
@@ -89,6 +96,10 @@ cd "$SLURM_SUBMIT_DIR"
 
 # uv installs to ~/.local/bin and is not on PATH in a non-login shell.
 export PATH="$HOME/.local/bin:$PATH"
+
+# mat/npz/processed live on scratch, not the 200G /home quota -- see
+# cloud.md "Storage: scratch, not /home".
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
 
 # Pin BLAS to one thread; nothing here wants nested parallelism.
 export OMP_NUM_THREADS=1
@@ -103,25 +114,25 @@ echo "host        $(hostname)"
 echo "cores       ${SLURM_CPUS_PER_TASK:-?}"
 echo "mem         ${SLURM_MEM_PER_NODE:-?} MB"
 echo "started     $(date)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo
 
 echo "=== 1/3  strategy labels (dendrogram + SVM, one conversion pass) ==="
 uv run python -u -m data.labeler --type strategy --sweep --with-svm
 
 echo
-echo "dendro labels on disk  $(ls data/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
-echo "svm labels on disk     $(ls data/processed/*_strategy_svm.npz 2>/dev/null | wc -l) of 23"
+echo "dendro labels on disk  $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
+echo "svm labels on disk     $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_svm.npz 2>/dev/null | wc -l) of 23"
 echo
 
-echo "=== 2/3  occupancy/bigram feature caches (k6+k12, deg+unith, both monkeys) ==="
-uv run python -u -m eye_pre_flash.classifier.features
+echo "=== 2/3  occupancy/bigram feature caches (k6+k12, unith, both monkeys) ==="
+uv run python -u -m eye_pre_flash.classifier.features --space unith
 
 echo
 echo "=== 3/3  12x12 (maze x strategy) occupancy correlation matrices ==="
 uv run python -u -m eye_pre_flash.corr.run "$@"
 
 echo
-echo "neural npz  $(du -sh data/npz/Neural_Data 2>/dev/null | cut -f1)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "neural npz  $(du -sh "$STRATEGY_DATA_ROOT/npz/Neural_Data" 2>/dev/null | cut -f1)"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo "finished    $(date)"

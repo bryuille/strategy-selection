@@ -1,13 +1,13 @@
-"""Builders for `examples.csv` and `examples_dims.csv`.
+"""Builders for `examples_k<K>.csv` and `examples_dims_k<K>.csv`.
 
 Computed once per (label_source, feature, variant, k, space, monkey) at the
 variant level, on the widest scope (`allplus`) -- input-vector skew is a
 property of the feature and variant, not of which scope's sessions happen to
 be kept, so writing these per scope would triple identical files.
 
-Two files because the units differ: `examples.csv` is one row per (sampled
+Two files because the units differ: `examples_k<K>.csv` is one row per (sampled
 row, dimension) -- a long-format sample of what actual input vectors look
-like; `examples_dims.csv` is one row per (cell, dimension) -- the aggregate
+like; `examples_dims_k<K>.csv` is one row per (cell, dimension) -- the aggregate
 distribution that answers "is this heavily skewed to a few values". Forcing
 both into one schema would make `dim` mean two different things and leave a
 NaN-heavy column union.
@@ -30,6 +30,9 @@ DIM_COLUMNS = (
     "cell_name", "n_trials", "dim", "dim_label", "frac_zero", "min", "p05", "p25",
     "median", "p75", "p95", "max", "mean", "std", "n_distinct", "top_value",
     "top_value_frac", "mean_n_nonzero_per_trial", "pc1_explained_var", "pc1_loading",
+    "pc1_mean_cos", "pc1_mean_cos_abs", "pc1_label_pointbiserial",
+    "pc1_label_pointbiserial_within", "pc1_label_within_n_groups",
+    "pc1_label_within_n_trials", "grand_mean_norm", "grand_mean_profile",
 )
 
 
@@ -153,13 +156,26 @@ def _vector_summary(block, meta, cell_name, n_trials):
     )
 
 
-def dimension_stat_rows(X, mazes, y, *, dims, meta, pc1_info=None):
-    """Per-dimension distribution stats, per cell and pooled, plus the PC1 diagnostic.
+def dimension_stat_rows(X, mazes, y, *, dims, meta, fit_info=None):
+    """Per-dimension distribution stats, per cell and pooled, plus two fit rows.
 
-    ``pc1_info``, when given (the `variants.pc1_removed` fit), is
-    ``(loading_vector, explained_variance_fraction)`` -- if PC1 explains
-    almost all the variance, that number is the headline result of the whole
-    variant diagnostic.
+    ``fit_info``, when given (only on the `mean_removed` leaf, since both fits
+    are properties of the untransformed block and would be identical under
+    every variant), is ``{"pc1": vec, "mean_profile": vec, "stats": {...}}``
+    from `variants.fit_pc1` / `fit_grand_mean` / `pc1_diagnostics`. It adds:
+
+    ``dim="__mean__"``  the grand-mean profile `mean_removed` subtracts, and
+                        its L2 norm -- the thing being removed, recorded so a
+                        result can be re-derived without refitting.
+    ``dim="__pc1__"``   the audit of the retired `pc1_removed`: how much
+                        variance PC1 explained, how closely it aligned with
+                        that grand-mean profile (`pc1_mean_cos_abs`), and
+                        whether it carried the strategy label at all
+                        (`pc1_label_pointbiserial*`). See
+                        `variants.pc1_diagnostics` for how to read them; the
+                        within-(session, maze) point-biserial is the one that
+                        is not confounded by strategy being near-deterministic
+                        in (session, maze).
     """
     rows = []
     for maze, strategy, mask in _cell_masks(mazes, y):
@@ -169,13 +185,24 @@ def dimension_stat_rows(X, mazes, y, *, dims, meta, pc1_info=None):
     rows += _distribution_stats(X, dims, meta, "all", X.shape[0])
     rows.append(_vector_summary(X, meta, "all", X.shape[0]))
 
-    if pc1_info is not None:
-        pc1_vec, explained = pc1_info
+    if fit_info is not None:
+        stats = dict(fit_info.get("stats", {}))
+        mu = np.asarray(fit_info["mean_profile"], dtype=float)
+        pc1_vec = np.asarray(fit_info["pc1"], dtype=float)
+        rows.append(
+            _row(
+                DIM_COLUMNS, meta, cell_name="all", n_trials=X.shape[0], dim="__mean__",
+                dim_label="__mean__",
+                grand_mean_norm=stats.get("grand_mean_norm", ""),
+                grand_mean_profile=";".join(f"{v:.6g}" for v in mu),
+            )
+        )
         rows.append(
             _row(
                 DIM_COLUMNS, meta, cell_name="all", n_trials=X.shape[0], dim="__pc1__",
-                dim_label="__pc1__", pc1_explained_var=float(explained),
+                dim_label="__pc1__",
                 pc1_loading=";".join(f"{v:.4f}" for v in pc1_vec),
+                **{c: stats[c] for c in DIM_COLUMNS if c in stats},
             )
         )
     return rows

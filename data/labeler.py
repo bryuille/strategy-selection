@@ -496,28 +496,37 @@ def build_svm_choices(
 
 
 
-def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False, builders=None):
-    """Build strategy label(s) for each session, converting and freeing as it goes.
+def sweep_strategy_labels(sessions, *, reclaim_neural=False, overwrite=False, builders=None):
+    """Build strategy label(s) for each session, converting as it goes.
 
     A label is ~5 KB but is derived from a neural npz of up to ~14 GB -- `np.savez`
     is uncompressed where the mat is compressed HDF5, so the npz runs 3-6x its
-    source -- plus a ~1.5 GB `trial_timebins` cache. The 23 eligible sessions
-    would be ~170 GB held together, so this converts one session, writes its
-    label(s), then deletes both intermediates before starting the next. Peak
-    extra usage is one session, not the pool.
+    source -- plus a ~1.5 GB `trial_timebins` cache.
+
+    ``reclaim_neural`` (default off) deletes both intermediates after each
+    session instead of leaving them cached, capping the extra usage at one
+    session instead of the pool -- the 23 eligible sessions total ~170 GB kept
+    together. This was the *default* while everything lived under the
+    cluster's 200 GB `/home` quota; now that `data.config`'s roots point at a
+    much larger scratch volume by default there (`STRATEGY_DATA_ROOT`), the
+    intermediates are worth keeping: a converted session's neural npz and
+    `trial_timebins` cache are reused by anything else that touches that
+    session, not just this sweep. Pass ``reclaim_neural=True`` to restore the
+    old space-constrained behaviour.
 
     `builders` (default: just the dendrogram label) is an iterable of
     zero-argument loader callables to run against the same converted session
-    before it is freed -- e.g. ``(load_strategy_choices, load_svm_choices)``
-    runs both label kinds off one conversion instead of two, halving the
-    conversion cost when both are wanted. Each builder is resumable
-    independently: a label whose npz already exists is skipped even if a
-    sibling builder for the same session still needs to run.
+    -- e.g. ``(load_strategy_choices, load_svm_choices)`` runs both label
+    kinds off one conversion instead of two, halving the conversion cost when
+    both are wanted. Each builder is resumable independently: a label whose
+    npz already exists is skipped even if a sibling builder for the same
+    session still needs to run.
 
     A session whose *every* builder's label already exists is skipped
-    entirely, so the sweep resumes cleanly after an interruption -- but its
-    intermediates are still reclaimed, because a label built by an earlier run
-    leaves its npz behind and nothing downstream reads it again.
+    entirely, so the sweep resumes cleanly after an interruption. With
+    ``reclaim_neural=True`` its intermediates are still reclaimed even when
+    skipped, because a label built by an earlier run leaves its npz behind and
+    nothing downstream reads it again.
     """
     from data.config import neural_npz_path, processed_npz
     from data.convert import convert_kinds
@@ -563,13 +572,13 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False, build
         if not pending:
             skipped.append(session)
             print(f"=== {monkey} {session}: label(s) already built ===")
-            if not keep_neural:
+            if reclaim_neural:
                 reclaimed += reclaim(monkey, session, "stale, labels already built")
             continue
 
         print(
             f"=== {monkey} {session}: convert -> "
-            f"{'+'.join(b.__name__ for b in pending)} -> free ===",
+            f"{'+'.join(b.__name__ for b in pending)} ===",
             flush=True,
         )
         try:
@@ -581,7 +590,7 @@ def sweep_strategy_labels(sessions, *, keep_neural=False, overwrite=False, build
             failed.append((session, repr(exc)))
             print(f"    FAILED {session}: {exc!r}", flush=True)
         finally:
-            if not keep_neural:
+            if reclaim_neural:
                 reclaimed += reclaim(monkey, session, "converted and labelled")
 
     print(
@@ -603,7 +612,7 @@ def main():
     parser.add_argument(
         "--sweep",
         action="store_true",
-        help="strategy only: convert, label and free each session in turn",
+        help="strategy only: convert and label each session in turn",
     )
     parser.add_argument(
         "--with-svm",
@@ -612,9 +621,13 @@ def main():
         "the same conversion, instead of a second cold sweep later",
     )
     parser.add_argument(
-        "--keep-neural",
+        "--reclaim-neural",
         action="store_true",
-        help="with --sweep, do not delete the neural npz after labelling",
+        help="with --sweep, delete the neural npz and trial_timebins cache "
+        "after labelling each session, instead of leaving them cached -- the "
+        "old default from when everything shared the cluster's 200 GB /home "
+        "quota; off by default now that STRATEGY_DATA_ROOT can point at a "
+        "much larger scratch volume",
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
@@ -637,7 +650,7 @@ def main():
             parser.error("--sweep only applies to --type strategy")
         builders = (load_strategy_choices, load_svm_choices) if args.with_svm else None
         sweep_strategy_labels(
-            jobs, keep_neural=args.keep_neural, overwrite=args.overwrite, builders=builders
+            jobs, reclaim_neural=args.reclaim_neural, overwrite=args.overwrite, builders=builders
         )
         return
 

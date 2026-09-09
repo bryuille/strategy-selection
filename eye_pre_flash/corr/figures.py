@@ -1,8 +1,8 @@
 """The 12x12 (maze x strategy) heatmap.
 
 Carries over the deleted `heatmap_labels.plot_labels`' furniture verbatim
-(figure size, parula colormap, quadrant split, boxed same-maze cells,
-colorbar geometry, luminance-switched annotations) -- see `similarity.md`'s
+(figure size, parula colormap, quadrant split, colorbar geometry,
+luminance-switched annotations) -- see `similarity.md`'s
 house style and `eye_pre_flash.classifier.pairwise.plot_matrix`'s docstring,
 which both describe the same convention. What changed is listed in the
 module-level comment on `plot_label_matrix`.
@@ -75,12 +75,18 @@ def plot_label_matrix(
     3. The `*` mark means "thin" (below `--min-stable` in most of the
        sessions it appeared in), not "off the comparable core" -- that
        exhaustive-subset restriction was deliberately dropped from plotting
-       (still reconstructable from `results_raw.csv`).
+       (still reconstructable from `results_raw_k<K>.csv`).
     4. SVM source: the anchor-minority cells (1S, 6H) are blank by design, not
        for lack of coverage -- the footer says so.
     5. Always emitted, however thin the coverage -- no skip path.
     6. Saved at dpi=300 through `corr_io.save_figure` (this package mirrors
        the classifier tree's dpi, not the plotting tree's).
+    7. No per-cell boxes on the same-maze `(m, H)` vs `(m, S)` pairs. Those
+       are still the read of record (`corr.md`), but as one bold cell per
+       maze they drew a second diagonal through the off-diagonal quadrants
+       that read as structure in the data. Their addresses are fixed and
+       given by `cells.cell_index(maze, strategy)`; the quadrant split lines
+       are enough to locate them.
     """
     n = cellmod.N_CELLS
     names = cellmod.cell_labels()
@@ -107,14 +113,6 @@ def plot_label_matrix(
     split = len(cellmod.MAZES) - 0.5
     ax.axhline(split, color="black", lw=1.6)
     ax.axvline(split, color="black", lw=1.6)
-    for maze in cellmod.MAZES:
-        h, s = cellmod.cell_index(maze, 0), cellmod.cell_index(maze, 1)
-        for i, j in ((h, s), (s, h)):
-            if not np.isfinite(corr[i, j]):
-                continue
-            ax.add_patch(
-                plt.Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, edgecolor="black", lw=1.8)
-            )
 
     rate_label = FEATURE_RATE_LABEL.get(feature, feature)
     feature_label = FEATURE_LABEL.get(feature, feature)
@@ -153,11 +151,13 @@ def plot_label_matrix(
                 fontsize=6,
             )
 
-    fig.text(
-        0.01, 0.01,
+    # `supxlabel`, not `fig.text`: constrained layout reserves vertical space
+    # for a supxlabel but not for free-floating figure text, which put this
+    # note on top of the x tick labels and the axis label.
+    fig.supxlabel(
         f"* = fewer than {min_stable} trials in a cell in most sessions, high variance, "
         f"not comparable with unmarked entries",
-        fontsize=6, color="0.3", ha="left",
+        x=0.01, ha="left", fontsize=6, color="0.3",
     )
 
     save_figure(fig, stem, rel_dir=rel_dir)

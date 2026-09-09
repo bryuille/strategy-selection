@@ -57,6 +57,10 @@ cd "$SLURM_SUBMIT_DIR"
 # uv installs to ~/.local/bin and is not on PATH in a non-login shell.
 export PATH="$HOME/.local/bin:$PATH"
 
+# mat/npz/processed live on scratch, not the 200G /home quota -- see
+# cloud.md "Storage: scratch, not /home".
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
+
 # Pin BLAS to one thread; nothing here wants nested parallelism.
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
@@ -70,7 +74,7 @@ echo "host        $(hostname)"
 echo "cores       ${SLURM_CPUS_PER_TASK:-?}"
 echo "mem         ${SLURM_MEM_PER_NODE:-?} MB"
 echo "started     $(date)"
-echo "labels      $(ls data/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23 on disk"
+echo "labels      $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23 on disk"
 echo "window      $(uv run python -c 'from eye_pre_flash.plotting.plot_io import window_label; print(window_label())')"
 echo
 
@@ -100,5 +104,5 @@ for monkey in Faure Nielsen; do
 done
 
 echo
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo "finished    $(date)"

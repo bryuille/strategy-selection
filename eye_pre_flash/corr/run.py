@@ -21,18 +21,24 @@ with a within-(session, maze) label-shuffle permutation null -- because at
 d as low as 6 or 12 the estimator's own noise floor should not be assumed,
 it should be measured.
 
-For each (label_source, feature, variant, k, space) this loads
-`eye_pre_flash.classifier.features.load_features` once per (monkey, k,
-space) and reuses it across every source, variant and scope; writes
-`examples.csv` / `examples_dims.csv` once per (source, feature, variant) at
-the widest scope; and per (scope, monkey) writes a figure plus rows into a
-shared `results_raw.csv` / `nulls.csv` for that leaf.
+Everything here is unit-H (`SPACE`); `deg` was dropped as a swept axis
+because a degree-space codebook re-encodes maze geometry (see the comment on
+`SPACE` and `corr.md` section 5).
+
+For each (label_source, feature, variant, k) this loads
+`eye_pre_flash.classifier.features.load_features` once per (monkey, k) and
+reuses it across every source, variant and scope; writes
+`examples_k<k>.csv` / `examples_dims_k<k>.csv` once per (source, feature,
+variant) at the widest scope; and per (scope, monkey) writes a figure plus
+rows into a shared `results_raw_k<k>.csv` / `nulls_k<k>.csv` for that leaf.
+The CSV stems carry `k` because `write_rows` truncates: with `k` only in the
+sweep and not in the path, each k overwrote the previous one's rows.
 
 Usage:
     uv run python -m eye_pre_flash.corr.run
     uv run python -m eye_pre_flash.corr.run --source svm --scope allplus --monkey Nielsen
-    uv run python -m eye_pre_flash.corr.run --feature occupancy --variant pc1_removed \\
-        --k 12 --space unith --n-perm 200
+    uv run python -m eye_pre_flash.corr.run --feature occupancy --variant mean_removed \\
+        --k 12 --n-perm 200
 
 Output: `eye_pre_flash/corr/out/<source>/<feature>/<variant>/[examples*.csv, <scope>/...]`.
 """
@@ -46,7 +52,7 @@ import numpy as np
 from data.config import MONKEYS
 from data.labeler import SNR_AUC
 from data.loader import load_attractor_eye_data, load_svm_choices
-from eye_pre_flash.classifier.features import KS, SPACES, load_features
+from eye_pre_flash.classifier.features import KS, load_features
 from eye_pre_flash.classifier.labels import labels_for_rows, monkey_for_session
 from eye_pre_flash.corr import cells as cellmod
 from eye_pre_flash.corr import corr_io, examples, figures, matrix, report
@@ -61,6 +67,14 @@ from eye_pre_flash.corr.labels import (
 from eye_pre_flash.plotting.similarities.common import N_SPLITS
 
 FEATURES = {"occupancy": "occ_ms", "occupancy_bin": "occ_bin", "bigram": "bigram"}
+# Unit-H only. A `deg` codebook is fit on pooled screen degrees, so its states
+# sit where *some* mazes' arms are and a given state is on-arm for one geometry
+# and off-arm for another -- `deg` occupancy therefore encodes which maze was on
+# screen, which is the one confound this analysis exists to exclude. `deg`
+# remains correct for `classifier.decoding`'s per-maze regime, where geometry is
+# constant; it is never right for these cross-maze cells. Still carried as a
+# column for provenance, but no longer a swept axis or a filename component.
+SPACE = "unith"
 SCOPES = ("publication", "all", "allplus")
 WIDEST_SCOPE = "allplus"
 
@@ -171,20 +185,46 @@ def run_leaf(
     n_splits, min_trials, min_stable, n_half, n_perm, n_examples, top_n, seed,
 ):
     print(f"\n=== source={source} feature={feature} k={k} space={space} ===")
+    # The `mean_removed` grand-mean profile (and the `pc1` kept to audit the
+    # retired `pc1_removed`) are fitted here, once per monkey, over the widest
+    # scope's labelled trials -- not per session, per cell or per scope. Fitting
+    # per session would put each session's matrix in a different subspace, the
+    # cross-session comparability failure `variants` documents; fitting per
+    # scope would make the narrow scopes incomparable to `allplus`.
+    by_monkey_w, _missing, _dropped = source_scope_sessions(source, WIDEST_SCOPE)
     per_monkey = {}
     for monkey in monkeys_wanted:
         data = load_features(monkey, k=k, space=space)
         raw_X = np.asarray(data[FEATURES[feature]], dtype=float)
+        sessions = np.asarray(data["session"]).astype(str)
+        trials = np.asarray(data["trial_indices_all"], dtype=int)
+        mazes = np.asarray(data["maze_id"], dtype=int)
         origin = _origin_index(monkey, k, space, data)
-        pc1 = variantmod.fit_pc1(raw_X)
+
+        widest_sessions = by_monkey_w.get(monkey, ())
+        y_full = labels_for_rows(sessions, trials, source_lookup(source, widest_sessions))
+        fit_mask = np.isin(sessions, list(widest_sessions)) & np.isfinite(y_full)
+        if not fit_mask.any():
+            print(f"  {monkey}: no labelled trial in {WIDEST_SCOPE}; skipping")
+            continue
+
+        mean_profile = variantmod.fit_grand_mean(raw_X[fit_mask])
+        pc1, explained = variantmod.fit_pc1(raw_X[fit_mask])
+        fit_stats = variantmod.pc1_diagnostics(
+            raw_X[fit_mask], pc1=pc1, explained=explained, mean_profile=mean_profile,
+            sessions=sessions[fit_mask], mazes=mazes[fit_mask],
+            y=y_full[fit_mask].astype(int),
+        )
+        print(
+            f"  {monkey}: PC1 explains {explained:.3f}; |cos(PC1, grand mean)| = "
+            f"{fit_stats['pc1_mean_cos_abs']:.3f}; PC1-label r = "
+            f"{fit_stats['pc1_label_pointbiserial']:.3f} pooled, "
+            f"{fit_stats['pc1_label_pointbiserial_within']:.3f} within (session, maze)"
+        )
         per_monkey[monkey] = dict(
-            data=data,
-            sessions=np.asarray(data["session"]).astype(str),
-            trials=np.asarray(data["trial_indices_all"], dtype=int),
-            mazes=np.asarray(data["maze_id"], dtype=int),
-            raw_X=raw_X,
-            origin=origin,
-            pc1=pc1,
+            data=data, sessions=sessions, trials=trials, mazes=mazes, raw_X=raw_X,
+            origin=origin, mean_profile=mean_profile, y_full=y_full, fit_mask=fit_mask,
+            fit_info=dict(pc1=pc1, mean_profile=mean_profile, stats=fit_stats),
         )
 
     for variant in variants_wanted:
@@ -192,29 +232,23 @@ def run_leaf(
         for monkey, d in per_monkey.items():
             X_v, dims = variantmod.apply_variant(
                 d["raw_X"], variant, feature=FEATURES[feature], k=k,
-                origin=d["origin"], pc1=d["pc1"][0],
+                origin=d["origin"], mean_profile=d["mean_profile"],
             )
             variant_X[monkey] = (X_v, dims)
 
         variant_rel = f"{source}/{feature}/{variant}"
 
         ex_rows, ex_dim_rows = [], []
-        by_monkey_w, _missing, _dropped = source_scope_sessions(source, WIDEST_SCOPE)
         for monkey, (X_v, dims) in variant_X.items():
-            widest_sessions = by_monkey_w.get(monkey, ())
-            if not widest_sessions:
-                continue
             d = per_monkey[monkey]
-            lookup = source_lookup(source, widest_sessions)
-            y_full = labels_for_rows(d["sessions"], d["trials"], lookup)
-            mask = np.isin(d["sessions"], list(widest_sessions)) & np.isfinite(y_full)
-            if not mask.any():
-                continue
+            mask, y_full = d["fit_mask"], d["y_full"]
             meta = dict(
                 label_source=source, feature=feature, variant=variant, k=k, space=space,
                 monkey=monkey, scope_computed_on=WIDEST_SCOPE,
             )
-            pc1_info = d["pc1"] if variant == "pc1_removed" else None
+            # Both fits are properties of the untransformed block, so recording
+            # them under all three variants would triple identical rows.
+            fit_info = d["fit_info"] if variant == "mean_removed" else None
             ex_rows += examples.trial_example_rows(
                 X_v[mask], d["sessions"][mask], d["trials"][mask], d["mazes"][mask],
                 y_full[mask].astype(int), dims=dims, meta=meta, n_per_cell=n_examples, seed=seed,
@@ -224,10 +258,10 @@ def run_leaf(
             )
             ex_dim_rows += examples.dimension_stat_rows(
                 X_v[mask], d["mazes"][mask], y_full[mask].astype(int), dims=dims, meta=meta,
-                pc1_info=pc1_info,
+                fit_info=fit_info,
             )
-        corr_io.write_rows(ex_rows, "examples", rel_dir=variant_rel)
-        corr_io.write_rows(ex_dim_rows, "examples_dims", rel_dir=variant_rel)
+        corr_io.write_rows(ex_rows, f"examples_k{k}", rel_dir=variant_rel)
+        corr_io.write_rows(ex_dim_rows, f"examples_dims_k{k}", rel_dir=variant_rel)
 
         for scope in scopes_wanted:
             raw_rows, null_rows_all = [], []
@@ -254,7 +288,7 @@ def run_leaf(
                     print(f"  {monkey}/{scope}: no session produced a usable matrix; skipping")
                     continue
 
-                stem = f"matrix_{monkey}_k{k}_{space}"
+                stem = f"matrix_{monkey}_k{k}"
                 rel_dir = f"{variant_rel}/{scope}"
                 figures.plot_label_matrix(
                     result, monkey=monkey, scope=scope, source=source, feature=feature,
@@ -281,8 +315,8 @@ def run_leaf(
                     )
 
             if raw_rows:
-                corr_io.write_rows(raw_rows, "results_raw", rel_dir=f"{variant_rel}/{scope}")
-                corr_io.write_rows(null_rows_all, "nulls", rel_dir=f"{variant_rel}/{scope}")
+                corr_io.write_rows(raw_rows, f"results_raw_k{k}", rel_dir=f"{variant_rel}/{scope}")
+                corr_io.write_rows(null_rows_all, f"nulls_k{k}", rel_dir=f"{variant_rel}/{scope}")
 
 
 def main():
@@ -293,7 +327,6 @@ def main():
     parser.add_argument("--scope", choices=SCOPES, default=None, help="default: all three")
     parser.add_argument("--monkey", choices=MONKEYS, default=None, help="default: both")
     parser.add_argument("--k", type=int, choices=KS, default=None, help="default: both")
-    parser.add_argument("--space", choices=SPACES, default=None, help="default: both")
     parser.add_argument("--n-splits", type=int, default=N_SPLITS)
     parser.add_argument("--min-trials", type=int, default=matrix.MIN_TRIALS)
     parser.add_argument("--min-stable", type=int, default=matrix.MIN_STABLE)
@@ -310,20 +343,18 @@ def main():
     scopes_wanted = (args.scope,) if args.scope else SCOPES
     monkeys_wanted = (args.monkey,) if args.monkey else MONKEYS
     ks = (args.k,) if args.k else KS
-    spaces = (args.space,) if args.space else SPACES
 
     for source in sources:
         for feature in features:
             for k in ks:
-                for space in spaces:
-                    run_leaf(
-                        source, feature, k, space,
-                        variants_wanted=variants_wanted, monkeys_wanted=monkeys_wanted,
-                        scopes_wanted=scopes_wanted, n_splits=args.n_splits,
-                        min_trials=args.min_trials, min_stable=args.min_stable,
-                        n_half=args.n_half, n_perm=args.n_perm, n_examples=args.n_examples,
-                        top_n=args.top_n, seed=args.seed,
-                    )
+                run_leaf(
+                    source, feature, k, SPACE,
+                    variants_wanted=variants_wanted, monkeys_wanted=monkeys_wanted,
+                    scopes_wanted=scopes_wanted, n_splits=args.n_splits,
+                    min_trials=args.min_trials, min_stable=args.min_stable,
+                    n_half=args.n_half, n_perm=args.n_perm, n_examples=args.n_examples,
+                    top_n=args.top_n, seed=args.seed,
+                )
 
 
 if __name__ == "__main__":

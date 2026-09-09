@@ -336,7 +336,7 @@ def permutation_null(
     resampling is the right error model at d as low as 6.
 
     Returns ``(rows, observed)`` -- `rows` is a list of per-maze dicts ready
-    for `nulls.csv`, `observed` is the un-shuffled `LabelSimilarityResult`.
+    for `nulls_k<K>.csv`, `observed` is the un-shuffled `LabelSimilarityResult`.
     """
     from eye_pre_flash.corr.cells import within_maze_delta, within_maze_table
 

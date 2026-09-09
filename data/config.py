@@ -1,8 +1,21 @@
+import os
 from pathlib import Path
 
-MAT_ROOT = Path("./data/mat")
-NPZ_ROOT = Path("./data/npz")
-PROCESSED_ROOT = Path("./data/processed")
+# Raw/derived data root. Defaults to the repo-relative `./data/` the laptop
+# checkout still uses (it holds only a handful of sessions' mat and is not
+# space-constrained in a way that matters). On the cluster, `data/mat/` used
+# to compete with the code and every cache for the same 200 GB `/home` quota
+# -- see `cloud.md`'s "Space: the number to watch" -- which is why
+# `data.labeler.sweep_strategy_labels` deleted neural intermediates as it
+# went. That quota problem is gone now that the cluster's mat/npz/processed
+# live on a separate, much larger scratch volume
+# (`/home/byuille/orcd/scratch/strategy_selection_data/`); every `slurm/*.sbatch`
+# job sets `STRATEGY_DATA_ROOT` to point here instead.
+_DATA_ROOT = Path(os.environ["STRATEGY_DATA_ROOT"]) if os.environ.get("STRATEGY_DATA_ROOT") else Path("./data")
+
+MAT_ROOT = _DATA_ROOT / "mat"
+NPZ_ROOT = _DATA_ROOT / "npz"
+PROCESSED_ROOT = _DATA_ROOT / "processed"
 
 MONKEYS = ("Faure", "Nielsen")
 KINDS = {

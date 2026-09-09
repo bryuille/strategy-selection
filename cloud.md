@@ -11,23 +11,40 @@ what arrives in it, and what it sends back.
 
 `~/strategy-selection` on the cluster is the working copy. Every node mounts the
 same home directory, so a compute node writes straight into it — nothing is
-"sent back" by the job itself.
+"sent back" by the job itself. Raw and derived data live on a separate, much
+larger scratch volume (`/home/byuille/orcd/scratch/strategy_selection_data/`),
+not under `~/strategy-selection/`; every `slurm/*.sbatch` job (and any
+interactive session) sets `STRATEGY_DATA_ROOT` to point `data.config`'s
+`MAT_ROOT`/`NPZ_ROOT`/`PROCESSED_ROOT` there instead of the repo-relative
+`./data/` the laptop still uses.
 
 ```
 ~/strategy-selection/
   *.py, slurm/, ...          code — replaced wholesale on every incoming push
-  data/mat/                  THE ONLY COPY. Never arrives, never leaves, never deleted
-  data/npz/                  built here from data/mat/, never transferred
-  data/processed/            built here, never transferred
   eye_pre_flash/classifier/out/   written here by the job, then pulled down
   logs/                      Slurm stdout/stderr. Must exist before sbatch
   .venv/                     built here by uv sync, never transferred
+
+$STRATEGY_DATA_ROOT/            = /home/byuille/orcd/scratch/strategy_selection_data/
+  mat/                      THE ONLY COPY. Never arrives, never leaves, never deleted
+  npz/                      built here from mat/, never transferred
+  processed/                built here, never transferred
 ```
 
 The asymmetry is the whole design: **the cluster owns the data, the laptop owns
-the code, and only figures travel back.** `data/mat/` lives here and nowhere
-else; the caches derived from it are large enough that rebuilding them here is
+the code, and only figures travel back.** `mat/` lives here and nowhere else;
+the caches derived from it are large enough that rebuilding them here is
 cheaper than moving them.
+
+This split (code on `/home`, data on scratch) replaced an earlier layout with
+everything under `~/strategy-selection/data/`, moved because `/home`'s 200 GB
+quota made the neural conversion cache a constant space fight (see the old
+`sweep_strategy_labels` `reclaim`-by-default behaviour below). **Caution:**
+scratch filesystems at most HPC centers are subject to a purge policy that
+`/home` is not — check ORCD's current policy for this volume before treating
+it as a long-term archive. `mat/` is the one irreplaceable copy in this whole
+pipeline; if scratch purges on an inactivity timer, that copy needs a home
+that doesn't.
 
 ## What crosses the boundary
 
@@ -57,86 +74,68 @@ next push — pull it down first, or push without `--delete`.
 Remote paths are relative to the cluster home, so `engaging:strategy-selection/`
 is `~/strategy-selection/`.
 
-## Space: the number to watch
+## Storage: scratch, not `/home`
+
+Two volumes, two purposes. `/home` holds the code checkout, `.venv`, and Slurm
+logs — small, and quota-capped:
 
 ```
-nfs001.lb:/home    128G used    195G soft    200G hard
+nfs001.lb:/home    121G used    195G soft    200G hard      (74G headroom)
 ```
 
-Headroom to the soft limit is **67 GB**.
+`$STRATEGY_DATA_ROOT` (`/home/byuille/orcd/scratch/strategy_selection_data/`)
+holds `mat/`, `npz/` and `processed/` — on ORCD scratch, which has effectively
+no meaningful quota pressure for this project:
+
+```
+fstor018.ib:/     294T total     36T used     258T avail
+```
+
+This is a recent move (§"The cloud tree"): everything used to live under
+`~/strategy-selection/data/`, sharing the 200G `/home` hard limit with the code
+and `.venv`, which is what made the neural-conversion dance below necessary in
+the first place. It mostly isn't, anymore — kept here because the mechanism
+(and its `--reclaim-neural` opt-out) still exists and still matters on a
+space-constrained checkout, e.g. the laptop.
 
 **npz runs 3-6× the mat it came from.** `np.savez` writes uncompressed; `.mat`
 v7.3 is compressed HDF5, so the ratio tracks how well the spike data compresses,
 which in turn tracks neuron count. Measured on the cluster: `Nov_3_g0` 1.2 GB →
 3.9 GB (3.2×), `Oct_22_g0` 1.9 → 6.9 (3.6×), `june_8_g0` 1.3 → 5.0 (3.8×), but
 **`june_24_g0` 2.2 → 14 GB (6.4×)** — 144 neurons, the most of the 23. Budget the
-peak from 14 GB, not from an average. Two consequences:
+peak from 14 GB, not from an average.
 
-- **Converting everything and then deleting `data/mat/` does not help.** It frees
-  the mat but spends roughly three times that on npz, and during conversion both
-  exist at once. The saving has to come from converting less.
-- **So neural data is never held for the whole pool.** Eye and behavioral data
-  are pooled across every session to fit the per-monkey codebook, so those
-  convert wholesale. Neural is different: `data.labeler.CLUSTERING_SESSIONS` now
-  lists **23** label-eligible sessions whose neural mats total ~42 GB; converted
-  and kept, that is ~170 GB of npz — past the hard limit on its own.
+What is actually needed from a neural recording is its strategy label, which is
+**~5 KB**. `data.labeler.CLUSTERING_SESSIONS` lists **23** label-eligible
+sessions whose neural mats total ~42 GB; converted and kept, that is ~170 GB of
+npz — comfortably inside scratch's headroom now, where it used to be past the
+old `/home` hard limit on its own. So the `labels` stage's default changed with
+the move: it converts each session and **leaves the neural npz and
+`trial_timebins` cache in place**, rather than deleting them as it goes, so a
+later rerun or a different analysis over the same sessions does not pay the
+conversion cost again.
 
-  What is actually needed from a neural recording is its strategy label, which
-  is **~5 KB**. So the `labels` stage sweeps: convert one session, write its
-  label, delete the neural npz *and* its `trial_timebins` cache, then move to the
-  next. Peak extra usage is one session's worth, not the pool's.
+```bash
+python -m data.labeler --type strategy --sweep                  # convert -> label, keep the npz (default)
+python -m data.labeler --type strategy --sweep --reclaim-neural # convert -> label -> free (the old default)
+```
 
-  ```bash
-  python -m data.labeler --type strategy --sweep      # convert -> label -> free
-  python -m data.labeler --type strategy --sweep --keep-neural   # keep the npz
-  ```
-
-  The sweep skips sessions whose label already exists, so an interrupted run
-  resumes by re-issuing the same command, and one session that fails to convert
-  is reported at the end rather than stopping the other 22. Watch it with
-  `du -sh data/npz/Neural_Data` — that directory should stay near the size of a
-  single session throughout.
-
-Projected peak, from `du` ratios on a local checkout (which holds neural mat for
-four sessions and no eye or behavioral mat, so these are ratios to apply, not
-sizes to trust):
-
-| What | Size |
-| ---- | ---- |
-| `data/npz` neural, one session at a time under `--sweep` | up to 14 GB |
-| `data/npz` eye, both monkeys | 12.8 GB |
-| `data/npz` behavioral + single-trial | 0.8 GB |
-| `data/processed` attractor k6 + k12 | 16.8 GB |
-| `data/processed` eye_data | 7.4 GB |
-| `data/processed` trial_timebins, freed after each label | 1.5 GB |
-| `data/processed` clean / features / labels | 0.4 GB |
-| `.venv` + uv cache + Python 3.14 | ~2 GB |
-| incoming code push (mostly `eye_pre_flash/plotting/out/`) | 0.6 GB |
-| `data/processed` strategy labels, 23 sessions | 0.2 MB |
-| **total** | **~48 GB** against 67 GB headroom |
-
-The decoding tables run at **k=6 and k=12**, so the `features` stage builds the
-k=12 attractor caches here — another 8.4 GB over the old k=6-only footprint.
+The sweep skips sessions whose label already exists, so an interrupted run
+resumes by re-issuing the same command, and one session that fails to convert
+is reported at the end rather than stopping the other 22.
 
 Check before committing to a long job:
 
 ```bash
-du -sh ~/strategy-selection/data/mat/*                 # how much bigger than local?
-du -sh ~/strategy-selection/data/{npz,processed} 2>/dev/null
-du -sh ~/* ~/.cache 2>/dev/null | sort -rh | head      # where the 128 GB went
+du -sh "$STRATEGY_DATA_ROOT"/mat/*                          # how much bigger than local?
+du -sh "$STRATEGY_DATA_ROOT"/{npz,processed} 2>/dev/null
+du -sh ~/* ~/.cache 2>/dev/null | sort -rh | head            # /home usage, if that ever gets tight instead
 ```
 
-After the `features` stage, `du -sh data/npz data/processed` gives the real
-number; the analysis stages add only megabytes, so that reading is the peak.
-
-**If you get tight**, `data/npz/Neural_Data` is droppable *after* `features`
-finishes: it is read only to build `*_trial_timebins.npz` and the strategy
-labels, both then cached in `data/processed`. That frees ~18 GB. Any later
-`--from labels` rerun will need it back.
-
-`/pool/$USER` and `/nobackup1/$USER` did not exist for this account when checked.
-If they appear, symlinking `data/npz` and `data/processed` onto pool is the
-cleaner fix — the code uses repo-relative paths and follows symlinks.
+**If `/home` gets tight** (the code/venv volume, not the data one): `.venv` and
+the uv cache are the only large, safely-droppable things there —
+`rm -rf ~/strategy-selection/.venv && uv sync` rebuilds it. If scratch itself
+ever gets tight, `--reclaim-neural` is still there.
 
 ## SSH: open one connection, reuse it for everything
 
@@ -172,12 +171,20 @@ In the `ssh engaging` session:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+echo 'export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"' >> ~/.bashrc
 export PATH="$HOME/.local/bin:$PATH"
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
 
 cd ~/strategy-selection
 uv sync            # Python 3.14 + deps from uv.lock, into .venv/
 mkdir -p logs      # Slurm will not create this, and fails at launch without it
 ```
+
+Every `slurm/*.sbatch` job sets `STRATEGY_DATA_ROOT` itself (a batch job runs a
+non-login shell, so `~/.bashrc` is not sourced — same reason `PATH` is set
+explicitly there); the `.bashrc` line above is only for interactive sessions
+(`salloc`, or `ssh engaging` itself) that run `data.config`-dependent code by
+hand.
 
 **Re-run `uv sync` after any push that changes `pyproject.toml`.** It last
 changed to drop `statsmodels`, which only the retired `sampling_effects`
@@ -209,6 +216,7 @@ Or smoke-test the wiring in 15 minutes once the caches exist:
 ```bash
 salloc -p mit_quicktest -c 8 -t 00:15:00
 export PATH="$HOME/.local/bin:$PATH" MPLBACKEND=Agg OMP_NUM_THREADS=1
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
 uv run python -m eye_pre_flash.classifier.pipeline --only decode-pub
 ```
 
@@ -219,7 +227,7 @@ is filed, not that anything ran.
 
 **Post-flash counterfactual analysis.** One light job; it exists because the
 behavioral npz here predate `feedback_time` entering
-`data.convert.BEHAVIORAL_FIELDS`, and `data/mat/` never leaves this tree. It
+`data.convert.BEHAVIORAL_FIELDS`, and `mat/` never leaves this tree. It
 re-converts the behavioral npz (small — minutes), rebuilds the eye-behavioral
 caches, and runs `eye_post_flash.counterfactual` under both alignments:
 
@@ -290,7 +298,8 @@ checkpointing finer than stage granularity, so a preemption partway through
 | `uv: command not found` in the job log | `PATH` — the script sets it; check uv really installed to `~/.local/bin` |
 | Killed, `State` = `OUT_OF_MEMORY` | raise `--mem` to 128G, rerun just that stage with `--from` |
 | `TIMEOUT` | stages are resumable; resubmit with `--from <stage>`, the log names the stage |
-| `Disk quota exceeded` | see the space section — drop `data/npz/Neural_Data` after `features` |
+| `Disk quota exceeded` on `/home` | see "Storage: scratch, not `/home`" — `.venv` is the droppable thing there, `rm -rf .venv && uv sync` |
+| scratch filling up | `data.labeler --sweep --reclaim-neural` frees the neural npz + `trial_timebins` per session |
 | hangs during `uv sync` inside a job | run `uv sync` on the login node instead |
 | rsync or ssh to `engaging` hangs | stale control socket — `ssh -O exit engaging`, then reconnect |
 | cloud figures vanished | an incoming push with `--delete` — see "What crosses the boundary" |

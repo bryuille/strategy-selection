@@ -34,7 +34,9 @@ def write_rows(rows, stem, *, rel_dir=None):
     The header comes from the first row's keys, as `classifier.decoding` and
     `classifier.pairwise` each do inline for their own `results_raw.csv` --
     factored out here because this package writes several such files per leaf
-    (`results_raw.csv`, `nulls.csv`, `examples.csv`, `examples_dims.csv`).
+    (`results_raw_k<K>.csv`, `nulls_k<K>.csv`, `examples_k<K>.csv`,
+    `examples_dims_k<K>.csv`) and `write_rows` truncates, so every stem it is
+    given must be unique per leaf -- see `run.main`'s note on `k`.
     An empty `rows` still creates the file, with no header, so a leaf that
     produced nothing is visibly empty rather than silently missing.
     """

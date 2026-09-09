@@ -8,8 +8,12 @@
 #
 #   1. `data.labeler --sweep` builds any missing strategy label. It is the
 #      expensive half: a label is ~5 KB but comes from a neural recording of up
-#      to 14 GB, converted and freed one session at a time. Sessions whose label
-#      already exists are skipped, so this is cheap once warm.
+#      to 14 GB, converted one session at a time. Sessions whose label already
+#      exists are skipped, so this is cheap once warm. The converted neural
+#      npz and `trial_timebins` cache are left in place afterward (they land on
+#      scratch, not the old 200G /home quota that made deleting them worth it)
+#      so a later `--with-svm` sweep or a `--from labels` rerun reuses them
+#      instead of reconverting; pass `--reclaim-neural` to delete them again.
 #
 #   2. `corr.run --source dendro` builds the 12x12 (maze x decoded strategy)
 #      matrices for both monkeys, every feature, variant and scope, off the
@@ -71,6 +75,10 @@ cd "$SLURM_SUBMIT_DIR"
 # uv installs to ~/.local/bin and is not on PATH in a non-login shell.
 export PATH="$HOME/.local/bin:$PATH"
 
+# mat/npz/processed live on scratch, not the 200G /home quota -- see
+# cloud.md "Storage: scratch, not /home".
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
+
 # Pin BLAS to one thread; nothing here wants nested parallelism.
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
@@ -84,20 +92,20 @@ echo "host        $(hostname)"
 echo "cores       ${SLURM_CPUS_PER_TASK:-?}"
 echo "mem         ${SLURM_MEM_PER_NODE:-?} MB"
 echo "started     $(date)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo
 
 echo "=== 1/2  strategy labels (naming rule: relative) ==="
 uv run python -m data.labeler --type strategy --sweep
 
 echo
-echo "labels on disk  $(ls data/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
+echo "labels on disk  $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
 echo
 
 echo "=== 2/2  (maze x strategy) occupancy similarity matrices (dendro labels) ==="
 uv run python -u -m eye_pre_flash.corr.run --source dendro "$@"
 
 echo
-echo "neural npz  $(du -sh data/npz/Neural_Data 2>/dev/null | cut -f1)"
-echo "disk        $(du -sh data 2>/dev/null | cut -f1) in data/"
+echo "neural npz  $(du -sh "$STRATEGY_DATA_ROOT/npz/Neural_Data" 2>/dev/null | cut -f1)"
+echo "disk        $(du -sh "$STRATEGY_DATA_ROOT" 2>/dev/null | cut -f1) in \$STRATEGY_DATA_ROOT"
 echo "finished    $(date)"

@@ -10,7 +10,7 @@ regardless of trial count -- thin cells are marked, not dropped -- so the
 exhaustive-subset "comparable core" restriction (`common_cell_set`,
 `pair_session_sets`, `unreliable_mask`, `matched_matrix`) is deliberately not
 carried over into the plotting path. Every per-session correlation still
-lands in `results_raw.csv`, so that restriction remains reconstructable later
+lands in `results_raw_k<K>.csv`, so that restriction remains reconstructable later
 without re-running anything -- it is dropped from here, not lost.
 """
 

@@ -336,17 +336,23 @@ def main():
     `load_features` pulls in `data.attractor`, so this also fits and caches the
     per-monkey unit-H k-means codebook at each K -- the k=12 attractor cache is
     built here if it does not exist yet.
+
+    `--space` narrows the sweep for a caller that only needs one space, so it
+    does not pay for caches it will never read (`eye_pre_flash.corr` is unit-H
+    only). Default is unchanged: every space.
     """
     import argparse
 
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument("--monkey", choices=MONKEYS, default=None)
+    parser.add_argument("--space", choices=SPACES, default=None, help="default: all")
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
 
+    spaces = (args.space,) if args.space else SPACES
     for monkey in [args.monkey] if args.monkey else list(MONKEYS):
         for k in KS:
-            for space in SPACES:
+            for space in spaces:
                 data = load_features(monkey, k=k, space=space, refresh=args.refresh)
                 print(
                     f"{monkey} k={k} {space}: {len(data['session'])} trials"

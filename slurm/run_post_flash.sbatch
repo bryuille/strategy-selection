@@ -28,6 +28,10 @@ set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
 
 export PATH="$HOME/.local/bin:$PATH"
+
+# mat/npz/processed live on scratch, not the 200G /home quota -- see
+# cloud.md "Storage: scratch, not /home".
+export STRATEGY_DATA_ROOT="/home/byuille/orcd/scratch/strategy_selection_data"
 export OMP_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
 export MKL_NUM_THREADS=1
