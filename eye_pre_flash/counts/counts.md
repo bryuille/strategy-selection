@@ -123,6 +123,44 @@ not something this census can tell you — but it is the cell an SVM-sourced
 same-maze contrast will rest on, so it is worth resolving before leaning on
 one.
 
+## 5. Per-trial agreement, four sessions
+
+The census above is pooled per maze; it says nothing about whether dendro and
+svm are labelling the *same trials* the same way within a session. Checked
+directly (both sources' labels compared trial-by-trial, same trial set
+`corr.run._dendro_svm_agreement_2345` uses, extended here to all six mazes
+rather than just 2/3/5):
+
+| session | monkey | n | agreement (all mazes) | agreement (mazes 2/3/5) |
+| --- | --- | --- | --- | --- |
+| june_24_g0 | Faure | 367 | 0.866 | 0.870 |
+| june_8_g0 | Faure | 293 | 0.986 | 0.979 |
+| Oct_22_g0 | Nielsen | 459 | 0.834 | 0.814 |
+| Nov_3_g0 | Nielsen | 498 | 0.982 | 0.981 |
+
+Per-maze breakdown:
+
+| session | maze 1 | maze 2 | maze 3 | maze 4 | maze 5 | maze 6 |
+| --- | --- | --- | --- | --- | --- | --- |
+| june_24_g0 | 0.977 (44) | 0.700 (50) | 0.962 (52) | 0.806 (62) | 0.911 (90) | 0.841 (69) |
+| june_8_g0 | 1.000 (44) | 0.976 (41) | 1.000 (43) | 0.980 (49) | 0.968 (62) | 1.000 (54) |
+| Oct_22_g0 | 0.710 (62) | 0.652 (69) | 0.766 (77) | 0.841 (82) | 0.978 (91) | 0.987 (78) |
+| Nov_3_g0 | 1.000 (65) | 0.965 (86) | 0.976 (82) | 0.953 (85) | 1.000 (96) | 1.000 (84) |
+
+(n in parentheses; n is the same for both label sources here since every trial
+in this table already cleared both sources' finite-label filter.)
+
+`june_8_g0` and `Nov_3_g0` track each other closely everywhere — the two
+label sources are effectively interchangeable there. `june_24_g0` and
+`Oct_22_g0` disagree far more, and specifically at maze 2 (0.700, 0.652) — the
+maze `mazestratpair` uses to check cross-maze replication of the maze-4
+same-maze result, and the maze §3 above already flagged as Faure's SVM
+"exception." `Oct_22_g0` is one of only two sessions in Nielsen's
+`dendro/publication` scope, so a maze-2 `dendro` vs `svm` discrepancy there is
+not just noise around one ground truth — the two sources are assigning
+meaningfully different labels to roughly a third of that session's maze-2
+trials.
+
 ## 4. Scopes and vetting
 
 Scopes come from `classifier.labels.SCOPES`, not from `corr.labels.SOURCE_SCOPES`

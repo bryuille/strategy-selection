@@ -53,17 +53,30 @@ SPACES = {
 }
 
 # --- Palette ---------------------------------------------------------------
-# Maze 1-6 is *ordered* (1-3 hierarchical, 5-6 sequential, 4 the boundary), so
-# it takes a single-hue ordinal ramp rather than six categorical hues: six
-# evenly lightness-spaced steps of the blue ramp, validated for monotone
-# lightness, adjacent ΔL >= 0.06 and light-end contrast on a light surface.
+# Maze 1-6 is *ordered* (1-3 hierarchical, 5-6 sequential, 4 the boundary), but
+# a scatter needs *all-pairs* CVD separation -- any two mazes' dots can end up
+# neighbors anywhere in the cloud -- not just adjacent-step separation. A
+# two-hue diverging ramp (blue/grey/red, one prior version of this palette)
+# already cleared that floor; requested instead is a full-spectrum "rainbow"
+# for more visual variety across all six. Plain ROYGBIV fails outright --
+# non-monotone lightness (yellow reads far lighter than blue at the same
+# "step") and red/green sit close for red-green colorblindness -- so this
+# samples `viridis` at t = 0, 0.2, ..., 1.0 instead: perceptually-uniform
+# lightness end to end, and still six distinct hues. Validated all-pairs
+# (light surface): worst pair Delta E 15.0 normal-vision (>= 15 floor), 10.5
+# CVD (clear of the 6-8 floor). The one thing `viridis` doesn't clear on its
+# own is light-end contrast: step 6 (`#fde725`, yellow) sits at 1.23:1 against
+# the `#fcfcfb` surface -- a fill that faint is invisible outright, not just
+# hard to tell apart, and no legend fixes an invisible mark. `pres.scatter`'s
+# `DOT` gives every point a thin dark edge for exactly this, so the pale steps
+# still render as a visible ring.
 MAZE_COLORS = {
-    1: "#86b6ef",
-    2: "#599be8",
-    3: "#307edc",
-    4: "#2265b7",
-    5: "#164c91",
-    6: "#0d366b",
+    1: "#440154",
+    2: "#414487",
+    3: "#2a788e",
+    4: "#22a884",
+    5: "#7ad151",
+    6: "#fde725",
 }
 # Strategy is two identities, not a magnitude: categorical slots 2 and 3, which
 # clear the all-pairs CVD and normal-vision floors. Aqua sits below 3:1 on a

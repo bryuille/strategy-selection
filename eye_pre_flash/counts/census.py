@@ -44,10 +44,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Rectangle
 
 from data.labeler import CLUSTERING_SESSIONS
 from eye_pre_flash.classifier.features import load_features
 from eye_pre_flash.classifier.labels import (
+    PUBLICATION_SESSIONS,
     labels_for_rows,
     scope_sessions,
     strategy_label_lookup,
@@ -148,7 +150,9 @@ def thin_mask(counts):
     return (total > 0) & (frac < MIN_MINORITY_SHARE)
 
 
-def plot_census(monkey, scope, source, sessions, counts):
+def plot_census(
+    monkey, scope, source, sessions, counts, *, title=None, out_root=None, highlight_sessions=None
+):
     share, total = sequential_share(counts)
     thin = thin_mask(counts)
 
@@ -186,12 +190,28 @@ def plot_census(monkey, scope, source, sessions, counts):
     for spine in ax.spines.values():
         spine.set_linewidth(1.2)
 
+    # One full-width box per highlighted session's row -- not necessarily
+    # contiguous, since `sessions` is alphabetical and the publication set
+    # spans both `june_*` and `Nov_*`/`Oct_*` names. Black rather than red:
+    # red already means "one-sided cell" (`thin_mask`) at the per-cell level,
+    # and this is an unrelated, row-level distinction.
+    if highlight_sessions:
+        wanted = set(highlight_sessions)
+        for i, session in enumerate(sessions):
+            if session in wanted:
+                ax.add_patch(Rectangle(
+                    (-0.5, i - 0.5), N_MAZES, 1,
+                    fill=False, edgecolor="#111111", linewidth=2.4, zorder=6,
+                ))
+
     ax.set_title(
-        f"{monkey} · scope {scope} · source {source} "
-        "— H/S per session and maze\n"
-        "blue = all hierarchical, orange = all sequential, grey = balanced\n"
-        f"red bold = minority strategy below {MIN_MINORITY_SHARE:.0%}, so that "
-        "(session, maze) cannot support the A contrast",
+        title if title is not None else (
+            f"{monkey} · scope {scope} · source {source} "
+            "— H/S per session and maze\n"
+            "blue = all hierarchical, orange = all sequential, grey = balanced\n"
+            f"red bold = minority strategy below {MIN_MINORITY_SHARE:.0%}, so that "
+            "(session, maze) cannot support the A contrast"
+        ),
         fontsize=13,
     )
 
@@ -200,7 +220,7 @@ def plot_census(monkey, scope, source, sessions, counts):
     cbar.set_ticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
 
     fig.tight_layout()
-    out_dir = OUT_ROOT / source
+    out_dir = (out_root if out_root is not None else OUT_ROOT) / source
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"hs_{monkey}_{scope}.png"
     fig.savefig(path, dpi=200)
