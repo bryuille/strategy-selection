@@ -122,8 +122,10 @@ reproducibility); the selection scripts have since been retired.
 ## Pre-flash eye data (`eye_pre_flash/`)
 
 Everything about gaze during the pre-fixation viewing period lives under
-`eye_pre_flash/`: the strategy classifier in `classifier/`, descriptive plots
-in `plotting/`.
+`eye_pre_flash/`: the strategy classifier in `classifier/`, the
+maze x strategy similarity matrices in `corr/`, their single-maze sibling in
+`mazestratpair/`, the H/S trial census in `counts/`, descriptive plots in
+`plotting/`.
 
 ### Strategy classifier (`eye_pre_flash/classifier/`)
 
@@ -153,6 +155,32 @@ uv run python -m eye_pre_flash.classifier.decoding --scope all
 
 Output under `eye_pre_flash/classifier/out/decoding/<scope>/`. Full reference:
 [eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md).
+
+### Single-maze H vs S similarity (`eye_pre_flash/mazestratpair/`)
+
+Tests whether, **within one maze**, gaze looks less like itself across the two
+decoded strategies than it does across split halves of either strategy alone —
+the one form of the question where visual geometry is held identical on both
+sides and so cannot explain the answer. The single-maze sibling of
+`eye_pre_flash/corr/`, which asks the same thing inside a 12x12 grid.
+
+A 2x2 matrix per maze: the diagonal is each strategy's own split-half
+reliability, the off-diagonal the cross-strategy correlation at the same half
+size. The statistic is `Δ = 0.5·(r_HH + r_SS) − r_HS`, tested against a
+within-(session, maze) label-shuffle permutation null. All three feature
+variants sit in one figure as three panels. Defaults to Nielsen maze 4, the one
+cell where both label sources agree the strategy split is genuinely mixed;
+every axis takes a list, so the same pipeline sweeps other mazes and Faure.
+
+```bash
+uv run python -m eye_pre_flash.mazestratpair.run                    # Nielsen, maze 4
+uv run python -m eye_pre_flash.mazestratpair.run --monkey Faure --maze 2
+uv run python -m eye_pre_flash.mazestratpair.run --all-monkeys --all-mazes
+```
+
+Output under `eye_pre_flash/mazestratpair/out/<source>/<feature>/<scope>/`.
+Full reference:
+[eye_pre_flash/mazestratpair/mazestratpair.md](eye_pre_flash/mazestratpair/mazestratpair.md).
 
 ## Decision-variable traces (`neural_traces/`)
 

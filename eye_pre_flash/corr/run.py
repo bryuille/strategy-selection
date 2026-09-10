@@ -36,9 +36,12 @@ sweep and not in the path, each k overwrote the previous one's rows.
 
 Usage:
     uv run python -m eye_pre_flash.corr.run
-    uv run python -m eye_pre_flash.corr.run --source svm --scope allplus --monkey Nielsen
+    uv run python -m eye_pre_flash.corr.run --source svm --scope top_ten --monkey Nielsen
     uv run python -m eye_pre_flash.corr.run --feature occupancy --variant mean_removed \\
         --k 12 --n-perm 200
+
+Scopes are per source (`corr.labels.SOURCE_SCOPES`): `dendro` runs
+`publication` and `top_four`, `svm` runs `top_ten`.
 
 Output: `eye_pre_flash/corr/out/<source>/<feature>/<variant>/[examples*.csv, <scope>/...]`.
 """
@@ -51,18 +54,20 @@ import numpy as np
 
 from data.config import MONKEYS
 from data.labeler import SNR_AUC
-from data.loader import load_attractor_eye_data, load_svm_choices
+from data.loader import load_svm_choices
 from eye_pre_flash.classifier.features import KS, load_features
 from eye_pre_flash.classifier.labels import labels_for_rows, monkey_for_session
 from eye_pre_flash.corr import cells as cellmod
 from eye_pre_flash.corr import corr_io, examples, figures, matrix, report
 from eye_pre_flash.corr import variants as variantmod
 from eye_pre_flash.corr.labels import (
+    SCOPES,
+    SOURCE_SCOPES,
     SOURCE_SKIP_CELLS,
     SOURCES,
+    WIDEST_SCOPE,
     source_lookup,
     source_scope_sessions,
-    top_sessions,
 )
 from eye_pre_flash.plotting.similarities.common import N_SPLITS
 
@@ -75,19 +80,19 @@ FEATURES = {"occupancy": "occ_ms", "occupancy_bin": "occ_bin", "bigram": "bigram
 # constant; it is never right for these cross-maze cells. Still carried as a
 # column for provenance, but no longer a swept axis or a filename component.
 SPACE = "unith"
-SCOPES = ("publication", "all", "allplus")
-WIDEST_SCOPE = "allplus"
-
 _AGREEMENT_CACHE: dict = {}
 
 
 def _origin_index(monkey, k, space, data):
-    """Codebook index nearest the screen origin, in whichever space `data` is in."""
-    if space == "unith":
-        codebook = load_attractor_eye_data(monkey, k=k)["codebook_xy"]
-    else:
-        codebook = data["codebook_deg_xy"]
-    return variantmod.origin_state(codebook)
+    """Codebook index nearest the screen origin, in whichever space `data` is in.
+
+    Read off the feature block's own `codebook_xy`, which
+    `classifier.features` fits on in-window samples. Not off
+    `data.attractor`'s cached `codebook_xy` -- that one is fit on whole-trial
+    gaze and is no longer the book these features were assigned against, so
+    using it would name the wrong dimension as the origin state.
+    """
+    return variantmod.origin_state(data["codebook_xy"])
 
 
 def _dendro_svm_agreement_2345(session):
@@ -182,16 +187,20 @@ def build_raw_rows(
 
 def run_leaf(
     source, feature, k, space, *, variants_wanted, monkeys_wanted, scopes_wanted,
-    n_splits, min_trials, min_stable, n_half, n_perm, n_examples, top_n, seed,
+    n_splits, min_trials, min_stable, n_half, n_perm, n_examples, seed,
 ):
+    scopes = tuple(s for s in scopes_wanted if s in SOURCE_SCOPES[source])
+    if not scopes:
+        return
     print(f"\n=== source={source} feature={feature} k={k} space={space} ===")
     # The `mean_removed` grand-mean profile (and the `pc1` kept to audit the
     # retired `pc1_removed`) are fitted here, once per monkey, over the widest
     # scope's labelled trials -- not per session, per cell or per scope. Fitting
     # per session would put each session's matrix in a different subspace, the
     # cross-session comparability failure `variants` documents; fitting per
-    # scope would make the narrow scopes incomparable to `allplus`.
-    by_monkey_w, _missing, _dropped = source_scope_sessions(source, WIDEST_SCOPE)
+    # scope would make `publication` incomparable to the widest scope.
+    widest = WIDEST_SCOPE[source]
+    by_monkey_w, _missing, _dropped = source_scope_sessions(source, widest)
     per_monkey = {}
     for monkey in monkeys_wanted:
         data = load_features(monkey, k=k, space=space)
@@ -205,7 +214,7 @@ def run_leaf(
         y_full = labels_for_rows(sessions, trials, source_lookup(source, widest_sessions))
         fit_mask = np.isin(sessions, list(widest_sessions)) & np.isfinite(y_full)
         if not fit_mask.any():
-            print(f"  {monkey}: no labelled trial in {WIDEST_SCOPE}; skipping")
+            print(f"  {monkey}: no labelled trial in {widest}; skipping")
             continue
 
         mean_profile = variantmod.fit_grand_mean(raw_X[fit_mask])
@@ -244,7 +253,7 @@ def run_leaf(
             mask, y_full = d["fit_mask"], d["y_full"]
             meta = dict(
                 label_source=source, feature=feature, variant=variant, k=k, space=space,
-                monkey=monkey, scope_computed_on=WIDEST_SCOPE,
+                monkey=monkey, scope_computed_on=widest,
             )
             # Both fits are properties of the untransformed block, so recording
             # them under all three variants would triple identical rows.
@@ -263,12 +272,12 @@ def run_leaf(
         corr_io.write_rows(ex_rows, f"examples_k{k}", rel_dir=variant_rel)
         corr_io.write_rows(ex_dim_rows, f"examples_dims_k{k}", rel_dir=variant_rel)
 
-        for scope in scopes_wanted:
+        for scope in scopes:
             raw_rows, null_rows_all = [], []
             for monkey, (X_v, dims) in variant_X.items():
                 d = per_monkey[monkey]
                 by_monkey_s, missing, dropped = source_scope_sessions(source, scope)
-                keep_sessions = top_sessions(by_monkey_s.get(monkey, ()), top_n)
+                keep_sessions = by_monkey_s.get(monkey, ())
                 if missing:
                     print(f"  {monkey}/{scope}: {len(missing)} session(s) not labelled, skipped")
                 if dropped:
@@ -324,7 +333,10 @@ def main():
     parser.add_argument("--source", choices=SOURCES, default=None, help="default: both")
     parser.add_argument("--feature", choices=tuple(FEATURES), default=None, help="default: all three")
     parser.add_argument("--variant", choices=variantmod.VARIANTS, default=None, help="default: all three")
-    parser.add_argument("--scope", choices=SCOPES, default=None, help="default: all three")
+    parser.add_argument(
+        "--scope", choices=SCOPES, default=None,
+        help="default: every scope defined for each source (see corr.labels.SOURCE_SCOPES)",
+    )
     parser.add_argument("--monkey", choices=MONKEYS, default=None, help="default: both")
     parser.add_argument("--k", type=int, choices=KS, default=None, help="default: both")
     parser.add_argument("--n-splits", type=int, default=N_SPLITS)
@@ -333,9 +345,15 @@ def main():
     parser.add_argument("--n-half", type=int, default=None, help="fix the shared half size across sessions")
     parser.add_argument("--n-perm", type=int, default=1000, help="permutation-null resamples per maze")
     parser.add_argument("--n-examples", type=int, default=3, help="sampled trials per cell in examples.csv")
-    parser.add_argument("--top-n", type=int, default=0, help="truncate each monkey's scope to its top-N sessions by snr_auc; 0 = off")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+
+    if args.source and args.scope and args.scope not in SOURCE_SCOPES[args.source]:
+        parser.error(
+            f"--scope {args.scope} is not defined for --source {args.source}; "
+            f"choose from {', '.join(SOURCE_SCOPES[args.source])} "
+            f"(scopes are per source, see corr.labels.SOURCE_SCOPES)"
+        )
 
     sources = (args.source,) if args.source else SOURCES
     features = (args.feature,) if args.feature else tuple(FEATURES)
@@ -353,7 +371,7 @@ def main():
                     scopes_wanted=scopes_wanted, n_splits=args.n_splits,
                     min_trials=args.min_trials, min_stable=args.min_stable,
                     n_half=args.n_half, n_perm=args.n_perm, n_examples=args.n_examples,
-                    top_n=args.top_n, seed=args.seed,
+                    seed=args.seed,
                 )
 
 

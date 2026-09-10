@@ -7,7 +7,7 @@ occupancy vectors rather than raw gaze maps. Not to be confused with the
 
 ```bash
 uv run python -m eye_pre_flash.corr.run
-uv run python -m eye_pre_flash.corr.run --source svm --scope allplus --monkey Faure
+uv run python -m eye_pre_flash.corr.run --source svm --scope top_ten --monkey Faure
 ```
 
 ## 1. The claim this exists to support
@@ -56,6 +56,123 @@ extraction):
 `K in {6, 12}` (`--k`). Window: `fix_start - 1466 ms -> fix_start`
 (`eye_pre_flash.plotting.plot_io.window_label`).
 
+### Processing order
+
+`classifier.features.extract_monkey_features` runs these in exactly this
+order, and the order is load-bearing:
+
+1. **Clip** each trial to `[fix_start - 1466 ms, fix_start]`. Everything below
+   sees in-window samples only.
+2. **Warp** to unit-H (`data.attractor.to_maze`; already cached).
+3. **K-means** across sessions per monkey, over the pooled **in-window**
+   samples — one codebook per (monkey, K).
+4. **Fixations** from `data.builder`'s pymovements pass — **I-DT only**
+   (`features.FIXATION_EVENT`) — each span clipped to the window.
+5. **Assign** each clipped fixation's centroid to the nearest prototype within
+   `ASSIGN_RADIUS` = 1.0 unit-H (an L2 ball). Saccades, blinks, and fixations
+   outside every ball are unassigned and drop out of the features.
+
+Step 3 is the one that used to be wrong. The codebook was previously taken
+from `data.attractor`, which fits it on **whole-trial** gaze — putting
+prototypes where gaze went while the maze was being solved, not during the
+epoch these features describe. Fitting on windowed gaze moves them: for Faure
+at K=6 the largest prototype shift is 0.65 unit-H, and while trial counts are
+unchanged (16,060) only 0.01% of `occ_ms` rows, 7.5% of `occ_bin` rows and
+12.0% of `bigram` rows survive identical. Aggregates barely move (states
+visited per trial 2.58 → 2.53), so this is a re-registration of the state
+space rather than a different measurement. `data.attractor`'s cache is still
+read for its warped positions, validity mask and timebase; its own
+`codebook_xy` and `state_id` are no longer used, so the 6x6 matrices in
+`similarity.md` and the other attractor consumers are untouched.
+
+One deliberate deviation from that list: **fixation detection stays in degree
+space**, where `data.builder` does it, rather than running after the warp.
+I-VT's threshold is 40 deg/s and I-DT's is 2.0 deg of dispersion; unit-H is
+dimensionless and warped per trial by that trial's arm lengths, so detecting
+on unit-H would make the effective physical threshold vary by trial and by
+maze — reintroducing the geometry dependence the warp exists to remove. Step 4
+is where the spans are *applied*, not where detection happens.
+
+### I-DT only
+
+`data.builder` runs both I-DT and I-VT and stores both event sets.
+`data.attractor.fixation_event_spans` picks up **both**, because it matches the
+substring `fixation` — so two detectors with different span boundaries land in
+one pool and `assign_fixation_states`' longest-span tie-break silently chooses
+between them per fixation. Measured, I-DT wins that ~99.5% of the time (its
+p95 duration is roughly twice I-VT's: 944 vs 479 ms for Faure, 951 vs 421 ms
+for Nielsen), so the old behaviour was "I-DT nearly always, by accident".
+
+Step 4 now takes I-DT alone, on purpose, which also agrees with the two
+modules that already name a detector: `plotting.saccades.labeled` and
+`plotting.similarities.heatmap_fixations` both filter on `fixation_idt`.
+
+`data.attractor` itself is unchanged and still pools both, since its
+whole-trial `state_id` feeds the 6x6 matrices in `similarity.md`. That
+inconsistency is deliberate for now — aligning it would shift those published
+numbers.
+
+### `occ_ms` sums to fixation time, not to the window
+
+`_sample_dt_seconds` caps each interval at the trial's sample period. Without
+that cap it ran `np.diff` over the *masked* time vector, so the last assigned
+sample before a gap absorbed the whole gap and `occ_ms` summed to the full
+1466 ms no matter how much of the window was really spent fixating. Capped, the
+row sum is the time actually spent in assigned fixations: median **861 ms**
+(Faure K=6, 59% of the window) to **922 ms** (Nielsen K=12, 63%), and **no**
+row reaches the window length. Cross-checked against the union of clipped I-DT
+spans, `occ_ms` recovers 89.8% of it — the shortfall being invalid samples
+inside fixations and fixations whose centroid landed outside every ball.
+
+Capping per sample, rather than summing event durations, is also what keeps the
+total correct when two detectors overlap: each sample carries one state and
+contributes one period, whereas adding I-VT and I-DT span lengths would
+double-count the 80-90% of gaze both cover.
+
+### Three invariants
+
+Interpretability is the priority here over squeezing out signal. Every read in
+this package is a comparison — a cell against another cell, a feature against
+another feature, a variant against another variant — and every one of those
+comparisons is only valid if nothing but the thing being compared changed. So:
+
+1. **Unit-H only.** No `deg`, ever, in this package (§5).
+2. **Only the processed K=6 and K=12 caches.** `corr` reads the unit-H K=6
+   and K=12 blocks straight from `classifier.features.load_features` and
+   extracts nothing of its own. No new feature is introduced here, and no
+   cache is rebuilt with different settings.
+3. **One CV, applied identically to every feature.** All three blocks are just
+   (n, d) vectors, so `matrix.session_cv_matrix` treats them as such: split a
+   cell's trials in half, take each half's **mean vector**, Pearson the two.
+   There is no per-feature branch in the CV and there must not be one.
+
+Invariant 3 is the one with a standing temptation attached. `occ_bin` is
+binary per trial, so its half-mean is a *visit fraction* in [0, 1] rather than
+a 0/1 vector, and it is periodically tempting to "fix" that by binarising the
+half-mean. Don't. Two reasons:
+
+- **It would delete the signal.** For a binary feature the strategy effect
+  *is* a rate effect: per trial the only available answer is visited or not,
+  and what distinguishes H from S is "H visits this state on 23% of trials, S
+  on 71%". That statement exists only in aggregate. 81-88% of half-mean
+  entries fall strictly between 0 and 1, and that is precisely the
+  information; collapsing it to binary above the trial level throws it away.
+- **It would break comparability.** `occupancy`, `occupancy_bin` and `bigram`
+  are only readable against each other because one estimator is applied to
+  all three.
+
+The measured cost of abandoning invariant 3 was checked directly, by running
+the same-maze delta and the same within-session shuffle null two ways on
+identical trials — the standard half-mean estimator, and a Pearson averaged
+over raw binary trial-vector pairs. The trial-pair version detected nothing
+anywhere: max |z| of 1.35 across all 24 (monkey x K x maze) cells, against
+3.64 for the half-mean, with every candidate signal collapsing (Faure maze 4
+K=6, z 3.64 -> 1.00; Nielsen maze 1 K=6, z 3.28 -> 0.69). Averaging per-pair
+correlations measures trial-to-trial similarity, which is dominated by
+within-cell trial noise; the half-mean averages that noise down first (half
+sizes here are 48-58) and only then correlates. Note also that a Pearson
+between two length-6 binary vectors can take just 17 distinct values.
+
 ## 4. The dynamic-range problem and the two variants
 
 The existing 6x6 occupancy matrices sit compressed against 1.0
@@ -90,7 +207,7 @@ Two variants (`--variant`) test whether central fixation is the cause:
   profile that differed between sessions would put each session's matrix in a
   different subspace, exactly the cross-session comparability problem
   `heatmap_labels`' comparable-core machinery existed to fix; fitting per
-  scope would make the narrow scopes incomparable to `allplus`). Subtracting a
+  scope would make `publication` incomparable to `top_four`). Subtracting a
   common profile makes the mean off-diagonal r go negative; that is
   arithmetic, not a finding.
 
@@ -217,25 +334,107 @@ where it does.
 
 ## 7. Session selection
 
-Three scopes (`--scope`), same names for both sources but **different session
-lists** for `svm`:
+Scopes are **per source** (`corr.labels.SOURCE_SCOPES`) — each source gets
+only the scopes that mean something for the labels it produces. `--scope`
+picks one; the default runs every scope each source defines. The retired
+`all`/`allplus` scopes are gone.
 
-| Scope | `dendro` sessions | `svm` sessions |
-| --- | --- | --- |
-| `publication` | the 4 original-clustering sessions | same 4 |
-| `all` | 23, anchor-agreement vetted | **top 4 per monkey by `snr_auc`, 8 total** — a strict superset of the publication 4 |
-| `allplus` | same 23, unvetted | same 23, unvetted |
+| Source | Scope | Sessions per monkey | Ranked by |
+| --- | --- | --- | --- |
+| `dendro` | `publication` | 2 (the 4 original-clustering sessions) | — |
+| `dendro` | `top_four` | 4, from the anchor-vetted pool | `data.labeler.SNR_AUC` |
+| `svm` | `top_ten` | 10, from the unvetted pool | `snr_auc` |
 
-`svm`'s `all` is a session *list*, not a quality gate, because
-`MIN_SVM_AUC >= 0.95` would drop nobody — `data.labeler.CLUSTERING_SESSIONS`
-(the pool both sources' `all`/`allplus` draw from) was *defined* by that same
-threshold, so a gate on it would leave `all` and `allplus` byte-identical for
-`svm`.
+Both ranked scopes use the same metric, so there is one session ordering in
+this package rather than one per source. It comes from
+`corr.labels.snr_auc_table()`, read straight from
+`zrefs/Dendogram_all/SNR_All_Sessions/all_session_snr_results.csv` — all 61
+reference sessions (27 Faure, 34 Nielsen, every one `status=passed`), rather
+than from `data.labeler.SNR_AUC`, which is a transcription of the same file
+cut down to the 23 that clear its 0.95 gate. The two agree exactly on all 23;
+reading the file just means the ranking still works if the pool ever widens.
 
-`--top-n` truncates each monkey's scope to its top-N sessions by
-`data.labeler.SNR_AUC`, applied **after** vetting (so a session vetting would
-reject cannot consume a slot). Off by default (`0`) — the three scopes above
-already define the session sets.
+Ranking is applied **after** vetting, never before — truncating first would
+let a session that vetting rejects consume a slot meant for one that passes.
+
+Actual membership, measured:
+
+```
+dendro publication Faure    june_8_g0, june_24_g0
+dendro publication Nielsen  Nov_3_g0, Oct_22_g0
+dendro top_four    Faure    june_24_g0, june_8_g0, june_16_g0, june_22_g0
+dendro top_four    Nielsen  Nov_6_g0, Oct_22_g0, Nov_3_g0, Nov_1_g0
+svm    top_ten     Faure    june_24_g0, june_8_g0, june_18_g0, june_29_g0, june_12_g0,
+                            june_16_g0, june_28_g0, june_10_g0, june_09_09_g0, june_17_g0
+svm    top_ten     Nielsen  Oct_22_g0, Nov_3_g0, Nov_6_g0, Oct_21_g0, Nov_7_g0,
+                            Nov_18_g0, Nov_4_g0, Oct_25_g0, Nov_9_g0, Nov_1_g0
+```
+
+### Two things these scopes are not
+
+**`top_four` is not a selection.** Anchor vetting drops 15 of the 23
+`CLUSTERING_SESSIONS` — agreements 0.486-0.653, all under
+`MIN_LABEL_AGREEMENT` = 0.70 — leaving exactly 4 per monkey. So the cap binds
+on nothing: `top_four` *is* the entire vetted pool, identical to the retired
+`all`/`allplus` dendro scopes, and the `SNR_AUC` ranking never gets to choose.
+The cap stays only as a guard in case vetting ever passes a fifth. Read the
+dendro pair as "publication (2/monkey)" vs "everything whose labels vet
+(4/monkey)", not as a quality gradient inside a larger pool.
+
+A related warning falls out of the same numbers: **neural SNR does not predict
+dendrogram label quality.** Faure's #3 and #4 by `SNR_AUC` — june_28_g0
+(0.9931) and june_29_g0 (0.9834) — both fail vetting, at 0.542 and 0.486,
+while june_16_g0 (0.9779) and june_22_g0 (0.9712) pass and take those slots.
+Picking sessions by SNR alone would have picked two whose labels do not work.
+
+**`top_ten` only filters one animal — and the pool, not the cap, is why.**
+Nielsen has **34** neural recordings in the reference CSV, but only 10 clear
+the 0.95 `snr_auc` gate that defines `CLUSTERING_SESSIONS`, so its `top_ten`
+is all 10 and nothing is ranked out. For Faure the cap binds, dropping 3 of 13
+(june_17_g0, April_8_g0, june_11_g0).
+
+That gate is not an arbitrary cut — it sits just above a cliff in both animals:
+
+```
+Nielsen ranks  9-16 by snr_auc:  .965 .958 | .948 | .883 .810 .792 .791 .786
+Faure   ranks 11-18 by snr_auc:  .971 .971 | .969 .962 .952 | .942 .892 .870
+```
+
+Pool size by threshold: Nielsen 10 at >=0.95, 11 at >=0.92, 12 at >=0.85, 13
+at >=0.80; Faure 13, 14, 17, 18. So widening Nielsen past ~11 means admitting
+sessions at `snr_auc` <= 0.88, where the neural clustering barely separates
+maze 1 from maze 6 and the strategy labels are largely noise. **The asymmetry
+is a property of the recordings, not something a bigger pool fixes** — Nielsen
+has more sessions, not more usable ones. It still matters when reading one
+animal against the other.
+
+### Ranking by `snr_auc`, not by SVM accuracy
+
+The SVM's own `oof_balanced_acc` was considered for `top_ten` and rejected in
+favour of one metric shared by both sources. It does have the spread to rank
+(0.8785-1.0000 over the 23 sessions, 20 distinct values, 4 tied at the
+ceiling) and it would order things differently — june_28_g0 is Faure's #3 by
+`snr_auc` and its #7 by out-of-fold accuracy. But `snr_auc` wins on three
+counts that matter more here:
+
+1. **One ordering for the whole package.** `top_four` and `top_ten` become the
+   same kind of object, differing only in `n`, so a session's rank means one
+   thing everywhere.
+2. **No dependency on a built label.** `snr_auc` comes from a checked-in CSV
+   covering all 61 reference sessions, so a scope can be resolved without
+   reading any `_strategy_svm.npz` — which also means scope membership is
+   inspectable before the labels stage runs.
+3. **Out-of-fold accuracy certifies the wrong mazes anyway.** It is measured
+   on mazes 1 and 6, the SVM's own training axis; mazes 2-5 are never in any
+   fold, so a high score speaks to the axis, not to the labels on the four
+   mazes where most of this analysis reads. `dendro_agreement_2345` in
+   `results_raw_k<K>.csv` stays the only handle on those, and ranking by *it*
+   would reintroduce exactly the dependence on the dendrogram that a second
+   label source exists to avoid.
+
+`svm_auc`, the in-house recomputation of the same maze-1-vs-6 quantity, tracks
+`snr_auc` at Spearman **+0.945** across the 23 sessions, so this is close to
+the ordering an SVM-side AUC would have given in any case.
 
 ## 8. CV design
 
@@ -255,7 +454,7 @@ longer drags every other cell in that session down to 1-trial halves.
 Unbalanced halves are not merely noisier, they are biased in the direction
 being tested: the majority-strategy cell gets cleaner halves and hence a
 higher diagonal, so confining that bias to cells marked thin matters. High
-variance in the few-session scopes (`publication`, and often `all`) is
+variance in the few-session scopes (`publication`, and often `top_four`) is
 accepted for now rather than excluded.
 
 The exhaustive-subset "comparable core" restriction the deleted
@@ -301,7 +500,7 @@ eye_pre_flash/corr/out/
       <variant>/            full | no_origin | mean_removed
         examples_k<K>.csv
         examples_dims_k<K>.csv
-        <scope>/            publication | all | allplus
+        <scope>/            dendro: publication | top_four;  svm: top_ten
           matrix_<Monkey>_k<K>.png
           results_raw_k<K>.csv
           nulls_k<K>.csv
@@ -336,8 +535,10 @@ in practice.
   real weight on the permutation null in §9 — do not read a bare delta
   without it.
 - **Coverage in the thin scopes is accepted, not solved.** `publication` (2
-  sessions/monkey) and often `all` will show many thin (`*`) cells; `allplus`
-  is where this analysis has the coverage to be informative.
+  sessions/monkey) will show many thin (`*`) cells. `dendro/top_four` (4) and
+  `svm/top_ten` (10) are where this analysis has the coverage to be
+  informative — and `top_four` is as wide as the dendro source gets, since
+  vetting rejects the other 15 sessions outright (§7).
 - **Zero-variance `occ_bin` cells** (every trial visited every state) produce
   a degenerate NaN Pearson, counted in `n_degenerate` and noted on the figure
   — an em-dash from this cause means "no variance", not "no coverage".
@@ -354,7 +555,7 @@ in practice.
 
 ```bash
 uv run python -m eye_pre_flash.corr.run --source dendro --feature occupancy \
-    --variant full --scope allplus --monkey Faure --k 12
+    --variant full --scope top_four --monkey Faure --k 12
 ```
 
 Full sweep on the cluster: `mkdir -p logs && sbatch slurm/run_corr.sbatch`,

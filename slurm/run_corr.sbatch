@@ -7,7 +7,7 @@
 # Anything after the script name is forwarded to `corr.run`, so a single
 # source, feature or scope can be re-run without editing this file:
 #
-#   sbatch slurm/run_corr.sbatch --scope allplus
+#   sbatch slurm/run_corr.sbatch --scope top_ten
 #   sbatch slurm/run_corr.sbatch --source svm --feature occupancy --monkey Faure
 #
 # Three steps, in order, because each needs what came before:
@@ -31,9 +31,11 @@
 #      the eye data, not the neural data. `corr` is unit-H only (`corr.md`
 #      section 5), so the `deg` caches are not built for it.
 #
-#   3. `corr.run` sweeps 2 label sources x 3 features x 3 variants x 3 scopes
-#      x 2 monkeys x 2 K and writes figures plus `results_raw_k<K>.csv`
-#      / `nulls_k<K>.csv` / `examples*_k<K>.csv` per leaf.
+#   3. `corr.run` sweeps 3 source-scope pairs (dendro/publication,
+#      dendro/top_four, svm/top_ten -- scopes are per source, see
+#      `corr.labels.SOURCE_SCOPES`) x 3 features x 3 variants x 2 monkeys
+#      x 2 K = 108 figures, plus `results_raw_k<K>.csv` / `nulls_k<K>.csv` /
+#      `examples*_k<K>.csv` per leaf.
 #
 # `corr` revives the retired `similarities.heatmap_labels` (a 12x12 over
 # (maze x decoded strategy) built the same split-half way, against
@@ -49,10 +51,23 @@
 #       ./eye_pre_flash/corr/out/
 
 #SBATCH -J eyecorr
-#SBATCH -p mit_normal
+#SBATCH -p ou_bcs_low
 #SBATCH -c 1
 #SBATCH --mem=32G
 #SBATCH -t 12:00:00
+# `-c 1` is one core, but `squeue` will report CPUS=2 on this partition and
+# `billing=2`. That is not a stray request: `SelectTypeParameters` is
+# `CR_CORE_MEMORY`, so Slurm's smallest allocatable unit is a whole physical
+# core, and `ou_bcs_low` nodes expose both hyperthreads (32 cores x 2 sockets
+# x 2 threads = CPUTot 128). One core therefore *is* 2 CPUs here. `mit_normal`
+# nodes are configured with CPUTot = core count (96 = 48 x 2), which is why the
+# same `-c 1` reports 1 there. Nothing to fix -- the job holds one core either
+# way and `--hint=nomultithread` cannot go below that -- but it is billed at 2,
+# which is the price of `ou_bcs_low` starting immediately where `mit_normal`
+# left this job in PENDING (Priority).
+# `ou_bcs_low` rather than `mit_normal`: it allows 1-day jobs and had far
+# more free nodes, and this job kept sitting in PENDING (Priority) on
+# mit_normal. The 12h ask is unchanged and well inside the partition limit.
 #SBATCH -o logs/eyecorr-%j.out
 #SBATCH -e logs/eyecorr-%j.err
 
@@ -82,9 +97,11 @@
 #          the laptop. The analysis half is vectorised (the 12x12
 #          per-split correlation is two matrix multiplies, not 144 individual
 #          `pearson()` calls) -- measured at ~40s for one (source, feature,
-#          variant, monkey, k) leaf's `allplus` scope (23 sessions,
-#          --n-perm 1000, the expensive scope; `publication`/`all` are much
-#          cheaper). The full sweep is 72 such leaves, so well under 2h once
+#          variant, monkey, k) leaf over 23 sessions at --n-perm 1000. Every
+#          scope is now smaller than that -- `svm/top_ten` is 10 sessions per
+#          monkey, `dendro/top_four` 4 and `publication` 2 -- so the analysis
+#          stage costs less than that estimate. The sweep is 108 monkey-level
+#          figures, so well under 2h once
 #          labels exist; the 12h budget is headroom for a cold label sweep,
 #          which is resumable if it is cut short. Both halves are resumable:
 #          labels that exist are skipped, and a partial `corr.run` can be

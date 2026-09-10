@@ -27,6 +27,7 @@ BEHAVIORAL_FIELDS = {
     "answer_time",
     "feedback_time",
     "fix_start",
+    "fixation_cue_present",
     "fixation_off",
     "flash_one",
     "flash_three",

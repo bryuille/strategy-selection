@@ -19,7 +19,13 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 from data.loader import load_eye_behavioral_data, load_eye_data
-from eye_pre_flash.plotting.plot_io import PRE_FIX_WINDOW_MS, save_figure
+from eye_pre_flash.plotting.plot_io import (
+    PRE_FIX_WINDOW_MS,
+    cue_rel_median,
+    cue_rel_ms,
+    draw_cue_marker,
+    save_figure,
+)
 
 VISUALIZER = "saccades/traces"
 FIXATION_STEM_DEG = 7.0
@@ -89,6 +95,7 @@ def _collect_maze_trials(eye, behavioral, maze, session):
                 "y": y,
                 "fix_ms": fix_ms,
                 "h": h,
+                "cue_rel": cue_rel_ms(behavioral, beh_i),
             }
         )
 
@@ -124,6 +131,7 @@ def _collect_maze_trials(eye, behavioral, maze, session):
                 "h": h,
                 "fix_ms": r["fix_ms"],
                 "window_ms": window_ms,
+                "cue_rel": r["cue_rel"],
             }
         )
         x_refs.update(_exit_x_refs(h[0], h[3]))
@@ -201,7 +209,7 @@ def _trace_stats(trials):
         }
 
 
-def _style_2d_axes(ax_x, ax_y, x_refs, y_refs, t_min):
+def _style_2d_axes(ax_x, ax_y, x_refs, y_refs, t_min, cue_rel=None, cue_median=False):
     for xv in x_refs:
         ax_x.axhline(xv, color="k", linestyle=":", linewidth=1.0, alpha=0.75)
     for yv in y_refs:
@@ -212,6 +220,7 @@ def _style_2d_axes(ax_x, ax_y, x_refs, y_refs, t_min):
         ax.axvline(t_min, color="0.65", linewidth=0.6, linestyle="--")
         ax.set_xlim(t_min, 0)
         ax.set_xlabel("Time rel. fix_start (ms)")
+        draw_cue_marker(ax, cue_rel, median=cue_median)
 
     ax_x.set_ylim(-VIS_LIMIT, VIS_LIMIT)
     ax_y.set_ylim(-VIS_LIMIT, VIS_LIMIT)
@@ -323,7 +332,11 @@ def plot_2d_saccades_average(
         alpha=0.25,
     )
 
-    _style_2d_axes(ax_x, ax_y, x_refs, y_refs, stats["t_min"])
+    _style_2d_axes(
+        ax_x, ax_y, x_refs, y_refs, stats["t_min"],
+        cue_rel=cue_rel_median([t.get("cue_rel") for t in trials]),
+        cue_median=True,
+    )
     fig.suptitle(
         f"{session} maze {maze} pre-fixation saccades (2D average)\n"
         f"{_time_window_label(trials)}, n={len(trials)} trials"
@@ -343,6 +356,7 @@ def _save_2d_trial(maze, session, trial, trials):
         _exit_x_refs(trial["h"][0], trial["h"][3]),
         _exit_y_refs(trial["h"][1], trial["h"][2], trial["h"][4], trial["h"][5]),
         -trial["window_ms"],
+        cue_rel=trial.get("cue_rel"),
     )
     fig.suptitle(
         f"{session} maze {maze} trial {trial['trial_id']} (2D)\n"

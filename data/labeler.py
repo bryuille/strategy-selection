@@ -364,8 +364,12 @@ def build_svm_choices(
     built from them are a real held-out measurement, not a definitional
     artifact. Mazes 2-5 never appear in any fold's training or test split, so
     there is no notion of "out-of-fold" for them; each gets the **mode**
-    across the `K` fold models' predictions (ties impossible at odd `K`; at
-    even `K`, broken by the sign of the mean decision function).
+    across the `K` fold models' predictions. Ties are impossible at odd `K`
+    (and `K` is 5 for all 23 sessions, so the tie path below is unreachable in
+    practice); at even `K` a tie is broken by the sign of the decision
+    function of a model refitted on *all* anchor trials -- not, as an earlier
+    version of this docstring claimed, by the mean of the fold models'
+    decision values.
 
     Returns a dict with the same ``strategy_choices`` convention as
     `build_strategy_choices` (0.0 hierarchical / 1.0 sequential / NaN

@@ -20,12 +20,22 @@ Blocks (one row per trial, ``float32``):
 ``heatmap_lo``  gaze histogram on a coarse GRID_LO x GRID_LO grid
 ``heatmap_hi``  the same on a fine GRID_HI x GRID_HI grid
 
-The ``unith`` codebook and state ids come straight from ``data.attractor``
-(k-means in unit-H space, fixation-centroid assignment). The ``deg`` codebook is
-fit here the same way -- per-monkey k-means on pooled valid samples, fixation-
-centroid assignment within a radius -- but in degree space, with the radius
-scaled by the pooled degrees-per-unit-H ratio so the two spaces assign a
-comparable share of samples.
+Order of operations, for both spaces: **clip to the window first**, then warp,
+then fit the k-means codebook on the pooled in-window samples (per monkey, per
+K, across sessions), then apply the pymovements fixation spans clipped to that
+same window, then assign each clipped fixation's centroid to the nearest
+prototype within `ASSIGN_RADIUS`. See `extract_monkey_features` for the full
+statement and for the one deliberate deviation -- fixation detection stays in
+degree space, where its 40 deg/s and 2.0 deg thresholds are physical.
+
+Both codebooks are therefore fit *here*, on windowed gaze. ``data.attractor``
+is read only for its warped positions, validity mask and timebase; its own
+whole-trial ``codebook_xy`` and ``state_id`` are deliberately not used, since
+prototypes fit on whole-trial gaze sit where gaze went while the maze was
+being solved rather than during the epoch being described. Every other
+consumer of the attractor cache is unaffected. The ``deg`` radius is
+`ASSIGN_RADIUS` scaled by the pooled degrees-per-unit-H ratio, so the two
+spaces leave a comparable share of gaze unassigned.
 
 Caches land under ``data/processed/<Monkey>_clf2_k<K>_<space>_s<start>_e<end>.npz``.
 """
@@ -41,10 +51,12 @@ from data.attractor import (
     assign_fixation_states,
     h_lookup,
 )
+from data.builder import FIXATION_MIN_DURATION_MS, trial_qc_ok
 from data.config import MONKEYS, processed_npz
 from data.convert import load_npz
 from data.loader import (
     load_attractor_eye_data,
+    savez_atomic,
     load_clean_eye_data,
     load_eye_behavioral_data,
 )
@@ -112,7 +124,8 @@ def from_maze(x_n, y_n, h):
 
 def _event_lookup(monkey, sessions):
     """``(session, trial) -> [(name, onset, offset), ...]`` from the clean events."""
-    events = load_clean_eye_data(monkey)
+    # Windowed detection: I-DT runs on the clipped, unwarped segment.
+    events = load_clean_eye_data(monkey, start_ms=DEFAULT_START_MS, end_ms=DEFAULT_END_MS)
     names = np.asarray(events["name"]).astype(str)
     sess = np.asarray(events["session"]).astype(str)
     trials = np.asarray(events["trial_indices_all"]).astype(int)
@@ -127,14 +140,48 @@ def _event_lookup(monkey, sessions):
     return lookup
 
 
-def _sample_dt_seconds(t_ms):
-    """Per-sample durations (s) for a kept-sample time vector."""
-    dt = np.empty(t_ms.size, dtype=float)
+def _sample_period_ms(t_ms):
+    """Median positive sample interval (ms) of a full, unmasked time vector."""
+    t_ms = np.asarray(t_ms, dtype=float)
+    if t_ms.size < 2:
+        return 1.0
+    d = np.diff(t_ms)
+    pos = d[d > 0]
+    return float(np.median(pos)) if pos.size else 1.0
+
+
+def _sample_dt_seconds(t_ms, period_ms=None):
+    """Per-sample durations (s), each capped at the sample period.
+
+    `t_ms` here is the *masked* time vector -- unassigned samples (saccades,
+    blinks, gaze outside every codebook ball) are already removed -- so a raw
+    `np.diff` charges the whole of any gap to the last sample before it. One
+    sample sitting in front of a 500 ms blink would contribute 500 ms of
+    "dwell", and `occ_ms` would sum to the full window regardless of how much
+    of that window was actually spent in an assigned fixation.
+
+    Capping each interval at the sample period fixes that: the total becomes
+    the time genuinely spent in assigned fixations, and gaps contribute
+    nothing. `period_ms` should come from the trial's *unmasked* timebase
+    (`_sample_period_ms`), since the median interval of a heavily masked vector
+    is itself biased by the gaps.
+
+    Capping is also what keeps the total honest given that `data.builder` runs
+    two overlapping fixation detectors: each sample carries exactly one state
+    and contributes one period, whereas summing I-VT and I-DT span durations
+    would double-count the ~80-90% of gaze both of them cover.
+    """
+    t_ms = np.asarray(t_ms, dtype=float)
+    if t_ms.size == 0:
+        return np.empty(0, dtype=float)
+    if period_ms is None:
+        period_ms = _sample_period_ms(t_ms)
     if t_ms.size == 1:
-        return np.array([0.001])
+        return np.array([period_ms / 1000.0])
+    dt = np.empty(t_ms.size, dtype=float)
     dt[:-1] = np.diff(t_ms)
-    pos = dt[:-1][dt[:-1] > 0]
-    dt[-1] = float(np.median(pos)) if pos.size else 1.0
+    dt[-1] = period_ms
+    dt = np.clip(dt, 0.0, period_ms)
     return np.where(dt > 0, dt, 0.0) / 1000.0
 
 
@@ -148,50 +195,73 @@ def _trial_arrays(attractor, i):
     return t_ms[:n], state[:n], valid[:n], x[:n], y[:n]
 
 
-def _fit_degree_codebook(attractor, hs, k, *, seed=SEED):
-    """Per-monkey k-means codebook in degree space, plus its assignment radius.
+def _trial_window(behavioral, beh_i, start_ms, end_ms):
+    """``(lo, hi)`` window bounds in trial ms, or None if the trial has no
+    usable fixation onset."""
+    fix_ms = fix_start_ms(behavioral, beh_i)
+    if not np.isfinite(fix_ms) or fix_ms <= 0:
+        return None
+    return fix_ms - start_ms, fix_ms - end_ms
 
-    Mirrors `data.attractor`: pool valid samples across all trials (capped),
-    k-means, clip to the box. The radius is `ASSIGN_RADIUS` (1.0 unit-H)
-    scaled by the pooled median degrees-per-unit-H ratio, so the degree-space
-    book leaves a comparable share of gaze unassigned.
+
+FIXATION_EVENT = "fixation_idt"
+
+
+def clip_fixation_spans(
+    event_rows, lo, hi, name_wanted=FIXATION_EVENT, min_duration_ms=FIXATION_MIN_DURATION_MS
+):
+    """`name_wanted` event rows intersected with ``[lo, hi]``, then re-tested
+    against `min_duration_ms`.
+
+    Step 1 of the pipeline is the window clip, so a fixation only contributes
+    the part of itself falling inside the window, and only if that part would
+    have been detected on its own.
+
+    This is equivalent to re-running I-DT on the clipped segment, without
+    paying for a second pymovements pass, because of two properties of the
+    algorithm. Dispersion is monotone under subsetting, so any sub-window of a
+    span that already passed the 2 deg test still passes it -- a truncated
+    fixation is still a fixation. And I-DT grows a window until dispersion
+    exceeds the threshold, which on the clipped segment happens at exactly the
+    boundary the whole-trial pass already found, so span *edges* are preserved.
+    The only thing a genuine re-detect would do differently is refuse to emit a
+    remnant shorter than the minimum duration, since its initial window can
+    never be filled -- which is precisely the test applied here.
+
+    Measured cost of that test: it drops 6.4% of in-window fixations for Faure
+    and 5.6% for Nielsen, but only 1.40% and 0.84% of in-window *fixation
+    time*, and no trial loses all of its fixations.
+
+    **I-DT only.** `data.builder` runs both I-DT and I-VT and stores both event
+    sets, and `data.attractor.fixation_event_spans` takes both by matching the
+    substring ``fixation``. That mixes two detectors with different span
+    boundaries into one pool, where `assign_fixation_states`' longest-span
+    tie-break then silently picks between them -- measured, I-DT wins that in
+    ~99.5% of trials, because its p95 duration is roughly twice I-VT's. So the
+    old behaviour was "I-DT nearly always, by accident". This matches it on
+    purpose, and agrees with the two modules that already name a detector
+    explicitly: `plotting.saccades.labeled` and
+    `plotting.similarities.heatmap_fixations` both filter on `fixation_idt`.
     """
+    out = []
+    for name, onset, offset in event_rows or ():
+        if str(name).lower() != name_wanted:
+            continue
+        o0, o1 = max(float(onset), lo), min(float(offset), hi)
+        if o1 - o0 >= min_duration_ms:
+            out.append((name, o0, o1))
+    return out
+
+
+def _fit_window_codebook(pool_xy, k, lim, *, seed=SEED):
+    """K-means over the pooled in-window samples, clipped to the box."""
     rng = np.random.default_rng(seed)
-    pool, ratios = [], []
-    sessions = np.asarray(attractor["session"]).astype(str)
-    trials = np.asarray(attractor["trial_indices_all"]).astype(int)
-    for i in range(sessions.size):
-        h = hs.get((sessions[i], int(trials[i])))
-        if h is None or not np.all(np.isfinite(h)):
-            continue
-        _t, _s, valid, x_u, y_u = _trial_arrays(attractor, i)
-        keep = valid & np.isfinite(x_u) & np.isfinite(y_u)
-        keep &= (np.abs(x_u) <= UNITH_LIM) & (np.abs(y_u) <= UNITH_LIM)
-        idx = np.flatnonzero(keep)
-        if idx.size == 0:
-            continue
-        if idx.size > POOL_PER_TRIAL:
-            idx = rng.choice(idx, POOL_PER_TRIAL, replace=False)
-        x_d, y_d = from_maze(x_u[idx], y_u[idx], h)
-        pool.append(np.stack([x_d, y_d], axis=1))
-        r_u = np.hypot(x_u[idx], y_u[idx])
-        r_d = np.hypot(x_d, y_d)
-        far = r_u > 0.25
-        if far.any():
-            ratios.append(r_d[far] / r_u[far])
-    xy = np.concatenate(pool, axis=0).astype(np.float32)
+    xy = np.concatenate(pool_xy, axis=0).astype(np.float32)
     if xy.shape[0] > POOL_MAX:
         xy = xy[rng.choice(xy.shape[0], POOL_MAX, replace=False)]
-    scale = float(np.median(np.concatenate(ratios)))
-    radius = ASSIGN_RADIUS * scale
     km = KMeans(n_clusters=k, n_init=10, random_state=seed)
     km.fit(xy)
-    codebook = np.clip(km.cluster_centers_, -DEG_LIM, DEG_LIM).astype(np.float32)
-    print(
-        f"  degree codebook: K={k}, n={xy.shape[0]} samples, "
-        f"scale={scale:.2f} deg/unit-H, radius={radius:.2f} deg"
-    )
-    return codebook, radius
+    return np.clip(km.cluster_centers_, -lim, lim).astype(np.float32), xy.shape[0]
 
 
 def extract_monkey_features(
@@ -202,7 +272,45 @@ def extract_monkey_features(
     start_ms=DEFAULT_START_MS,
     end_ms=DEFAULT_END_MS,
 ):
-    """All feature blocks for every usable trial of `monkey` in `space`."""
+    """All feature blocks for every usable trial of `monkey` in `space`.
+
+    The pipeline runs in this order, which is the order the analysis is
+    documented in:
+
+    1. **Clip** each trial to ``[fix_start - start_ms, fix_start - end_ms]``.
+       Everything downstream sees only in-window samples.
+    2. **Warp** to the requested space -- `unith` is what `data.attractor`
+       already cached; `deg` inverts that warp per trial with `from_maze`.
+    3. **K-means** over the pooled in-window samples, once per (monkey, k,
+       space), across sessions. This codebook is fit *here*, on windowed gaze,
+       and deliberately replaces `data.attractor`'s whole-trial codebook: a
+       book fit on whole-trial gaze puts prototypes where gaze went while the
+       maze was being solved, which is not the epoch being described.
+    4. **Fixations** by **I-DT only** (`FIXATION_EVENT`) on the clipped,
+       unwarped data. Implemented by clipping `data.builder`'s whole-trial
+       I-DT spans to the window and re-applying the minimum-duration test,
+       which `clip_fixation_spans` shows is equivalent to re-detecting on the
+       segment. See there too for why I-VT is excluded rather than pooled.
+    5. **Assign** every clipped fixation's centroid to the nearest prototype
+       within `ASSIGN_RADIUS`, and let its samples inherit that state.
+       Saccades, blinks and fixations outside every ball stay unassigned and
+       are dropped from the features.
+
+One deliberate deviation from that list: **fixation detection stays in degree
+    space** -- that is, on unwarped data, which is where `data.builder`
+    performs it. Both detectors' thresholds are physical -- a velocity in
+    deg/s for I-VT, a dispersion in deg for I-DT
+    (`IVT_VELOCITY_THRESHOLD_DEG_S`, `IDT_DISPERSION_THRESHOLD_DEG`) -- while
+    unit-H is dimensionless and warped per trial by that trial's arm lengths,
+    so detecting on unit-H coordinates would make the effective physical
+    threshold vary by trial and by maze -- reintroducing exactly the
+    geometry dependence the warp exists to remove. Detection therefore happens
+    on raw degrees once, up front, and step 4 is where its spans are *applied*.
+
+    Because the codebook is now windowed, `state_id` from the attractor cache
+    is not used at all; that cache is read only for its warped positions,
+    validity mask and timebase, so every other consumer of it is unaffected.
+    """
     if space not in SPACES:
         raise ValueError(f"unknown space {space!r}; choose from {SPACES}")
     attractor = load_attractor_eye_data(monkey, k=k)
@@ -211,61 +319,119 @@ def extract_monkey_features(
     beh = behavioral_lookup(behavioral)
     sessions = np.asarray(attractor["session"]).astype(str)
     trials = np.asarray(attractor["trial_indices_all"]).astype(int)
+    hs = h_lookup(behavioral) if space == "deg" else None
+    events = _event_lookup(monkey, set(sessions.tolist()))
+    lim = DEG_LIM if space == "deg" else UNITH_LIM
 
+    # ---- Steps 1-2: clip to the window, warp, and pool what survives -------
+    rng = np.random.default_rng(SEED)
+    usable, pool, ratios = [], [], []
+    for i in range(sessions.size):
+        session, trial_id = sessions[i], int(trials[i])
+        beh_i = beh.get((session, trial_id))
+        if not trial_qc_ok(behavioral, beh_i):
+            # `path_type != -99` *and* no fade *and* photodiode QC passed --
+            # the same pool `data.labeler` labels from. Until 2026-09-10 this
+            # screened `path_type` alone, so the windowed codebook was fitted
+            # on trials the labeller had excluded.
+            continue
+        maze = int(behavioral["geo_type"][beh_i])
+        if not 1 <= maze <= N_MAZES:
+            continue
+        bounds = _trial_window(behavioral, beh_i, start_ms, end_ms)
+        if bounds is None:
+            continue
+        lo, hi = bounds
+
+        t_ms, _state, valid, x, y = _trial_arrays(attractor, i)
+        if t_ms.size < 2:
+            continue
+        h = None
+        if space == "deg":
+            h = hs.get((session, trial_id))
+            if h is None or not np.all(np.isfinite(h)):
+                continue
+
+        in_window = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
+        keep_u = in_window & valid & np.isfinite(x) & np.isfinite(y)
+        keep_u &= (np.abs(x) <= UNITH_LIM) & (np.abs(y) <= UNITH_LIM)
+        if keep_u.sum() < 2:
+            continue
+
+        idx = np.flatnonzero(keep_u)
+        if idx.size > POOL_PER_TRIAL:
+            idx = rng.choice(idx, POOL_PER_TRIAL, replace=False)
+        if space == "deg":
+            x_d, y_d = from_maze(x[idx], y[idx], h)
+            pool.append(np.stack([x_d, y_d], axis=1))
+            r_u, r_d = np.hypot(x[idx], y[idx]), np.hypot(x_d, y_d)
+            far = r_u > 0.25
+            if far.any():
+                ratios.append(r_d[far] / r_u[far])
+        else:
+            pool.append(np.stack([x[idx], y[idx]], axis=1))
+        usable.append((i, session, trial_id, maze, lo, hi, h))
+
+    dims = block_dims(k)
+    if not pool:
+        out = {
+            name: np.empty((0, dims[name]), dtype=np.float32) for name in BLOCK_NAMES
+        }
+        out["session"] = np.asarray([])
+        out["trial_indices_all"] = np.asarray([], dtype=int)
+        out["maze_id"] = np.asarray([], dtype=int)
+        out["codebook_k"] = np.int64(k)
+        out["space"] = np.str_(space)
+        return out
+
+    # ---- Step 3: k-means across sessions, on in-window samples only --------
+    codebook, n_pool = _fit_window_codebook(pool, k, lim)
     if space == "deg":
-        hs = h_lookup(behavioral)
-        codebook_deg, radius_deg = _fit_degree_codebook(attractor, hs, k)
-        events = _event_lookup(monkey, set(sessions.tolist()))
-        lim = DEG_LIM
+        scale = float(np.median(np.concatenate(ratios)))
+        radius = ASSIGN_RADIUS * scale
+        print(
+            f"  windowed degree codebook: K={k}, n={n_pool} in-window samples, "
+            f"scale={scale:.2f} deg/unit-H, radius={radius:.2f} deg"
+        )
     else:
-        codebook_deg, radius_deg = None, np.nan
-        lim = UNITH_LIM
+        radius = ASSIGN_RADIUS
+        print(
+            f"  windowed unit-H codebook: K={k}, n={n_pool} in-window samples, "
+            f"radius={radius:.2f} unit-H"
+        )
+
     edges_lo = np.linspace(-lim, lim, GRID_LO + 1)
     edges_hi = np.linspace(-lim, lim, GRID_HI + 1)
 
     blocks = {name: [] for name in BLOCK_NAMES}
     rows_session, rows_trial, rows_maze = [], [], []
 
-    for i in range(sessions.size):
-        session, trial_id = sessions[i], int(trials[i])
-        beh_i = beh.get((session, trial_id))
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
-            continue
-        maze = int(behavioral["geo_type"][beh_i])
-        if not 1 <= maze <= N_MAZES:
-            continue
-        fix_ms = fix_start_ms(behavioral, beh_i)
-        if not np.isfinite(fix_ms) or fix_ms <= 0:
-            continue
-
-        t_ms, state, valid, x, y = _trial_arrays(attractor, i)
-        if t_ms.size < 2:
-            continue
-
+    # ---- Steps 4-5: clip fixation spans, assign their centroids ------------
+    for i, session, trial_id, maze, lo, hi, h in usable:
+        t_ms, _state, valid, x, y = _trial_arrays(attractor, i)
         if space == "deg":
-            h = hs.get((session, trial_id))
-            if h is None or not np.all(np.isfinite(h)):
-                continue
             x, y = from_maze(x, y, h)
-            state = assign_fixation_states(
-                np.stack([x, y], axis=1).astype(np.float32),
-                t_ms,
-                valid,
-                events.get((session, trial_id), ()),
-                codebook_deg,
-                radius=radius_deg,
-            )
-            state = np.where(valid, state, -1).astype(int)
 
-        lo, hi = fix_ms - start_ms, fix_ms - end_ms
         in_window = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
-        keep = in_window & valid & np.isfinite(x) & np.isfinite(y)
+        valid_win = valid & in_window & np.isfinite(x) & np.isfinite(y)
+        spans = clip_fixation_spans(events.get((session, trial_id), ()), lo, hi)
+        state = assign_fixation_states(
+            np.stack([x, y], axis=1).astype(np.float32),
+            t_ms,
+            valid_win,
+            spans,
+            codebook,
+            radius=radius,
+        )
+        state = np.where(valid_win, state, -1).astype(int)
+
+        keep = valid_win
         if keep.sum() < 2:
             continue
         assigned = keep & (state >= 0) & (state < k)
 
         if assigned.any():
-            dt = _sample_dt_seconds(t_ms[assigned])
+            dt = _sample_dt_seconds(t_ms[assigned], _sample_period_ms(t_ms))
             occ_ms = np.bincount(state[assigned], weights=dt, minlength=k) * 1000.0
             runs = collapse_state_runs(state[assigned])
         else:
@@ -283,7 +449,6 @@ def extract_monkey_features(
         rows_trial.append(trial_id)
         rows_maze.append(maze)
 
-    dims = block_dims(k)
     out = {
         name: (
             np.asarray(vals, dtype=np.float32)
@@ -297,9 +462,11 @@ def extract_monkey_features(
     out["maze_id"] = np.asarray(rows_maze, dtype=int)
     out["codebook_k"] = np.int64(k)
     out["space"] = np.str_(space)
+    out["codebook_xy"] = codebook
+    out["assign_radius"] = np.float64(radius)
     if space == "deg":
-        out["codebook_deg_xy"] = codebook_deg
-        out["assign_radius_deg"] = np.float64(radius_deg)
+        out["codebook_deg_xy"] = codebook
+        out["assign_radius_deg"] = np.float64(radius)
     return out
 
 
@@ -325,7 +492,7 @@ def load_features(
         monkey, k=k, space=space, start_ms=start_ms, end_ms=end_ms
     )
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **data)
+    savez_atomic(path, **data)
     print(f"Saved {path} ({len(data['session'])} trials)")
     return data
 

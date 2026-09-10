@@ -40,7 +40,7 @@ MIN_TRIALS = 4  # hard floor: a cell must split into two halves of >= 2
 MIN_STABLE = 8  # below this a cell is computed but marked thin
 
 
-def _session_seed(seed, session):
+def session_seed(seed, session):
     """Deterministic per-session sub-seed. Not Python's `hash()` -- that is
     randomised per interpreter run for strings, which would make a session's
     matrix depend on process start rather than only on `seed`."""
@@ -106,7 +106,7 @@ def session_half_sizes(cells, *, min_stable=MIN_STABLE, n_half=None):
     return half_sizes, stable
 
 
-def _pairwise_pearson_matrix(A, B):
+def pairwise_pearson_matrix(A, B):
     """``R[i, j] = pearson(A[i], B[j])`` for every row pair, vectorised.
 
     Equivalent to calling `common.pearson` on every row pair (same
@@ -164,7 +164,7 @@ def session_cv_matrix(cells, rng, *, half_sizes, n_splits=N_SPLITS):
 
         # r_final[i, j] = mean(pearson(a_i, b_j), pearson(b_i, a_j)); the
         # second term is pearson(a_j, b_i) with i, j swapped, i.e. R_ab.T.
-        R_ab = _pairwise_pearson_matrix(mean_a, mean_b)
+        R_ab = pairwise_pearson_matrix(mean_a, mean_b)
         r_final = 0.5 * (R_ab + R_ab.T)
         n_degenerate += 2 * int(np.sum(np.isnan(R_ab)))
 
@@ -212,6 +212,14 @@ def label_similarity_matrix(
 ):
     """Session-averaged 12x12 CV r, and everything needed to rebuild it.
 
+    The CV is deliberately feature-agnostic: `X` is just an (n, d) block, the
+    aggregate is always the half-mean, and the similarity is always Pearson.
+    There is no per-feature branch anywhere below this point and there should
+    not be one -- `occupancy`, `occupancy_bin` and `bigram` are only
+    comparable to each other because the identical estimator is applied to
+    all three, and a feature-specific aggregate (binarising `occ_bin`'s
+    half-mean, say) would buy nothing and cost that comparability.
+
     ``X`` is the (n, d) feature block (one row per trial, any of `occ_ms`,
     `occ_bin`, `bigram`, already through a `eye_pre_flash.corr.variants`
     transform); ``sessions``, ``trials``, ``mazes`` are the aligned per-trial
@@ -256,7 +264,7 @@ def label_similarity_matrix(
         half_sizes, stable = session_half_sizes(
             cells, min_stable=min_stable, n_half=n_half
         )
-        rng = np.random.default_rng(_session_seed(seed, session))
+        rng = np.random.default_rng(session_seed(seed, session))
         mat, n_deg = session_cv_matrix(
             cells, rng, half_sizes=half_sizes, n_splits=n_splits
         )

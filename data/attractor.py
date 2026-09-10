@@ -6,9 +6,15 @@ import numpy as np
 from pymovements.events.detection import out_of_screen
 from sklearn.cluster import KMeans
 
-from data.builder import POSITION_LIMIT_DEG, trial_blink_mask, trial_fixation_mask
+from data.builder import (
+    POSITION_LIMIT_DEG,
+    qc_mask,
+    trial_blink_mask,
+    trial_fixation_mask,
+)
 from data.config import eye_npz_path, processed_npz
 from data.convert import load_npz
+from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
 
 CODEBOOK_SWEEP = (4, 5, 6, 7, 8, 10, 12)
 DEFAULT_K = 12
@@ -428,7 +434,11 @@ def pack_trials(
         if events == "auto":
             from data.loader import load_clean_eye_data
 
-            events_by_trial = event_lookup(load_clean_eye_data(monkey))
+            events_by_trial = event_lookup(
+                load_clean_eye_data(
+                    monkey, start_ms=PRE_FIX_START_MS, end_ms=PRE_FIX_END_MS
+                )
+            )
         elif events is not None:
             events_by_trial = event_lookup(events)
 
@@ -436,10 +446,28 @@ def pack_trials(
     if max_trials is not None:
         n_trials = min(n_trials, int(max_trials))
     hs = h_lookup(behavioral)
+    # QC gate. A failing trial is packed as `None`, the signal `prepare_trial`
+    # already uses for an unusable trial, so row indices stay aligned with
+    # `eye_data` while `codebook_xy_pool` and `build_attractor_eye_data` skip
+    # it. Without this the whole-trial k-means codebook is fitted on faded and
+    # photodiode-bad gaze.
+    qc_ok = qc_mask(behavioral)
+    qc_row = {
+        (str(s_), int(t_)): j
+        for j, (s_, t_) in enumerate(
+            zip(behavioral["session"], behavioral["trial_indices_all"])
+        )
+    }
     pupils_by_session = {}
     packed = []
+    n_qc_dropped = 0
     for i in range(n_trials):
         t, x, y, session, trial_id = unpack_eye(eye_data, i)
+        beh_i = qc_row.get((str(session), int(trial_id)))
+        if beh_i is None or not qc_ok[beh_i]:
+            packed.append(None)
+            n_qc_dropped += 1
+            continue
         pupil = pupil_for_trial(pupils_by_session, monkey, session, trial_id)
         event_rows = (
             None if events_by_trial is None else events_by_trial.get((session, trial_id), ())
@@ -458,6 +486,7 @@ def pack_trials(
         )
         if (i + 1) % 2000 == 0:
             print(f"  packed {i + 1}/{n_trials}")
+    print(f"  {n_qc_dropped}/{n_trials} trial(s) dropped by QC before packing")
     return packed, n_trials
 
 
@@ -654,7 +683,9 @@ def produce_attractor_eye_data(
 def save_attractor_eye_data(data, monkey, stem=None):
     path = processed_npz(stem or f"{monkey}_attractor_eye_data")
     path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **data)
+    from data.loader import savez_atomic
+
+    savez_atomic(path, **data)
     print(f"Wrote {path}")
     return path
 

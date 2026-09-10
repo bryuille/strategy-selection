@@ -20,8 +20,23 @@ from matplotlib.patches import Patch
 from matplotlib.transforms import blended_transform_factory
 
 from data.attractor import MAZE_SCREEN_LIM
-from data.loader import load_attractor_eye_data, load_eye_behavioral_data, load_eye_data
-from eye_pre_flash.plotting.plot_io import PRE_FIX_WINDOW_MS, save_figure
+from data.attractor import assign_fixation_states
+from data.loader import (
+    load_attractor_eye_data,
+    load_clean_eye_data,
+    load_eye_behavioral_data,
+    load_eye_data,
+)
+from eye_pre_flash.classifier.features import clip_fixation_spans, load_features
+from eye_pre_flash.plotting.plot_io import (
+    PRE_FIX_END_MS,
+    PRE_FIX_START_MS,
+    PRE_FIX_WINDOW_MS,
+    cue_rel_median,
+    cue_rel_ms,
+    draw_cue_marker,
+    save_figure,
+)
 from eye_pre_flash.plotting.saccades.traces import (
     _behavioral_lookup,
     _fix_start_ms,
@@ -55,6 +70,25 @@ def _attractor_lookup(attractor):
     }
 
 
+def _snap_mae(trials):
+    """Mean |gaze - prototype| over assigned samples, in maze units.
+
+    Recomputed here rather than read from the attractor cache's `valid_mae`,
+    which scores the whole-trial codebook. These figures snap against the
+    windowed codebook from `classifier.features`, so the cache's number would
+    describe a different book than the one plotted.
+    """
+    err = [
+        np.hypot(t["x"] - t["recon_x"], t["y"] - t["recon_y"])[
+            np.isfinite(t["recon_x"])
+        ]
+        for t in trials
+    ]
+    if not err or not any(e.size for e in err):
+        return float("nan")
+    return float(np.nanmean(np.concatenate(err)))
+
+
 def _runs_from_state(t_rel, state):
     n = state.size
     if n == 0:
@@ -76,10 +110,18 @@ def _runs_from_state(t_rel, state):
     return runs
 
 
-def _collect_maze_trials(eye, behavioral, attractor, maze, session):
+def _collect_maze_trials(eye, behavioral, attractor, maze, session, monkey):
     lookup = _behavioral_lookup(behavioral)
     att_lookup = _attractor_lookup(attractor)
-    codebook_xy = np.asarray(attractor["codebook_xy"], dtype=float)
+    # The windowed codebook from `classifier.features`, not the attractor
+    # cache's -- that one is fit on whole-trial gaze, which is the "k-means on
+    # the wrong dataset" these plots were showing. States are re-assigned below
+    # against this book from I-DT spans clipped to the same window, so the
+    # figure describes exactly the state space the analyses use.
+    _feat = load_features(monkey, k=int(np.asarray(attractor["codebook_k"])), space="unith")
+    codebook_xy = np.asarray(_feat["codebook_xy"], dtype=float)
+    _assign_radius = float(_feat["assign_radius"])
+    _events = _event_rows(monkey)
     codebook_name = (
         [str(n) for n in attractor["codebook_name"]]
         if "codebook_name" in attractor
@@ -108,9 +150,7 @@ def _collect_maze_trials(eye, behavioral, attractor, maze, session):
         t_ms = np.asarray(attractor["time"][att_i], dtype=float) * 1000
         x = np.asarray(attractor["eye_x"][att_i], dtype=float)
         y = np.asarray(attractor["eye_y"][att_i], dtype=float)
-        recon_x = np.asarray(attractor["recon_x"][att_i], dtype=float)
-        recon_y = np.asarray(attractor["recon_y"][att_i], dtype=float)
-        state = np.asarray(attractor["state_id"][att_i], dtype=int)
+        state = np.asarray(attractor["state_id"][att_i], dtype=int)  # replaced below
         valid = np.asarray(attractor["valid"][att_i], dtype=bool)
         artifact = np.asarray(attractor["artifact_prob"][att_i], dtype=float)
         fix_ms = _fix_start_ms(behavioral, beh_i)
@@ -119,21 +159,39 @@ def _collect_maze_trials(eye, behavioral, attractor, maze, session):
             t_ms.size,
             x.size,
             y.size,
-            recon_x.size,
-            recon_y.size,
             state.size,
             valid.size,
             artifact.size,
         )
         x, y = x[:n], y[:n]
         valid = valid[:n]
-        state = np.where(valid, state[:n], -1)
-        recon_x = np.where(state >= 0, recon_x[:n], np.nan)
-        recon_y = np.where(state >= 0, recon_y[:n], np.nan)
+        t_ms = t_ms[:n]
+        lo, hi = fix_ms - PRE_FIX_WINDOW_MS, fix_ms
+        in_win = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
+        valid_win = valid & in_win & np.isfinite(x) & np.isfinite(y)
+        state = assign_fixation_states(
+            np.stack([x, y], axis=1).astype(np.float32),
+            t_ms,
+            valid_win,
+            clip_fixation_spans(_events.get((session, trial_id), ()), lo, hi),
+            codebook_xy,
+            radius=_assign_radius,
+        )
+        state = np.where(valid_win, state, -1).astype(int)
+        # Reconstruction must come from the book that produced `state`. It used
+        # to be read from the attractor cache, which snaps against the
+        # whole-trial codebook -- and k-means renumbers prototypes between
+        # fits, so index i means a different location in each book. That made a
+        # sample labelled k10 plot at whatever the *old* book snapped it to,
+        # i.e. one state id appearing at two coordinates, neither of them its
+        # own. Indexing the windowed codebook directly makes the snap, the
+        # label, the colour and the codebook panel all one book.
+        recon_x = np.where(state >= 0, codebook_xy[np.clip(state, 0, None), 0], np.nan)
+        recon_y = np.where(state >= 0, codebook_xy[np.clip(state, 0, None), 1], np.nan)
         raw.append(
             {
                 "trial_id": trial_id,
-                "t_ms": t_ms[:n],
+                "t_ms": t_ms,
                 "x": x,
                 "y": y,
                 "recon_x": recon_x,
@@ -143,6 +201,7 @@ def _collect_maze_trials(eye, behavioral, attractor, maze, session):
                 "artifact": artifact[:n],
                 "fix_ms": fix_ms,
                 "h": h,
+                "cue_rel": cue_rel_ms(behavioral, beh_i),
             }
         )
 
@@ -177,6 +236,7 @@ def _collect_maze_trials(eye, behavioral, attractor, maze, session):
                 "h": r["h"],
                 "fix_ms": r["fix_ms"],
                 "window_ms": window_ms,
+                "cue_rel": r["cue_rel"],
             }
         )
         h_vals.append(r["h"])
@@ -184,7 +244,23 @@ def _collect_maze_trials(eye, behavioral, attractor, maze, session):
     return trials, codebook_xy, codebook_name, h_vals
 
 
-def _style_maze_axes(ax_x, ax_y, t_min):
+def _event_rows(monkey):
+    """``(session, trial) -> [(name, onset, offset), ...]`` from the clean events."""
+    ev = load_clean_eye_data(monkey, start_ms=PRE_FIX_START_MS, end_ms=PRE_FIX_END_MS)
+    names = np.asarray(ev["name"]).astype(str)
+    sess = np.asarray(ev["session"]).astype(str)
+    trials = np.asarray(ev["trial_indices_all"]).astype(int)
+    onset = np.asarray(ev["onset"], dtype=float)
+    offset = np.asarray(ev["offset"], dtype=float)
+    out = {}
+    for i in range(names.size):
+        out.setdefault((sess[i], int(trials[i])), []).append(
+            (names[i].lower(), onset[i], offset[i])
+        )
+    return out
+
+
+def _style_maze_axes(ax_x, ax_y, t_min, cue_rel=None, cue_median=False):
     for v in (-1.0, 1.0):
         ax_x.axhline(v, color="k", linestyle=":", linewidth=1.0, alpha=0.75)
         ax_y.axhline(v, color="k", linestyle=":", linewidth=1.0, alpha=0.75)
@@ -193,6 +269,7 @@ def _style_maze_axes(ax_x, ax_y, t_min):
         ax.axvline(t_min, color="0.65", linewidth=0.6, linestyle="--")
         ax.set_xlim(t_min, 0)
         ax.set_xlabel("Time rel. fix_start (ms)")
+        draw_cue_marker(ax, cue_rel, median=cue_median)
     ax_x.set_ylim(-MAZE_LIM, MAZE_LIM)
     ax_y.set_ylim(-MAZE_LIM, MAZE_LIM)
     ax_x.set_ylabel("eye_x (maze)")
@@ -305,7 +382,7 @@ def plot_2d_average(
         attractor if attractor is not None else load_attractor_eye_data(monkey, k=k)
     )
     trials, codebook_xy, codebook_name, h_vals = _collect_maze_trials(
-        eye, behavioral, attractor, maze, session
+        eye, behavioral, attractor, maze, session, monkey
     )
     if not trials:
         raise ValueError(f"No trials for session={session!r}, maze={maze}")
@@ -327,13 +404,17 @@ def plot_2d_average(
     ax_y.plot(stats["t"], stats["ry_mean"], color="C1", linewidth=2.0, label="recon")
     ax_x.legend(fontsize=8, loc="lower left")
     ax_y.legend(fontsize=8, loc="lower left")
-    _style_maze_axes(ax_x, ax_y, stats["t_min"])
+    _style_maze_axes(
+        ax_x, ax_y, stats["t_min"],
+        cue_rel=cue_rel_median([t.get("cue_rel") for t in trials]),
+        cue_median=True,
+    )
     _draw_codebook(
         ax_xy, codebook_xy, _median_geometry(h_vals), colors, names=codebook_name
     )
 
     k = int(np.asarray(attractor["codebook_k"]))
-    mae = float(np.asarray(attractor["valid_mae"]))
+    mae = _snap_mae(trials)
     fig.suptitle(
         f"{session} maze {maze} attractor pre-fixation gaze (2D average)\n"
         f"{_time_window_label(trials)}, n={len(trials)} trials, K={k}, "
@@ -361,7 +442,9 @@ def _save_2d_trial(
     ax_x.plot(trial["t_rel"], trial["recon_x"], color="k", linewidth=1.6, zorder=3)
     ax_y.plot(trial["t_rel"], trial["recon_y"], color="k", linewidth=1.6, zorder=3)
     _draw_state_spans(ax_x, ax_y, trial["events"], colors, names=codebook_name)
-    _style_maze_axes(ax_x, ax_y, -trial["window_ms"])
+    _style_maze_axes(
+        ax_x, ax_y, -trial["window_ms"], cue_rel=trial.get("cue_rel")
+    )
 
     _draw_codebook(ax_xy, codebook_xy, trial["h"], colors, names=codebook_name)
     ax_xy.plot(trial["x"], trial["y"], color="0.75", linewidth=0.8, alpha=0.45, zorder=2)
@@ -411,13 +494,13 @@ def plot_2d_trials(
         attractor if attractor is not None else load_attractor_eye_data(monkey, k=k)
     )
     trials, codebook_xy, codebook_name, _ = _collect_maze_trials(
-        eye, behavioral, attractor, maze, session
+        eye, behavioral, attractor, maze, session, monkey
     )
     if not trials:
         raise ValueError(f"No trials for session={session!r}, maze={maze}")
     colors = _state_colors(len(codebook_xy))
     k = int(np.asarray(attractor["codebook_k"]))
-    mae = float(np.asarray(attractor["valid_mae"]))
+    mae = _snap_mae(trials)
     return [
         _save_2d_trial(
             maze, session, trial, trials, codebook_xy, colors, k, mae, codebook_name
@@ -444,11 +527,11 @@ def plot_2d_trial(
         attractor if attractor is not None else load_attractor_eye_data(monkey, k=k)
     )
     trials, codebook_xy, codebook_name, _ = _collect_maze_trials(
-        eye, behavioral, attractor, maze, session
+        eye, behavioral, attractor, maze, session, monkey
     )
     colors = _state_colors(len(codebook_xy))
     k = int(np.asarray(attractor["codebook_k"]))
-    mae = float(np.asarray(attractor["valid_mae"]))
+    mae = _snap_mae(trials)
     trial = _trial_by_id(trials, trial_id)
     return _save_2d_trial(
         maze, session, trial, trials, codebook_xy, colors, k, mae, codebook_name

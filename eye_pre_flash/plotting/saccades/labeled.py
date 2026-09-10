@@ -19,7 +19,12 @@ from matplotlib.patches import Patch
 from matplotlib.transforms import blended_transform_factory
 
 from data.loader import load_clean_eye_data, load_eye_behavioral_data, load_eye_data
-from eye_pre_flash.plotting.plot_io import save_figure
+from eye_pre_flash.plotting.plot_io import (
+    PRE_FIX_END_MS,
+    PRE_FIX_START_MS,
+    cue_rel_median,
+    save_figure,
+)
 from eye_pre_flash.plotting.saccades.traces import (
     _collect_maze_trials,
     _exit_x_refs,
@@ -176,7 +181,11 @@ def plot_2d_saccades_average(
         alpha=0.25,
     )
 
-    _style_2d_axes(ax_x, ax_y, x_refs, y_refs, stats["t_min"])
+    _style_2d_axes(
+        ax_x, ax_y, x_refs, y_refs, stats["t_min"],
+        cue_rel=cue_rel_median([t.get("cue_rel") for t in trials]),
+        cue_median=True,
+    )
     fig.suptitle(
         f"{session} maze {maze} labeled pre-fixation saccades (2D average)\n"
         f"{_time_window_label(trials)}, n={len(trials)} trials"
@@ -197,6 +206,7 @@ def _save_2d_trial(maze, session, trial, trials):
         _exit_x_refs(trial["h"][0], trial["h"][3]),
         _exit_y_refs(trial["h"][1], trial["h"][2], trial["h"][4], trial["h"][5]),
         -trial["window_ms"],
+        cue_rel=trial.get("cue_rel"),
     )
     fig.suptitle(
         f"{session} maze {maze} trial {trial['trial_id']} (2D, labeled)\n"
@@ -219,7 +229,10 @@ def plot_2d_saccades_trials(
     behavioral = (
         behavioral if behavioral is not None else load_eye_behavioral_data(monkey)
     )
-    events = events if events is not None else load_clean_eye_data(monkey)
+    events = (
+        events if events is not None
+        else load_clean_eye_data(monkey, start_ms=PRE_FIX_START_MS, end_ms=PRE_FIX_END_MS)
+    )
     trials, _, _, _ = _collect_maze_trials(eye, behavioral, maze, session)
     if not trials:
         raise ValueError(f"No trials for session={session!r}, maze={maze}")
@@ -241,7 +254,10 @@ def plot_2d_saccade_trial(
     behavioral = (
         behavioral if behavioral is not None else load_eye_behavioral_data(monkey)
     )
-    events = events if events is not None else load_clean_eye_data(monkey)
+    events = (
+        events if events is not None
+        else load_clean_eye_data(monkey, start_ms=PRE_FIX_START_MS, end_ms=PRE_FIX_END_MS)
+    )
     trials, _, _, _ = _collect_maze_trials(eye, behavioral, maze, session)
     _attach_events(trials, session, events)
     trial = _trial_by_id(trials, trial_id)

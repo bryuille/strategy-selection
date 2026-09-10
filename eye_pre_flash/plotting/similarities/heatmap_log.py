@@ -280,7 +280,11 @@ def plot_similarity(
     if event_kind is not None:
         from data.loader import load_clean_eye_data
 
-        event_lookup = _event_lookup(load_clean_eye_data(monkey))
+        event_lookup = _event_lookup(
+            load_clean_eye_data(
+                monkey, start_ms=PRE_FIX_START_MS, end_ms=PRE_FIX_END_MS
+            )
+        )
     corr, counts, n_sessions = maze_similarity_matrix(
         eye,
         behavioral,

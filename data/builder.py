@@ -1,5 +1,7 @@
 import warnings
 
+from collections import Counter
+
 import numpy as np
 import polars as pl
 import pymovements as pm
@@ -200,12 +202,77 @@ EYE_BEHAVIORAL_FIELDS = (
 # Post-flash event fields. Older behavioral npz predate their addition to
 # `data.convert.BEHAVIORAL_FIELDS`; sessions converted before then contribute
 # NaN, and the post-flash analyses tell the user to re-convert.
+# Per-trial optional fields. `feedback_time` and `reward` are deliberately
+# NOT here: in the raw struct they are (1, 1) scalars -- session-level protocol
+# parameters in ms, constant across all 61 sessions (feedback_time = 1500,
+# reward = 250) -- not per-trial timestamps like `fix_start` or `answer_time`,
+# which are (1, n_trials). Listing `feedback_time` here produced an all-NaN
+# column at best, and `collapse_to_trials` raised IndexError on its 0-d array
+# the moment a converted npz actually contained it.
 EYE_BEHAVIORAL_OPTIONAL_FIELDS = (
     "answer_time",
-    "feedback_time",
+    "fixation_cue_present",
     "saccade_init",
     "trial_end",
 )
+
+# ---- The analysis pool -------------------------------------------------
+# Three flags, screened wherever a trial enters a pooled fit, a cache or a
+# figure -- not only at plot time. The distinction matters: a k-means codebook
+# or a PCA fitted on excluded trials contaminates every trial that later reads
+# it, so filtering at the point of *display* is too late.
+#
+#   `path_type != -99`        the trial has a real condition
+#   `trial_fade == 0`         the maze display did not fade mid-trial
+#   `photodiode_qc_bad == 0`  flash timing within one 120-Hz frame of expected
+#                             (`DATA_DICTIONARY.md`)
+#
+# The same predicate `data.labeler.strategy_pc_scores` already applied to the
+# *label* pool, and the one the reference requires: the
+# `apply_photodiode_qc` argument of `Compute_All_Session_SNR.m` defaults true
+# and raises if set false ("Photodiode QC is required for the publication
+# analysis"). Factored here so the eye pipeline screens on exactly the same
+# three flags rather than each stage keeping its own subset -- which is what it
+# did until 2026-09-10, when `classifier.features` and `data.attractor`
+# screened only `path_type` and so fitted their codebooks on faded and
+# photodiode-bad trials.
+#
+# Verified present and finite in all 61 converted behavioral npz. A non-finite
+# flag rejects the trial: "unknown QC" is not "QC passed".
+QC_FIELDS = ("path_type", "trial_fade", "photodiode_qc_bad")
+
+
+def qc_mask(behavioral):
+    """Boolean row mask over a trial-level behavioral table."""
+    path = np.asarray(behavioral["path_type"], dtype=float)
+    fade = np.asarray(behavioral["trial_fade"], dtype=float)
+    bad = np.asarray(behavioral["photodiode_qc_bad"], dtype=float)
+    return (
+        np.isfinite(path)
+        & (path != -99)
+        & np.isfinite(fade)
+        & (fade == 0)
+        & np.isfinite(bad)
+        & (bad == 0)
+    )
+
+
+def trial_qc_ok(behavioral, i):
+    """`qc_mask` for one row, for the per-trial loops that carry a row index."""
+    if i is None:
+        return False
+    path = float(behavioral["path_type"][i])
+    fade = float(behavioral["trial_fade"][i])
+    bad = float(behavioral["photodiode_qc_bad"][i])
+    return (
+        np.isfinite(path)
+        and path != -99
+        and np.isfinite(fade)
+        and fade == 0
+        and np.isfinite(bad)
+        and bad == 0
+    )
+
 
 EYE_SAMPLING_RATE_HZ = 1000.0
 POSITION_LIMIT_DEG = 30.0
@@ -213,8 +280,33 @@ BLINK_PADDING_MS = 5
 SACCADE_MIN_DURATION_MS = 12
 SACCADE_THRESHOLD_FACTOR = 8
 SACCADE_MERGE_GAP_MS = 40
+# Consecutive fixations of the same kind are one fixation when the gap between
+# them is too short to hold a saccade (`SACCADE_MIN_DURATION_MS`) or a blink
+# (the 20 ms floor passed to `blink_fn`) *and* no saccade event actually spans
+# it. I-DT ends a fixation the moment accumulated drift crosses
+# `IDT_DISPERSION_THRESHOLD_DEG` and immediately starts another, so a single
+# steady fixation comes back as a run of fragments 1 ms apart -- 45.3% of all
+# consecutive fixation pairs sit under 2 ms, and only 1.81% of those have a
+# saccade between them (measured at the old 2 deg threshold; a wider threshold
+# fragments less, so both figures are upper bounds now). Measured the other
+# way round: pairs with no intervening saccade have a median gap of 1 ms,
+# pairs with one have 42 ms.
+# The distribution is cleanly bimodal, so this recovers whole fixations
+# without ever bridging a real eye movement.
+FIXATION_MERGE_GAP_MS = SACCADE_MIN_DURATION_MS
 IVT_VELOCITY_THRESHOLD_DEG_S = 40.0
-IDT_DISPERSION_THRESHOLD_DEG = 2.0
+# Maximum dispersion -- (max x - min x) + (max y - min y) -- I-DT tolerates
+# inside one fixation. Doubled from the 2.0 deg this analysis used through
+# 2026-09-09: at 2.0 deg a slow drift was split into fragments 1 ms apart that
+# `merge_fragmented_fixations` then glued back into a single event, since the
+# microsaccade detector flags no saccade across a smooth drift -- so the event
+# table reported one long "fixation" spanning gaze that had travelled well
+# past 2 deg (june_24_g0 trial 581: 4.13 deg of net drift inside one 1292 ms
+# fixation_idt). Widening the threshold makes that drift a fixation by the
+# detector's own definition instead of by merge artifact. It also makes I-DT
+# more permissive in general: gaze excursions up to 4 deg now stay inside one
+# fixation rather than ending it.
+IDT_DISPERSION_THRESHOLD_DEG = 4.0
 FIXATION_MIN_DURATION_MS = 50
 CLEAN_EVENT_PROPERTIES = ("peak_velocity", "amplitude", "dispersion", "location")
 CLEAN_EYE_DATA_KEYS = (
@@ -253,7 +345,16 @@ def collapse_to_trials(session_data, fields):
     for field in fields:
         vals = np.asarray(session_data[field])
         collapsed = np.full(n_trials, np.nan, dtype=np.float64)
-        collapsed[present] = vals[row[present]].astype(np.float64)
+        # A field the recording never populated comes back from MATLAB as a
+        # 0-d empty rather than a per-trial vector (`feedback_time` is like
+        # this in all 61 sessions). That is "no data for this field", not an
+        # error, so it stays NaN -- the same contract
+        # `EYE_BEHAVIORAL_OPTIONAL_FIELDS` already documents for fields a
+        # session's npz predates. Indexing it would raise IndexError, which is
+        # what used to happen the moment such a field appeared in a converted
+        # npz at all.
+        if vals.ndim >= 1 and vals.shape[0] == trials.size:
+            collapsed[present] = vals[row[present]].astype(np.float64)
         out[field] = collapsed
     return out, n_trials
 
@@ -368,6 +469,69 @@ def drop_blink_overlaps(events, blinks):
     return events
 
 
+# Trials where microsaccade detection could not estimate a threshold. Module
+# level so a whole `clean_eye_data` pass can report one tally at the end.
+SACCADE_SKIPS = Counter()
+
+
+def merge_fragmented_fixations(frame, max_gap_ms=FIXATION_MERGE_GAP_MS):
+    """Join consecutive same-name fixations that no saccade separates.
+
+    Operates on the finished event frame, in ms, *after* blink-overlapping
+    events have been dropped -- so a saccade removed for overlapping a blink
+    leaves a saccade-free gap, which the `max_gap_ms` test then refuses to
+    bridge (a blink is at least 20 ms, a saccade at least
+    `SACCADE_MIN_DURATION_MS`).
+
+    Each fixation name is merged independently; `fixation_idt` and
+    `fixation_ivt` fragment differently and must not be mixed.
+    """
+    if frame is None or frame.height == 0:
+        return frame
+    sacc = [
+        (float(o), float(f))
+        for o, f, nm in zip(frame["onset"], frame["offset"], frame["name"])
+        if "saccade" in str(nm).lower()
+    ]
+
+    def saccade_spans(lo, hi):
+        return any(o < hi and f > lo for o, f in sacc)
+
+    keep_rows, out = [], []
+    for i, (nm, o, f) in enumerate(zip(frame["name"], frame["onset"], frame["offset"])):
+        out.append([str(nm), float(o), float(f), i])
+    out.sort(key=lambda r: (r[0], r[1]))
+
+    merged, drop = {}, set()
+    prev = None
+    for name, o, f, idx in out:
+        if (
+            prev is not None
+            and prev[0] == name
+            and "fixation" in name.lower()
+            and o - prev[2] < max_gap_ms
+            and not saccade_spans(prev[2], o)
+        ):
+            merged[prev[3]] = max(merged.get(prev[3], prev[2]), f)
+            drop.add(idx)
+            prev = [name, prev[1], f, prev[3]]
+            continue
+        prev = [name, o, f, idx]
+
+    if not drop:
+        return frame
+    idx_col = pl.Series("__i", range(frame.height))
+    frame = frame.with_columns(idx_col)
+    new_off = [
+        merged.get(i, float(frame["offset"][i])) for i in range(frame.height)
+    ]
+    frame = frame.with_columns(pl.Series("offset", new_off))
+    frame = frame.with_columns(
+        (pl.col("offset") - pl.col("onset")).alias("duration")
+    )
+    return frame.filter(~pl.col("__i").is_in(sorted(drop))).drop("__i")
+
+
 def trial_events(time, eye_x, eye_y, pupil, experiment):
     """Detect saccades and fixations, then drop events that overlap blinks."""
     t = np.asarray(time, dtype=float)
@@ -420,12 +584,25 @@ def trial_events(time, eye_x, eye_y, pupil, experiment):
             dispersion_threshold=IDT_DISPERSION_THRESHOLD_DEG,
             minimum_duration=FIXATION_MIN_DURATION_MS,
         )
-        gaze.detect(
-            "microsaccades",
-            name="saccade",
-            minimum_duration=SACCADE_MIN_DURATION_MS,
-            threshold_factor=SACCADE_THRESHOLD_FACTOR,
-        )
+        # The microsaccade detector estimates its threshold from velocity
+        # variance and raises if either component has none. On a whole trial
+        # that never happens; on a clipped window it does -- gaze held still in
+        # one axis for the whole segment gives an exactly-zero y threshold.
+        # Fixations are unaffected and are what the pipeline consumes, so a
+        # degenerate segment yields no saccade events for that trial rather
+        # than killing the run. Counted, not swallowed: `trial_events` reports
+        # the tally through `SACCADE_SKIPS` so it cannot go unnoticed.
+        try:
+            gaze.detect(
+                "microsaccades",
+                name="saccade",
+                minimum_duration=SACCADE_MIN_DURATION_MS,
+                threshold_factor=SACCADE_THRESHOLD_FACTOR,
+            )
+        except ValueError as exc:
+            if "min_threshold" not in str(exc):
+                raise
+            SACCADE_SKIPS["degenerate_threshold"] += 1
         if gaze.events.frame.filter(pl.col("name") == "saccade").height:
             gaze.events.merge_subsequent_close_events(
                 name="saccade", max_gap=SACCADE_MERGE_GAP_MS
@@ -457,7 +634,7 @@ def trial_events(time, eye_x, eye_y, pupil, experiment):
     )
     if len(gaze.events) == 0:
         return None
-    return gaze.events.frame
+    return merge_fragmented_fixations(gaze.events.frame)
 
 
 def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
@@ -487,9 +664,46 @@ def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
     return in_fix & ~in_sac
 
 
-def clean_eye_data(eye_data, monkey="Faure"):
-    """Saccade and fixation events; blink-overlapping events are dropped."""
+def clean_eye_data(eye_data, monkey="Faure", *, start_ms=None, end_ms=None):
+    """Saccade and fixation events; blink-overlapping events are dropped.
+
+    With `start_ms` given, each trial's samples are clipped to
+    ``[fix_start - start_ms, fix_start - end_ms]`` *before* detection, so the
+    detectors run on the analysis window rather than the whole trial. That is
+    not a shortcut for the same answer -- I-DT is a greedy sequential scan, so
+    restarting it at the window edge re-partitions the whole segment. Measured
+    on 400 trials, detect-then-clip and clip-then-detect agree on only 7.8% of
+    trials, so the two orders are genuinely different analyses and the window
+    has to be applied here to mean anything.
+
+    It is also ~5x cheaper: the window is 1466 ms against a median trial span
+    of 7322 ms, and detection dominates this stage.
+
+    `start_ms=None` keeps the whole trial, which is what `eye_post_flash`
+    needs -- its fixations lie in a post-feedback window that a pre-fixation
+    clip would discard entirely.
+
+    Either way the trial must pass `qc_mask`, so no faded or photodiode-bad
+    trial has events in this table and none can reach a downstream fit through
+    it.
+    """
     experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
+    windowed = start_ms is not None
+    # Behavioral is loaded either way now, because `qc_mask` gates every trial
+    # -- not just the windowed ones. A trial with no behavioral row cannot be
+    # QC-checked, so it is dropped rather than trusted.
+    behavioral = build_eye_behavioral_data(monkey)
+    beh_row = {
+        (str(s_), int(t_)): j
+        for j, (s_, t_) in enumerate(
+            zip(behavioral["session"], behavioral["trial_indices_all"])
+        )
+    }
+    qc_ok = qc_mask(behavioral)
+    n_qc_dropped = 0
+    if windowed:
+        beh_fix = np.asarray(behavioral["fix_start"], dtype=float)
+        beh_geo = np.asarray(behavioral["geo_present"], dtype=float)
     frames = []
     n_trials = len(eye_data["time"])
     pupils_by_session = {}
@@ -503,16 +717,38 @@ def clean_eye_data(eye_data, monkey="Faure"):
                 list(raw["pupil_size"]) if "pupil_size" in raw else None
             )
         trial_id = int(eye_data["trial_indices_all"][i])
+        beh_i = beh_row.get((session, trial_id))
+        if beh_i is None or not qc_ok[beh_i]:
+            n_qc_dropped += 1
+            continue
         session_pupils = pupils_by_session[session]
         pupil = (
             session_pupils[trial_id - 1]
             if session_pupils is not None and trial_id - 1 < len(session_pupils)
             else np.empty((0, 2))
         )
+        t_arr = np.asarray(eye_data["time"][i], dtype=float)
+        x_arr = np.asarray(eye_data["eye_x"][i], dtype=float)
+        y_arr = np.asarray(eye_data["eye_y"][i], dtype=float)
+        if windowed:
+            j = beh_i
+            fix_ms = (beh_fix[j] - beh_geo[j]) * 1000.0
+            if not np.isfinite(fix_ms) or fix_ms <= 0:
+                continue
+            lo = (fix_ms - float(start_ms)) / 1000.0
+            hi = (fix_ms - float(end_ms)) / 1000.0
+            keep = np.isfinite(t_arr) & (t_arr >= lo) & (t_arr <= hi)
+            if keep.sum() < 6:
+                continue
+            t_arr, x_arr, y_arr = t_arr[keep], x_arr[keep], y_arr[keep]
+            if pupil is not None and np.asarray(pupil).ndim == 2 and len(pupil):
+                pu = np.asarray(pupil, dtype=float)
+                pk = np.isfinite(pu[:, 1]) & (pu[:, 1] >= lo) & (pu[:, 1] <= hi)
+                pupil = pu[pk] if pk.any() else np.empty((0, 2))
         frame = trial_events(
-            eye_data["time"][i],
-            eye_data["eye_x"][i],
-            eye_data["eye_y"][i],
+            t_arr,
+            x_arr,
+            y_arr,
             pupil,
             experiment,
         )
@@ -527,6 +763,11 @@ def clean_eye_data(eye_data, monkey="Faure"):
             )
         )
 
+    print(
+        f"clean_eye_data: {n_qc_dropped} trial(s) dropped by QC "
+        "(path_type/trial_fade/photodiode_qc_bad)",
+        flush=True,
+    )
     if not frames:
         return empty_clean_events()
 
@@ -534,6 +775,13 @@ def clean_eye_data(eye_data, monkey="Faure"):
     location = np.array(events["location"].to_list(), dtype=float)
     if location.ndim != 2 or location.shape[1] != 2:
         location = np.full((events.height, 2), np.nan)
+    if SACCADE_SKIPS:
+        print(
+            "clean_eye_data: saccade detection skipped on "
+            f"{SACCADE_SKIPS['degenerate_threshold']} trial(s) with no "
+            "velocity variance; their fixations are unaffected",
+            flush=True,
+        )
     return {
         "name": events["name"].to_numpy(),
         "onset": events["onset"].to_numpy().astype(float),

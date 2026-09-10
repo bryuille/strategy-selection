@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 
 from data.builder import (
@@ -29,12 +31,41 @@ from data.labeler import (
 )
 
 
+def savez_atomic(path, **data):
+    """`np.savez` to `path` via a hidden sibling and an atomic rename.
+
+    Same reasoning as `data.convert.write_npz`, and it matters for two distinct
+    hazards. A `np.savez` straight onto `path` leaves a truncated-but-existing
+    npz if the process dies mid-write (a Slurm TIMEOUT, a scancel, a full
+    disk), and the next run sees the file, believes the cache is warm, and
+    carries the corruption downstream. It also means two jobs building the same
+    cache concurrently can have one read what the other is halfway through
+    writing -- which is exactly what happens when the pre-flash sweeps run in
+    parallel rather than being serialised behind a Slurm dependency.
+
+    `Path.replace` is atomic within a filesystem, so a reader sees either the
+    previous complete file or the new complete file, never a partial one. The
+    temp name is passed as an open handle because `np.savez` appends ".npz" to
+    a *path* lacking the suffix, which would defeat the rename.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    try:
+        with open(tmp, "wb") as fh:
+            np.savez(fh, **data)
+        tmp.replace(path)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    return path
+
+
 def ensure_npz(path, build):
     if path.exists():
         return load_npz(path)
     data = build()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **data)
+    savez_atomic(path, **data)
     return data
 
 
@@ -202,20 +233,38 @@ def load_eye_behavioral_data(monkey="Faure"):
         if wanted <= set(loaded):
             return loaded
     built = build_eye_behavioral_data(monkey)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **built)
+    savez_atomic(path, **built)
     return built
 
 
-def load_clean_eye_data(monkey="Faure"):
-    path = processed_npz(f"{monkey}_clean_eye_data")
+def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
+    """Saccade/fixation events for `monkey`, cached per detection window.
+
+    `start_ms` clips each trial to ``[fix_start - start_ms, fix_start - end_ms]``
+    *before* the detectors run, and the cache stem carries the window so the
+    windowed and whole-trial event tables never overwrite each other. The two
+    are different analyses, not the same answer computed twice -- I-DT is a
+    greedy sequential scan, so clipping before vs after detection agrees on
+    only 7.8% of trials (measured).
+
+    Pre-fixation callers pass the analysis window and get a ~5x cheaper pass
+    (1466 ms against a median 7322 ms trial). `eye_post_flash` takes the
+    default whole-trial table, since its fixations sit in a post-feedback
+    window that a pre-fixation clip would throw away.
+    """
+    if start_ms is None:
+        stem = f"{monkey}_clean_eye_data"
+    else:
+        stem = f"{monkey}_clean_eye_data_s{int(start_ms)}_e{int(end_ms or 0)}"
+    path = processed_npz(stem)
     if path.exists():
         loaded = load_npz(path)
         if set(CLEAN_EYE_DATA_KEYS) <= set(loaded):
             return loaded
-    cleaned = clean_eye_data(load_eye_data(monkey), monkey=monkey)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(path, **cleaned)
+    cleaned = clean_eye_data(
+        load_eye_data(monkey), monkey=monkey, start_ms=start_ms, end_ms=end_ms
+    )
+    savez_atomic(path, **cleaned)
     return cleaned
 
 
@@ -236,8 +285,7 @@ def load_attractor_eye_data(monkey="Faure", k=None):
         if set(ATTRACTOR_EYE_DATA_KEYS) <= set(loaded) and int(loaded["codebook_k"]) == k:
             return loaded
     data = produce_attractor_eye_data(load_eye_data(monkey), monkey=monkey, k=k)
-    specific.parent.mkdir(parents=True, exist_ok=True)
-    np.savez(specific, **data)
+    savez_atomic(specific, **data)
     if k == DEFAULT_K:
-        np.savez(default, **data)
+        savez_atomic(default, **data)
     return data

@@ -258,6 +258,66 @@ correlation is vectorised (two matrix multiplies, not 144 individual
 k, space) leaf's `allplus` scope with `--n-perm 1000` — so the 12h budget is
 headroom for the label sweep, not the analysis.
 
+**Single-maze H vs S similarity (`eye_pre_flash/mazestratpair/`).** Read-only
+on what `run_corr.sbatch` already built, so it needs no label sweep and no
+job dependency — but it will not build anything either. The script checks for
+the labels and the unit-H feature caches on the node and exits non-zero if
+either is missing, rather than letting `load_features` start a cold attractor
+conversion that would race any concurrent job (job 22404715 died that way).
+Run `sbatch slurm/run_corr.sbatch` first if `$STRATEGY_DATA_ROOT/processed`
+is cold.
+
+```bash
+sbatch slurm/run_mazestratpair.sbatch --n-perm 50   # ~1 min smoke run
+sbatch slurm/run_mazestratpair.sbatch               # Nielsen maze 4, full sweep
+sbatch slurm/run_mazestratpair.sbatch --all-monkeys --all-mazes
+# results leave ~/strategy-selection/eye_pre_flash/mazestratpair/out/ (run on the laptop):
+rsync -av engaging:strategy-selection/eye_pre_flash/mazestratpair/out/ ./eye_pre_flash/mazestratpair/out/
+```
+
+Cheaper than `corr` per leaf on two counts: the matrix is 2x2 rather than
+12x12, and the permutation null builds each session's trial pool once and
+reshuffles only the labels, instead of rebuilding a `(session, trial_id)`
+lookup and re-scanning the whole feature table per resample. One core and 16G
+is the `run_counts.sbatch` sizing, not `run_corr.sbatch`'s — the 32G/12h there
+is a budget for its label sweep, which this job does not do.
+
+**H/S trial census (`eye_pre_flash/counts/`).** The cheapest job here: it
+reads the already-built windowed feature cache and the ~5 KB labels, and
+writes one heatmap per label source. Seconds, not hours — but still a job,
+because the login node's `RLIMIT_NPROC` kills numpy.
+
+```bash
+sbatch slurm/run_counts.sbatch                              # both sources, Faure
+sbatch slurm/run_counts.sbatch --source svm --monkey Nielsen
+# results leave ~/strategy-selection/eye_pre_flash/counts/ (run on the laptop):
+rsync -av --exclude='__pycache__' \
+    engaging:strategy-selection/eye_pre_flash/counts/ ./eye_pre_flash/counts/
+```
+
+It needs the feature cache to already **exist**: `load_features` would
+otherwise build it, racing anything else doing the same. Run it after the job
+that builds the caches, which is what `--dependency=afterok:<jobid>` is for.
+
+**Caches do not encode the settings they were built under.** The
+`{monkey}_clean_eye_data_s*_e*`, `{monkey}_attractor_k*` and
+`{monkey}_clf2_*` stems carry the window and k — not `data.builder`'s
+detector constants (`IDT_DISPERSION_THRESHOLD_DEG` and friends) and not its
+QC predicate (`qc_mask`). So changing any of those and rerunning silently
+reloads the old events instead of recomputing them. Move the affected caches
+aside first, which keeps the previous run recoverable:
+
+```bash
+cd "$STRATEGY_DATA_ROOT/processed"
+for f in *_clean_eye_data_s1466_e0.npz *_attractor*_eye_data.npz \
+         *_clf2_*_unith_s1466_e0.npz; do mv "$f" "$f.$(date +%F)"; done
+```
+
+`{monkey}_eye_data.npz` and `{monkey}_eye_behavioral.npz` are safe to keep —
+raw gaze concatenation and behavioral fields, neither derived from the
+detectors or the QC screen. They are also the expensive ones (3.1 GB and
+4.9 GB), so keeping them cuts a cold rebuild to roughly an hour.
+
 ## Monitor
 
 ```bash

@@ -1,5 +1,6 @@
 import numpy as np
 
+from data.builder import trial_qc_ok
 from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
 
 
@@ -54,7 +55,7 @@ def attractor_pre_fix_state_times(
         beh_i = lookup.get(
             (str(attractor["session"][i]), int(attractor["trial_indices_all"][i]))
         )
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
+        if not trial_qc_ok(behavioral, beh_i):
             continue
         t_ms = np.asarray(attractor["time"][i], dtype=float) * 1000.0
         state = np.asarray(attractor["state_id"][i], dtype=int)
@@ -118,7 +119,7 @@ def occupancy_rows_from_matrix(attractor, behavioral, features):
         session = str(attractor["session"][i])
         trial_id = int(attractor["trial_indices_all"][i])
         beh_i = beh_lookup.get((session, trial_id))
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
+        if not trial_qc_ok(behavioral, beh_i):
             continue
         if not np.isfinite(features[i]).all():
             continue
@@ -218,7 +219,7 @@ def attractor_pre_fix_transition_matrix(
         beh_i = lookup.get(
             (str(attractor["session"][i]), int(attractor["trial_indices_all"][i]))
         )
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
+        if not trial_qc_ok(behavioral, beh_i):
             continue
         t_ms = np.asarray(attractor["time"][i], dtype=float) * 1000.0
         state = np.asarray(attractor["state_id"][i], dtype=int)
@@ -261,7 +262,7 @@ def attractor_transition_rows(
         session = str(attractor["session"][i])
         trial_id = int(attractor["trial_indices_all"][i])
         beh_i = beh_lookup.get((session, trial_id))
-        if beh_i is None or behavioral["path_type"][beh_i] == -99:
+        if not trial_qc_ok(behavioral, beh_i):
             continue
         row = features[i]
         if not np.isfinite(row).all() or not np.any(row > 0):

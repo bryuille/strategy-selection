@@ -23,10 +23,14 @@ FEATURE_LABEL = {
     "occupancy_bin": "binary occupancy",
     "bigram": "state-bigram",
 }
-FEATURE_RATE_LABEL = {
-    "occupancy": "mean seconds per state",
-    "occupancy_bin": "mean visit fraction per state (not 0/1 -- a half-mean)",
-    "bigram": "mean bigram proportion",
+# The unit a half-mean carries, per feature. These name the unit only -- the
+# operation is identical for all three (`matrix.session_cv_matrix` takes an
+# (n, d) block and has no feature branch), so the figure states the operation
+# once and the unit in parentheses rather than describing three methods.
+FEATURE_UNIT = {
+    "occupancy": "seconds per state",
+    "occupancy_bin": "visit fraction per state",
+    "bigram": "bigram proportion",
 }
 SOURCE_LABEL = {"dendro": "dendrogram", "svm": "SVM"}
 
@@ -114,7 +118,7 @@ def plot_label_matrix(
     ax.axhline(split, color="black", lw=1.6)
     ax.axvline(split, color="black", lw=1.6)
 
-    rate_label = FEATURE_RATE_LABEL.get(feature, feature)
+    unit_label = FEATURE_UNIT.get(feature, feature)
     feature_label = FEATURE_LABEL.get(feature, feature)
     source_label = SOURCE_LABEL.get(source, source)
 
@@ -128,7 +132,8 @@ def plot_label_matrix(
     ax.set_title(
         f"{monkey} pre-fixation {feature_label} similarity by {source_label} strategy "
         f"(K={k}, {space}, {variant}, CV, balanced n) | scope {scope}\n"
-        f"split-half Pearson r of {rate_label} | {result.n_sessions} sessions{skip_note}\n"
+        f"split-half Pearson r of cell half-means ({unit_label}) | "
+        f"{result.n_sessions} sessions{skip_note}\n"
         f"{window_label()} | {', '.join(footer_bits)}",
         fontsize=9,
     )
