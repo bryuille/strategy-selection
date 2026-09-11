@@ -27,7 +27,7 @@
 #SBATCH -p ou_bcs_low
 #SBATCH -c 1
 #SBATCH --mem=16G
-#SBATCH -t 00:45:00
+#SBATCH -t 12:00:00
 #SBATCH -o logs/eyepresmazepair-%j.out
 #SBATCH -e logs/eyepresmazepair-%j.err
 
@@ -58,16 +58,21 @@ labels=("$STRATEGY_DATA_ROOT"/processed/*_strategy_choices.npz)
 caches=("$STRATEGY_DATA_ROOT"/processed/*_clf2_k*_unith_s1466_e0.npz)
 shopt -u nullglob
 
-if [ "${#labels[@]}" -eq 0 ] || [ "${#caches[@]}" -eq 0 ]; then
-  echo "FATAL: missing prerequisites in \$STRATEGY_DATA_ROOT/processed"
-  echo "       dendro labels: ${#labels[@]}, unit-H feature caches: ${#caches[@]}"
-  echo "       run 'sbatch slurm/run_rebuild.sbatch' first -- it builds both."
-  echo "       Do NOT let this job build them: it would race the attractor"
-  echo "       conversion with any concurrent job (see job 22404715)."
+# The feature caches are still a hard precondition: building those means the
+# whole eye pipeline, which is `run_rebuild.sbatch`'s job, not this one.
+if [ "${#caches[@]}" -eq 0 ]; then
+  echo "FATAL: no unit-H feature caches in \$STRATEGY_DATA_ROOT/processed"
+  echo "       run 'sbatch slurm/run_rebuild.sbatch' first."
   exit 1
 fi
 
-echo "dendro labels  ${#labels[@]} of 23"
+# Labels are NOT a precondition: `classifier.labels.scope_sessions` builds them
+# on miss like every other cache, and a session that cannot be labelled raises
+# rather than dropping out of the pool. That build costs a neural conversion
+# per session, which is why the time budget here is hours rather than minutes.
+# Do not run this concurrently with another label-building job (see job
+# 22404715, where a cold conversion raced one).
+echo "dendro labels  ${#labels[@]} of 23 already built"
 echo "unith caches   ${#caches[@]} of 4"
 echo
 
