@@ -17,8 +17,14 @@
 #
 # Order matters; each step consumes what the previous one wrote:
 #
+#   0. `{session}_strategy_choices.npz` / `{session}_strategy_svm.npz` -- the
+#      per-session strategy labels, both kinds off one conversion pass. A label
+#      is ~5 KB but comes from a neural recording of up to 14 GB, so this is by
+#      far the longest step and the reason for the 12 h budget. `--with-svm`
+#      builds the dendrogram and SVM labels off the same conversion instead of
+#      paying for it twice.
 #   1. `{monkey}_eye_behavioral.npz`, `{monkey}_eye_data.npz` -- concatenated
-#      from `npz/`. The expensive step (~3 GB and ~5 GB, roughly an hour).
+#      from `npz/` (~3 GB and ~5 GB).
 #   2. `{monkey}_clean_eye_data_s1466_e0.npz` -- I-DT fixations and saccades on
 #      the clipped, unwarped window. Detection only; nothing is merged.
 #   3. `{monkey}_attractor_eye_data.npz` -- unit-H warped positions, validity
@@ -30,6 +36,11 @@
 # Steps 1-4 all happen inside `classifier.features`, which pulls each loader in
 # turn; they are listed separately because that is the order the log shows and
 # the order to read a failure in.
+#
+# Step 0 is separate and must not be skipped after an empty `processed/`: the
+# label caches live there too, and everything label-dependent
+# (`maze_strategy_pairs`, `counts`, `scatter`, `classifier.decoding`) silently
+# skips with "no labelled trial" without them rather than failing loudly.
 #
 # Results leave ~/strategy-selection/eye_pre_flash/ (run on the laptop):
 #   rsync -av engaging:strategy-selection/eye_pre_flash/plotting/saccades/out/ \
@@ -87,6 +98,15 @@ echo "sessions    ${SESSIONS[*]}"
 echo "started     $(date)"
 echo
 
+echo "=== 0/5  strategy labels (dendrogram + SVM, one conversion pass) ==="
+# Skips any session whose label already exists, so an interrupted run resumes
+# by resubmitting, and one session that fails to convert is reported at the end
+# rather than stopping the other 22.
+uv run python -u -m data.labeler --type strategy --sweep --with-svm
+echo "dendro labels on disk  $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_choices.npz 2>/dev/null | wc -l) of 23"
+echo "svm labels on disk     $(ls "$STRATEGY_DATA_ROOT"/processed/*_strategy_svm.npz 2>/dev/null | wc -l) of 23"
+
+echo
 echo "=== 1-4/5  caches: eye data -> I-DT events -> unit-H warp -> codebook + features ==="
 # Builds every cache in dependency order for both monkeys, at both K. The
 # attractor cache is built once per monkey and reused across K.

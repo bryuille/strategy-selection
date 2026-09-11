@@ -241,7 +241,8 @@ What it writes into `$STRATEGY_DATA_ROOT/processed/`, in order:
 
 | step | cache | note |
 | ---- | ----- | ---- |
-| 1 | `{monkey}_eye_behavioral.npz`, `{monkey}_eye_data.npz` | concatenated from `npz/`; ~3 GB and ~5 GB, roughly an hour |
+| 0 | `{session}_strategy_choices.npz`, `{session}_strategy_svm.npz` | the per-session strategy labels, 23 sessions, both kinds off one neural conversion. **The long pole** |
+| 1 | `{monkey}_eye_behavioral.npz`, `{monkey}_eye_data.npz` | concatenated from `npz/`; ~3 GB and ~5 GB |
 | 2 | `{monkey}_clean_eye_data_s1466_e0.npz` | I-DT fixations + saccades on the clipped, unwarped window |
 | 3 | `{monkey}_attractor_eye_data.npz` | unit-H warp, validity, timebase — K-independent, one per monkey |
 | 4 | `{monkey}_clf2_k{6,12}_unith_s1466_e0.npz` | the k-means codebook and the three feature blocks |
@@ -249,6 +250,15 @@ What it writes into `$STRATEGY_DATA_ROOT/processed/`, in order:
 `npz/` is the floor this stands on and is *not* rebuilt here: recreating it
 means re-running `data.convert` against `mat/`, which is the one thing in this
 tree that cannot be recovered from anywhere else.
+
+**Step 0 is the one that bites.** The strategy labels live in `processed/` like
+everything else, so emptying it deletes them too — and every label-dependent
+analysis (`maze_strategy_pairs`, `counts`, `scatter`, `classifier.decoding`)
+then skips with "no labelled trial" rather than failing loudly. A label is ~5 KB
+but comes from a neural recording of up to 14 GB, which is why this step
+dominates the runtime and why the job asks for 12 hours. The attractor figures
+need none of it and complete regardless, which is exactly what makes the
+omission easy to miss.
 
 Then the figures, into the repo rather than into `processed/`:
 
