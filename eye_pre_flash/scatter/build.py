@@ -116,7 +116,7 @@ DEFAULT_SCOPE = "allplus"
 
 
 def build(monkey, *, source, scope, space):
-    by_monkey, _missing, _dropped = source_sessions(source, scope)
+    by_monkey, _dropped = source_sessions(source, scope)
     sessions = by_monkey.get(monkey, ())
     if not sessions:
         raise SystemExit(f"no {source} labels for {monkey} in scope {scope}")

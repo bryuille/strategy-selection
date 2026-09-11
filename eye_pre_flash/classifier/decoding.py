@@ -441,12 +441,7 @@ def main():
     parser.add_argument("--seed", type=int, default=SEED)
     args = parser.parse_args()
 
-    by_monkey, missing, dropped = scope_sessions(args.scope)
-    if missing:
-        print(
-            f"scope {args.scope!r}: {len(missing)} session(s) not labelled yet, "
-            f"skipped: {', '.join(missing)}"
-        )
+    by_monkey, dropped = scope_sessions(args.scope)
     if dropped:
         print(
             f"scope {args.scope!r}: {len(dropped)} session(s) dropped for "

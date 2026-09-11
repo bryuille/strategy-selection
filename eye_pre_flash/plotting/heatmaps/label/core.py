@@ -95,12 +95,7 @@ def resolve_scope(scope, *, verbose=True):
     on a partial checkout says which sessions it is missing rather than
     silently plotting a smaller pool.
     """
-    by_monkey, missing, dropped = scope_sessions(scope)
-    if verbose and missing:
-        print(
-            f"scope {scope!r}: {len(missing)} session(s) not labelled yet, "
-            f"skipped: {', '.join(missing)}"
-        )
+    by_monkey, dropped = scope_sessions(scope)
     if verbose and dropped:
         print(
             f"scope {scope!r}: {len(dropped)} session(s) dropped for anchor-maze "

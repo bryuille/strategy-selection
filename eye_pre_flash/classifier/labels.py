@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from data.config import monkey_for_session, processed_npz
+from data.config import monkey_for_session
 from data.labeler import CLUSTERING_SESSIONS
 
 LABEL_NAMES = ("hierarchical", "sequential")
@@ -78,14 +78,22 @@ def label_agreement(session, *, lookup=None, anchors=None):
 
 
 def scope_sessions(scope, *, vet=None, stem="strategy_choices", sessions=None):
-    """``monkey -> labelled sessions`` inside `scope`, plus missing and dropped.
+    """``monkey -> labelled sessions`` inside `scope`, plus dropped.
 
-    Filtered through `available_label_sessions`, so a checkout partway through
-    the `labels` sweep analyses what it actually has instead of failing on the
-    first session whose neural npz was never converted. With ``vet`` (on by
-    default except for `UNVETTED_SCOPES`), sessions whose anchor-maze label
-    agreement falls below `MIN_LABEL_AGREEMENT` are returned in ``dropped``
-    (session -> agreement) instead of the analysis pool.
+    Labels are loaded through `strategy_label_lookup`, which is build-on-miss
+    like every other cache in `data.loader` -- so a scope whose labels were
+    never built, or were deleted with the rest of `processed/`, builds them
+    here rather than quietly resolving to an empty pool. Building one costs
+    that session's multi-gigabyte neural conversion, so this is not free; it is
+    simply honest about what the analysis needs.
+
+    A session whose label cannot be built (its neural npz was never converted,
+    say) raises. A scope names the sessions the analysis claims to cover, so
+    quietly covering fewer of them is worse than stopping. With ``vet`` (on by
+    default except for `UNVETTED_SCOPES`),
+    sessions whose anchor-maze label agreement falls below
+    `MIN_LABEL_AGREEMENT` are returned in ``dropped`` (session -> agreement)
+    instead of the analysis pool.
 
     ``stem`` selects which cached label a caller is scoping -- the dendrogram
     label by default (``<session>_strategy_choices.npz``), or e.g.
@@ -94,38 +102,26 @@ def scope_sessions(scope, *, vet=None, stem="strategy_choices", sessions=None):
     with a caller-supplied session list -- `corr` needs this because its SVM
     ``all``/``allplus`` scopes are not the same session lists as the
     dendrogram's (see `eye_pre_flash.label_sources.SVM_SCOPES`), while still
-    reusing this function's vetting and `available_label_sessions` filtering.
+    reusing this function's vetting.
     """
     if scope not in SCOPES:
         raise ValueError(f"unknown scope {scope!r}; choose from {sorted(SCOPES)}")
     if vet is None:
         vet = scope not in UNVETTED_SCOPES
     wanted = SCOPES[scope] if sessions is None else tuple(sessions)
-    have = set(available_label_sessions(wanted, stem=stem))
     by_monkey, dropped = {}, {}
-    missing = tuple(s for s in wanted if s not in have)
     for s in wanted:
-        if s not in have:
-            continue
+        # Build-on-miss, and a session that cannot be labelled raises rather
+        # than dropping out of the pool: a scope that silently analyses fewer
+        # sessions than it names is the failure this is meant to prevent.
+        lookup = strategy_label_lookup((s,), stem=stem)
         if vet:
-            agreement = label_agreement(s, lookup=strategy_label_lookup((s,), stem=stem))
+            agreement = label_agreement(s, lookup=lookup)
             if agreement < MIN_LABEL_AGREEMENT:
                 dropped[s] = agreement
                 continue
         by_monkey.setdefault(monkey_for_session(s), []).append(s)
-    return {m: tuple(v) for m, v in by_monkey.items()}, missing, dropped
-
-def available_label_sessions(sessions=TRAIN_SESSIONS, *, stem="strategy_choices"):
-    """The subset of `sessions` whose labels (of kind `stem`) are already cached.
-
-    `CLUSTERING_SESSIONS` lists every session *eligible* for a label, but
-    building one needs that session's multi-gigabyte neural npz. On a checkout
-    that holds only some of them -- a laptop, or a cluster run partway through
-    the `labels` stage -- this returns what can actually be read without
-    triggering a conversion, so an analysis runs on what exists instead of
-    failing on the first missing session.
-    """
-    return tuple(s for s in sessions if processed_npz(f"{s}_{stem}").exists())
+    return {m: tuple(v) for m, v in by_monkey.items()}, dropped
 
 
 def strategy_label_lookup(sessions=TRAIN_SESSIONS, *, stem="strategy_choices"):

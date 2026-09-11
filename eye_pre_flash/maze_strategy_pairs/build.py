@@ -134,7 +134,7 @@ def build_one(monkey, maze, source, scope, feature, *, k, n_perm, min_trials, mi
     origin = variantmod.origin_state(data["codebook_xy"])
 
     widest = WIDEST_SCOPE[source]
-    by_monkey_w, _missing, _dropped = source_scope_sessions(source, widest)
+    by_monkey_w, _dropped = source_scope_sessions(source, widest)
     widest_sessions = by_monkey_w.get(monkey, ())
     y_widest = pair_labels(sessions, trials, source, widest_sessions)
     fit_mask = np.isin(sessions, list(widest_sessions)) & np.isfinite(y_widest)
@@ -147,7 +147,7 @@ def build_one(monkey, maze, source, scope, feature, *, k, n_perm, min_trials, mi
         raw_X, VARIANT, feature=FEATURES[feature], k=k, origin=origin, mean_profile=mean_profile,
     )
 
-    by_monkey_s, _missing, _dropped = source_scope_sessions(source, scope)
+    by_monkey_s, _dropped = source_scope_sessions(source, scope)
     keep_sessions = by_monkey_s.get(monkey, ())
     if not keep_sessions:
         print(f"  {monkey}/{source}/{scope}: no sessions in scope; skipping")

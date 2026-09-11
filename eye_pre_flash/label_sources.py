@@ -128,7 +128,7 @@ def _snr_key(session):
 
 
 def source_scope_sessions(source, scope):
-    """``(by_monkey, missing, dropped)`` for `source` in `scope`.
+    """``(by_monkey, dropped)`` for `source` in `scope`.
 
     Reuses `classifier.labels.scope_sessions` for the pool and the vetting,
     then truncates each monkey's survivors to the scope's `top_n`. `dendro`
@@ -146,9 +146,9 @@ def source_scope_sessions(source, scope):
     stem = SOURCE_STEM[source]
     pool, top_n = _SCOPE_SPEC[scope]
     if source == "dendro":
-        by_monkey, missing, dropped = scope_sessions(pool, stem=stem)
+        by_monkey, dropped = scope_sessions(pool, stem=stem)
     else:
-        by_monkey, missing, dropped = scope_sessions(
+        by_monkey, dropped = scope_sessions(
             pool, stem=stem, vet=False, sessions=CLUSTERING_SESSIONS
         )
     if top_n:
@@ -156,7 +156,7 @@ def source_scope_sessions(source, scope):
             m: tuple(sorted(sorted(ss), key=_snr_key, reverse=True)[:top_n])
             for m, ss in by_monkey.items()
         }
-    return by_monkey, missing, dropped
+    return by_monkey, dropped
 
 
 def source_lookup(source, sessions):
@@ -169,7 +169,7 @@ def scope_census():
     out = {}
     for source, scopes in SOURCE_SCOPES.items():
         for scope in scopes:
-            by_monkey, _missing, _dropped = source_scope_sessions(source, scope)
+            by_monkey, _dropped = source_scope_sessions(source, scope)
             for monkey, sess in sorted(by_monkey.items()):
                 out[(source, scope, monkey)] = sess
     return out

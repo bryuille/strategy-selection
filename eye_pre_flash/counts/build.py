@@ -41,9 +41,9 @@ TOP_TEN_SOURCE = "svm"  # top_ten is only defined for this source; see module do
 def _sessions_for(source, scope, monkey):
     """`sessions` for `(source, scope)` -- `top_ten` is one fixed pool for every source."""
     if scope == "top_ten":
-        by_monkey, _missing, _dropped = source_scope_sessions(TOP_TEN_SOURCE, "top_ten")
+        by_monkey, _dropped = source_scope_sessions(TOP_TEN_SOURCE, "top_ten")
     else:
-        by_monkey, _missing, _dropped = source_sessions(source, scope)
+        by_monkey, _dropped = source_sessions(source, scope)
     return by_monkey.get(monkey, ())
 
 

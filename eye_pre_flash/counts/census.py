@@ -241,15 +241,10 @@ def plot_census(
 
 
 def run(monkey, scope, source):
-    by_monkey, missing, dropped = source_sessions(source, scope)
+    by_monkey, dropped = source_sessions(source, scope)
     sessions = by_monkey.get(monkey, ())
     if not sessions:
-        raise SystemExit(
-            f"no {source} labels for {monkey} in scope {scope}"
-            + (f"; missing labels: {', '.join(missing)}" if missing else "")
-        )
-    if missing:
-        print(f"  unlabelled sessions skipped: {', '.join(sorted(missing))}")
+        raise SystemExit(f"no {source} labels for {monkey} in scope {scope}")
     if dropped:
         print(
             "  vetting dropped: "
