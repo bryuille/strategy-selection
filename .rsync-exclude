@@ -9,10 +9,15 @@
 # --delete removes dest files that are gone locally. Do not add
 # --delete-excluded (that would wipe dest data/mat/).
 #
-# CAUTION: out/ directories are deliberately NOT excluded, so figures can be
-# pulled back with the same file. The cost is that a push with --delete
-# overwrites cloud figures with whatever is local, and deletes cloud figures
-# that do not exist locally. Pull before you push again, or drop --delete.
+# Figures are EXCLUDED from the push, so a `--delete` push can never destroy
+# the cloud's. That is not a nicety: figures stopped being tracked in git when
+# the PNG history was stripped, so this checkout will never hold them, and a
+# push that made the cloud match it wiped 4482 freshly-computed figures once
+# already. Code goes up, figures come down, and the two directions no longer
+# fight.
+#
+# Pulls are unaffected -- they name an explicit path rather than reading this
+# file, so `rsync -av engaging:.../saccades/out/ ./...` still works.
 #
 # Leading '/' = repo root. Unanchored '*.mat' / '*.npz' catch strays.
 
@@ -40,3 +45,16 @@
 
 # Logs
 /logs/
+
+# Figures. Written on the cluster, pulled down explicitly; never pushed, so a
+# --delete push cannot remove them there.
+/eye_pre_flash/plotting/heatmaps/out/
+/eye_pre_flash/plotting/movie/out/
+/eye_pre_flash/plotting/saccades/out/
+/eye_pre_flash/plotting/similarities/out/
+/eye_pre_flash/classifier/out/
+/eye_pre_flash/counts/dendro/
+/eye_pre_flash/counts/svm/
+/eye_pre_flash/scatter/*.png
+/eye_pre_flash/maze_strategy_pairs/*.png
+/neural_traces/plotting/out/
