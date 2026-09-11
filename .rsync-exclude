@@ -28,8 +28,6 @@
 .git/
 .matplotlib/
 .claude/
-__pycache__/
-*.pyc
 .DS_Store
 
 # Strays. Note *.mat also covers zrefs/Dendogram_all/, which the classifier
