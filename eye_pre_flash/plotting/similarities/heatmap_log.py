@@ -23,12 +23,13 @@ import numpy as np
 
 from data.attractor import to_maze
 from data.loader import load_eye_behavioral_data, load_eye_data
-from eye_pre_flash.plotting.heatmap_maze import core as _heatmaps
-from eye_pre_flash.plotting.saccades.labeled import _event_lookup
+from eye_pre_flash.plotting.heatmaps.maze import core as _heatmaps
+from data.attractor import FIXATION_EVENT, event_lookup as _event_lookup
 from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, save_figure
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW
 
-VISUALIZER = "similarities/heatmap_log"
+VISUALIZER = "heatmap_log"
 DEG_TO_UNIT_H = 1.0 / _heatmaps.FIXATION_STEM_DEG
 HALF_UNIT = _heatmaps.HALF_DEG * DEG_TO_UNIT_H
 DEFAULT_BIN = _heatmaps.DEFAULT_BIN_DEG * DEG_TO_UNIT_H
@@ -83,13 +84,25 @@ def _split_half_indices(n, rng):
     return order[:mid], order[mid:]
 
 
+def _event_kind(name):
+    name = str(name).lower()
+    if "saccade" in name:
+        return "saccade"
+    if name == FIXATION_EVENT:
+        return "fixation"
+    return None
+
+
 def _event_kind_mask(t_ms, spans, kind):
-    """True on samples that fall inside a labeled event of the given kind."""
+    """True on samples inside an event of the given kind.
+
+    `spans` are `data.attractor.event_lookup`'s `(name, onset, offset)` rows.
+    """
     mask = np.zeros(t_ms.shape, dtype=bool)
-    for event in spans:
-        if event["name"] != kind:
+    for name, onset, offset in spans:
+        if _event_kind(name) != kind:
             continue
-        mask |= (t_ms >= event["onset"]) & (t_ms <= event["offset"])
+        mask |= (t_ms >= onset) & (t_ms <= offset)
     return mask
 
 
@@ -100,7 +113,7 @@ def _collect_trials(
 
     If `event_kind` is "fixation" or "saccade", samples are additionally
     restricted to that labeled event type (from `event_lookup`, built by
-    `labeled_saccades._event_lookup`).
+    `data.attractor.event_lookup`).
 
     With `label_lookup` (``(session, trial_id) -> 0/1``, from
     `classifier.labels.strategy_label_lookup`), trials without a decoded
@@ -354,6 +367,7 @@ def plot_similarity(
     save_figure(
         fig,
         f"similarities_bin{bin_w:g}",
+        out_root=OUT_ROOT,
         rel_dir=f"{visualizer}/{monkey}",
     )
     plt.close(fig)

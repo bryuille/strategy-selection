@@ -19,13 +19,12 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-from data.attractor import DEFAULT_K
-from data.loader import load_attractor_eye_data, load_eye_behavioral_data
-from data.occupancy import attractor_occupancy_rows
+from eye_pre_flash.classifier.features import DEFAULT_K, feature_rows
 from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS, save_figure
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW
 
-VISUALIZER = "similarities/occupancy"
+VISUALIZER = "occupancy"
 MAZES = range(1, 7)
 N_SPLITS = 20
 
@@ -82,13 +81,9 @@ def _session_cv_matrix(features, mazes, rng, n_splits=N_SPLITS):
     return out
 
 
-def maze_similarity_matrix(
-    attractor, behavioral, *, n_splits=N_SPLITS, seed=0
-):
+def maze_similarity_matrix(monkey, *, k, n_splits=N_SPLITS, seed=0):
     """Session-averaged 6×6 CV Pearson *r*, plus trial counts and n sessions."""
-    features, sessions, _, mazes = attractor_occupancy_rows(
-        attractor, behavioral, end_ms=PRE_FIX_END_MS
-    )
+    features, sessions, mazes = feature_rows(monkey, k=k, block="occ_ms")
     rng = np.random.default_rng(seed)
 
     session_mats = []
@@ -111,12 +106,10 @@ def maze_similarity_matrix(
 def plot_similarity(
     monkey="Faure", *, k=DEFAULT_K, n_splits=N_SPLITS, seed=0
 ):
-    attractor = load_attractor_eye_data(monkey, k=k)
-    behavioral = load_eye_behavioral_data(monkey)
     corr, counts, n_sessions = maze_similarity_matrix(
-        attractor, behavioral, n_splits=n_splits, seed=seed
+        monkey, k=k, n_splits=n_splits, seed=seed
     )
-    codebook_k = int(np.asarray(attractor["codebook_k"]))
+    codebook_k = int(k)
 
     finite = corr[np.isfinite(corr)]
     if finite.size:
@@ -173,6 +166,7 @@ def plot_similarity(
     save_figure(
         fig,
         f"similarities_k{codebook_k}",
+        out_root=OUT_ROOT,
         rel_dir=f"{VISUALIZER}/{monkey}",
     )
     plt.close(fig)

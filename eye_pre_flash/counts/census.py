@@ -14,7 +14,7 @@ each column of this figure sums to that scope's row in
 `classifier/out/decoding/<scope>/counts_<monkey>.png`, and the two figures
 cannot disagree.
 
-Two label sources, taken from `eye_pre_flash.corr.labels.SOURCE_STEM` rather
+Two label sources, taken from `eye_pre_flash.label_sources.SOURCE_STEM` rather
 than re-spelled here:
 
 ``dendro``  Ward-clustering labels (`data.labeler.build_strategy_choices`).
@@ -54,7 +54,7 @@ from eye_pre_flash.classifier.labels import (
     scope_sessions,
     strategy_label_lookup,
 )
-from eye_pre_flash.corr.labels import SOURCE_STEM, SOURCES
+from eye_pre_flash.label_sources import SOURCE_STEM, SOURCES
 
 OUT_ROOT = Path(__file__).resolve().parent
 N_MAZES = 6

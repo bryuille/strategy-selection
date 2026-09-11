@@ -15,11 +15,11 @@ asked to separate one maze's own trials into two random halves, which should
 land at 0.500 and so measures the floor the off-diagonal cells are read
 against (see `diagonal_null`).
 
-Features are in raw **degrees**, not unit-H. That is the whole point: the
-question is whether gaze tracks the geometry actually on the screen, and
-`data.attractor.to_maze` exists to warp that geometry away. Run `--space unith`
-to see how much the warp removes -- a much flatter matrix is the warp working
-as intended, and is the control for the across-maze regime in `decoding.py`.
+Features are in unit-H, the one space the pipeline fits a codebook in. A flat
+matrix is the warp working as intended -- `data.attractor.to_maze` exists to
+remove maze geometry, so gaze that tracked only the geometry on screen should
+no longer separate one maze pair from another. This is the control for the
+across-maze regime in `decoding.py`.
 
 Reading the matrix: the diagonal should sit at 0.500 -- if it does not, the
 off-diagonal cells above it are inflated by whatever structure separates one
@@ -58,12 +58,7 @@ from eye_pre_flash.classifier.decoding import (
     fmt,
     score_groups,
 )
-from eye_pre_flash.classifier.features import (
-    GRID_HI,
-    GRID_LO,
-    N_MAZES,
-    load_features,
-)
+from eye_pre_flash.classifier.features import N_MAZES, load_features
 from eye_pre_flash.classifier.labels import (
     DEFAULT_SCOPE,
     MIN_LABEL_AGREEMENT,
@@ -94,17 +89,11 @@ DIAG_REPEATS = 5
 
 
 def feature_slug(block, k):
-    """Filename slug for a feature row: the block, plus what parameterises it.
-
-    Codebook blocks vary with K; the heatmaps are codebook-free and vary with
-    their grid instead, so their K argument is a placeholder and naming them
-    by it would be misleading.
-    """
-    grid = {"heatmap_lo": GRID_LO, "heatmap_hi": GRID_HI}.get(block)
-    return f"heatmap_{grid}x{grid}" if grid else f"{block}_k{int(k)}"
+    """Filename slug for a feature row: the block, plus the K parameterising it."""
+    return f"{block}_k{int(k)}"
 
 
-def load_mazes(monkey, sessions, *, k, space, labelled_only=False):
+def load_mazes(monkey, sessions, *, k, labelled_only=False):
     """Feature blocks and maze ids for every trial of `sessions`.
 
     Unlike `decoding.load_labelled` this keeps trials that carry no strategy
@@ -112,7 +101,7 @@ def load_mazes(monkey, sessions, *, k, space, labelled_only=False):
     throw away power for nothing. `labelled_only` restores the strategy
     tables' exact trial set when the two need to be compared cell for cell.
     """
-    data = load_features(monkey, k=k, space=space)
+    data = load_features(monkey, k=k)
     rows = np.asarray(data["session"]).astype(str)
     keep = np.isin(rows, list(sessions))
     if labelled_only:
@@ -283,7 +272,7 @@ def _offdiag_range(mat):
     return float(vals.min()), float(vals.max())
 
 
-def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only):
+def run_monkey(monkey, sessions, *, scope, n_splits, seed, labelled_only):
     """Matrices and summary for one monkey; returns raw long-format rows."""
     models = make_models()
     model_names = list(models)
@@ -292,7 +281,7 @@ def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only)
 
     # Census from the k=6 cache; the row set is identical across caches.
     base = load_mazes(
-        monkey, sessions, k=6, space=space, labelled_only=labelled_only
+        monkey, sessions, k=6, labelled_only=labelled_only
     )
     mazes_all = np.asarray(base["maze_id"], dtype=int)
     counts = [int((mazes_all == m).sum()) for m in MAZES]
@@ -319,7 +308,7 @@ def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only)
     matrices = []  # (label, block, k, cv matrix for MATRIX_MODEL)
     for label, block, k in FEATURE_ROWS:
         data = load_mazes(
-            monkey, sessions, k=k, space=space, labelled_only=labelled_only
+            monkey, sessions, k=k, labelled_only=labelled_only
         )
         X = np.asarray(data[block], dtype=np.float64)
         mazes = np.asarray(data["maze_id"], dtype=int)
@@ -345,7 +334,6 @@ def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only)
                     dict(
                         scope=scope,
                         monkey=monkey,
-                        space=space,
                         feature_set=label,
                         model=model_name,
                         maze_a=m,
@@ -373,7 +361,6 @@ def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only)
                     dict(
                         scope=scope,
                         monkey=monkey,
-                        space=space,
                         feature_set=label,
                         model=model_name,
                         maze_a=a,
@@ -393,7 +380,7 @@ def run_monkey(monkey, sessions, *, scope, space, n_splits, seed, labelled_only)
         summary.append(row)
         matrices.append((label, block, k, cv_by_model[MATRIX_MODEL]))
 
-    space_note = "degrees" if space == "deg" else "unit-H"
+    space_note = "unit-H"
 
     # Title in the similarity plots' idiom: what it is, what the number means,
     # then a metadata line. Every cell value is annotated in the figure, so the
@@ -444,13 +431,6 @@ def main():
     )
     parser.add_argument("--scope", choices=sorted(SCOPES), default=DEFAULT_SCOPE)
     parser.add_argument(
-        "--space",
-        choices=("deg", "unith"),
-        default="deg",
-        help="deg (default) asks whether gaze tracks on-screen geometry; "
-             "unith is the control showing how much the warp removes",
-    )
-    parser.add_argument(
         "--labelled-only",
         action="store_true",
         help="restrict to strategy-labelled trials, matching the decoding "
@@ -482,7 +462,6 @@ def main():
             monkey,
             sessions,
             scope=args.scope,
-            space=args.space,
             n_splits=args.splits,
             seed=args.seed,
             labelled_only=args.labelled_only,

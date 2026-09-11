@@ -8,10 +8,8 @@ hierarchical/sequential strategy state.
 | -------- | ------ |
 | [DATA_DICTIONARY.md](DATA_DICTIONARY.md) | every field in the raw `.mat` files |
 | [eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md) | strategy decoding from gaze: feature sets, models, CV design, how to read the tables |
-| [eye_post_flash/post_flash.md](eye_post_flash/post_flash.md) | post-feedback counterfactual saccades by strategy regime: the measure, the alternative-ranking model, alignment modes |
 | [alt_defense.md](alt_defense.md) | the reviewer-response framing the decoding results support, with the numbers behind it |
 | [similarity.md](similarity.md) | maze-to-maze split-half similarity CV, and results across k |
-| [eye_pre_flash/corr/corr.md](eye_pre_flash/corr/corr.md) | the 12×12 (maze × strategy) occupancy similarity matrix: dendro vs. SVM labels, the origin/PC1 variants, the permutation null |
 | [cloud.md](cloud.md) | running the pipeline on Engaging (Slurm, quota, rsync) |
 
 ## Setup
@@ -90,42 +88,67 @@ uv run python -c "from data.loader import load_clean_eye_data; load_clean_eye_da
 ```
 
 Writes `data/processed/<Monkey>_clean_eye_data.npz` as a pymovements event
-table. Each row is a saccade or fixation (`name`, `onset`/`offset`/`duration` in
-ms from `geo_present`, `location_x`/`location_y`, `peak_velocity`, `amplitude`,
-`dispersion`, plus `session` and `trial_indices_all`). Blinks are detected from
-`pupil_size` and removed (with padding) before saccade/fixation labeling;
+table. Each row is a saccade or an I-DT fixation (`name`, `onset`/`offset`/
+`duration` in ms from `geo_present`, `location_x`/`location_y`, `peak_velocity`,
+`amplitude`, `dispersion`, plus `session` and `trial_indices_all`). Blinks are
+detected from `pupil_size` and removed (with padding) before labeling;
 out-of-bounds gaze is also dropped.
 
-### Gaze codebook (k-means)
+Fixations come back **exactly as I-DT detected them**. A slow drift that crosses
+`IDT_DISPERSION_THRESHOLD_DEG` (2.0°) ends one fixation and starts the next, and
+nothing stitches the pieces back together — so every row's `dispersion` really
+is the spread of the event it describes, and no fixation spans more gaze travel
+than the threshold allows.
 
-Fit k-means prototypes on `{Monkey}_eye_data.npz`. Gaze is warped by `h1`–`h6`
-so every maze is a unit H with exits at `(-1, 1)`, `(-1, -1)`, `(1, 1)`, and
-`(1, -1)`. Prototypes are clipped to the `[-3, 3]²` maze box. Each pymovements
-fixation event is assigned as a whole to the nearest prototype of its maze-space
-centroid (radius 1.0); otherwise `state_id = -1`. Blinks, saccades, and
-out-of-maze samples stay unassigned.
+### Unit-H warp
 
 ```bash
-uv run python -m data.attractor
-uv run python -m data.attractor --monkey Faure --k 12
-uv run python -m data.attractor --sweep
+uv run python -m data.attractor --monkey Faure
 ```
 
-Writes `data/processed/<Monkey>_attractor_eye_data.npz` (default K=12; `--sweep`
-writes `<Monkey>_attractor_k{K}_eye_data.npz` for K in 4, 5, 6, 7, 8, 10, 12).
-Each trial stores snapped `(x, y)`, a state ID per sample, a validity mask, and a
-state-run table (`transition_*`).
+Warps gaze by `h1`–`h6` so every maze becomes the same unit H, with exits at
+`(-1, 1)`, `(-1, -1)`, `(1, 1)` and `(1, -1)`. Writes
+`data/processed/<Monkey>_attractor_eye_data.npz`: warped `(x, y)` per sample, a
+validity mask restricted to fixation samples, and a timebase.
 
-K = 12 was selected by codebook stability (held-out coverage × centroid
-reproducibility); the selection scripts have since been retired.
+**No codebook, no state IDs.** This cache is K-independent — one per monkey,
+serving every K — because the codebook is fit downstream by
+`eye_pre_flash.classifier.features`, on samples already clipped to the analysis
+window. There is exactly one codebook in the analysis and that is where it
+lives.
+
+### Gaze codebook and features (`eye_pre_flash/classifier/features.py`)
+
+```bash
+uv run python -m eye_pre_flash.classifier.features
+```
+
+The five steps, in order:
+
+1. Clip each trial to `[fix_start - 1466 ms, fix_start]`.
+2. Warp to unit H (step above).
+3. K-means over the pooled in-window fixation samples, per monkey, across
+   sessions — K = 6 and 12.
+4. Locate fixations with I-DT only, on the clipped but **unwarped** data, where
+   a dispersion threshold in degrees is physically meaningful.
+5. Assign each fixation's **mean** warped position to the nearest prototype whose
+   unit ball (radius 1.0) contains it. Saccades, blinks and fixations outside
+   every ball are omitted.
+
+Writes `data/processed/<Monkey>_clf2_k{K}_unith_s1466_e0.npz` with three feature
+blocks per trial: `occ_ms` (time occupancy), `occ_bin` (binary occupancy) and
+`bigram` (transition proportions between clusters).
+
+Consecutive fixations landing on the same cluster need no merge step: runs are
+collapsed over the assigned-only sample subsequence, so they already count once.
 
 ## Pre-flash eye data (`eye_pre_flash/`)
 
 Everything about gaze during the pre-fixation viewing period lives under
-`eye_pre_flash/`: the strategy classifier in `classifier/`, the
-maze x strategy similarity matrices in `corr/`, their single-maze sibling in
-`mazestratpair/`, the H/S trial census in `counts/`, descriptive plots in
-`plotting/`.
+`eye_pre_flash/`: the codebook, feature blocks and strategy classifier in
+`classifier/`, the label-source registry in `label_sources.py`, the single-maze
+H vs S similarity in `maze_strategy_pairs/`, the H/S trial census in `counts/`,
+the fix-start scatter in `scatter/`, descriptive plots in `plotting/`.
 
 ### Strategy classifier (`eye_pre_flash/classifier/`)
 
@@ -156,31 +179,28 @@ uv run python -m eye_pre_flash.classifier.decoding --scope all
 Output under `eye_pre_flash/classifier/out/decoding/<scope>/`. Full reference:
 [eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md).
 
-### Single-maze H vs S similarity (`eye_pre_flash/mazestratpair/`)
+### Single-maze H vs S similarity (`eye_pre_flash/maze_strategy_pairs/`)
 
 Tests whether, **within one maze**, gaze looks less like itself across the two
 decoded strategies than it does across split halves of either strategy alone —
 the one form of the question where visual geometry is held identical on both
-sides and so cannot explain the answer. The single-maze sibling of
-`eye_pre_flash/corr/`, which asks the same thing inside a 12x12 grid.
+sides and so cannot explain the answer.
 
 A 2x2 matrix per maze: the diagonal is each strategy's own split-half
 reliability, the off-diagonal the cross-strategy correlation at the same half
 size. The statistic is `Δ = 0.5·(r_HH + r_SS) − r_HS`, tested against a
-within-(session, maze) label-shuffle permutation null. All three feature
-variants sit in one figure as three panels. Defaults to Nielsen maze 4, the one
-cell where both label sources agree the strategy split is genuinely mixed;
-every axis takes a list, so the same pipeline sweeps other mazes and Faure.
+within-(session, maze) label-shuffle permutation null. Defaults to Nielsen
+maze 4, the one cell where both label sources agree the strategy split is
+genuinely mixed; every axis takes a list, so the same pipeline sweeps other
+mazes and Faure.
 
 ```bash
-uv run python -m eye_pre_flash.mazestratpair.run                    # Nielsen, maze 4
-uv run python -m eye_pre_flash.mazestratpair.run --monkey Faure --maze 2
-uv run python -m eye_pre_flash.mazestratpair.run --all-monkeys --all-mazes
+uv run python -m eye_pre_flash.maze_strategy_pairs.build              # Nielsen, mazes 2+4
+uv run python -m eye_pre_flash.maze_strategy_pairs.build --monkey Faure --maze 2
 ```
 
-Output under `eye_pre_flash/mazestratpair/out/<source>/<feature>/<scope>/`.
-Full reference:
-[eye_pre_flash/mazestratpair/mazestratpair.md](eye_pre_flash/mazestratpair/mazestratpair.md).
+Output under `eye_pre_flash/maze_strategy_pairs/`. Statistics reference:
+[eye_pre_flash/maze_strategy_pairs/STATS.md](eye_pre_flash/maze_strategy_pairs/STATS.md).
 
 ## Decision-variable traces (`neural_traces/`)
 
@@ -207,38 +227,33 @@ Saved to `neural_traces/plotting/out/` as `<decoder>_<window>_traces.png`:
 
 ### Plots (`eye_pre_flash/plotting/`)
 
-Five families, one subpackage each; every script writes to
-`eye_pre_flash/plotting/out/<family>/<script>/`. All take `--monkey`; the
-per-trial viewers take `--session`, `--maze`, `--view` (`maze` / `trials` /
-`trial`), `--trial-id`, and `--mode`.
+Four packages, each owning its own `out/`, so figures land beside the code that
+makes them. All take `--monkey`; the per-trial viewer takes `--session`,
+`--maze`, `--view` (`average` / `trials` / `trial`) and `--trial-id`.
 
-| Family | Contents |
-| ------ | -------- |
-| `saccades/` | per-trial and per-maze gaze traces |
-| `heatmap_maze/` | gaze heatmaps grouped by maze regime |
-| `heatmap_label/` | the same renderings grouped by decoded neural label |
-| `similarities/` | maze-to-maze similarity matrices |
-| `movie/` | eye-tracking QC movies |
+| Package | Writes to | Contents |
+| ------- | --------- | -------- |
+| `saccades/` | `saccades/out/` | per-trial gaze with codebook state assignments |
+| `heatmaps/` | `heatmaps/out/` | gaze heatmaps, by maze regime (`maze/`) or decoded label (`label/`) |
+| `similarities/` | `similarities/out/` | maze-to-maze similarity matrices |
+| `movie/` | `movie/out/` | eye-tracking QC movies |
 
-**Per-trial and per-maze gaze** (`saccades/`, `movie/`)
+**Per-trial gaze** (`saccades/`, `movie/`)
 
-| Script | Shows |
-| ------ | ----- |
-| `saccades.traces` | pre-fixation gaze aligned to `fix_start`, per session and maze |
-| `saccades.labeled` | the same, with pymovements event labels |
-| `saccades.attractor` | the same, with codebook state assignments (`out/.../k<K>/maze_<n>/`) |
+`saccades.attractor` is the one per-trial viewer: raw gaze, the prototype it
+snapped to, and the codebook, written to
+`saccades/out/<session>/k<K>/maze_<n>/`. Shaded spans mark each assigned
+fixation; unshaded stretches are gaze that was moving, blinking, or outside
+every cluster's unit ball.
 | `movie.qc` | eye-tracking QC movies for the june_24 session |
 
-2D plots save by default; 3D plots (`--mode 3d`) display interactively unless
-`--save` is passed.
-
 ```bash
-uv run python -m eye_pre_flash.plotting.saccades.traces --session june_24_g0 --maze 1
-uv run python -m eye_pre_flash.plotting.saccades.traces --session june_24_g0 --maze 1 --view trials
-uv run python -m eye_pre_flash.plotting.saccades.attractor --session june_24_g0 --maze 3 --view trial --trial-id 141
+uv run python -m eye_pre_flash.plotting.saccades.attractor --session june_24_g0 --maze 3
+uv run python -m eye_pre_flash.plotting.saccades.attractor --session june_24_g0 --maze 3 --view trials --k 6
+uv run python -m eye_pre_flash.plotting.saccades.attractor --session june_24_g0 --maze 3 --view trial --trial-id 308
 ```
 
-**Gaze heatmaps by maze regime** (`heatmap_maze/`). `core` is per maze across
+**Gaze heatmaps by maze regime** (`heatmaps/maze/`). `core` is per maze across
 all sessions (±20°, linear count/trial). The `sum` family pools hierarchical
 mazes against sequential mazes (`data.labeler.MAZE_GROUPS`); the suffixes
 compose:
@@ -254,11 +269,11 @@ giving `sum`, `sum_log`, `sum_norm`, `sum_log_norm`, `sum_norm_diff`, and
 `sum_log_norm_diff`.
 
 ```bash
-uv run python -m eye_pre_flash.plotting.heatmap_maze.core --monkey Faure --maze 1
-uv run python -m eye_pre_flash.plotting.heatmap_maze.sum_log_norm --monkey Nielsen
+uv run python -m eye_pre_flash.plotting.heatmaps.maze.core --monkey Faure --maze 1
+uv run python -m eye_pre_flash.plotting.heatmaps.maze.sum_log_norm --monkey Nielsen
 ```
 
-**Gaze heatmaps by decoded label** (`heatmap_label/`). The same six
+**Gaze heatmaps by decoded label** (`heatmaps/label/`). The same six
 renderings, with the same module names, but the two pools are the trials the
 neural clustering *labelled* hierarchical and sequential rather than the mazes
 assumed to be solved that way — all six mazes mix into both pools. Only
@@ -267,12 +282,12 @@ sessions carrying a neural label contribute, so these take `--scope`
 generating all three:
 
 ```bash
-uv run python -m eye_pre_flash.plotting.heatmap_label.sum
-uv run python -m eye_pre_flash.plotting.heatmap_label.sum_log_norm --scope publication
-uv run python -m eye_pre_flash.plotting.heatmap_label.sum_norm_diff --monkey Faure --scope all
+uv run python -m eye_pre_flash.plotting.heatmaps.label.sum
+uv run python -m eye_pre_flash.plotting.heatmaps.label.sum_log_norm --scope publication
+uv run python -m eye_pre_flash.plotting.heatmaps.label.sum_norm_diff --monkey Faure --scope all
 ```
 
-Output is `out/heatmap_label/<scope>/<script>/<monkey>/`, one level deeper than
+Output is `heatmaps/out/label/<scope>/<script>/<monkey>/`, one level deeper than
 the maze family. Compare a pair side by side to see how much of a maze-grouped
 contrast survives when the grouping stops assuming the maze fixes the strategy.
 
@@ -287,71 +302,16 @@ Pearson *r*). Procedure and results: [similarity.md](similarity.md).
 | `similarities.heatmap_saccades` | the same, saccade samples only |
 | `similarities.occupancy` | seconds per codebook state |
 | `similarities.occupancy_bin` | visited / not visited per state |
-| `similarities.transition` | bigram + trigram state-run paths |
+| `similarities.transition` | state bigram paths |
 
 ```bash
 uv run python -m eye_pre_flash.plotting.similarities.heatmap --monkey Faure
 uv run python -m eye_pre_flash.plotting.similarities.occupancy --monkey Nielsen --k 12
 ```
 
-**One 12×12 matrix over (maze × strategy)** (`eye_pre_flash/corr/`). The 6×6
-matrices above cannot separate strategy from geometry, because strategy is
-close to a deterministic function of (session, maze). This splits each maze's
-trials by a decoded neural strategy label and correlates the resulting
-codebook-occupancy vectors, in the same split-half CV style as
-`similarities.heatmap_eq` extended to the label axis — independent trial
-halves throughout, so the diagonal is a cell's own split-half reliability. It
-replaced `similarities.heatmap_labels`.
-
-| | Fixed | Varied | Where |
-| --- | --- | --- | --- |
-| **boxed cells** | maze | strategy | same maze, H vs S — the decisive read |
-| **quadrant** | strategy | maze | inside one strategy block |
-
-Read as `(r(H,H)+r(S,S))/2 − r(H,S)`, which self-normalises: a group whose
-trials are less correlatable lowers its own diagonal too. Two label sources —
-the existing dendrogram (Ward) clustering, and a maze-1-vs-6 linear SVM
-projected onto every trial, for sessions whose neural strategy shape the
-dendrogram's 2-cluster split can't separate — and three feature variants
-(`full`, `no_origin`, `pc1_removed`) that test whether central fixation is
-what compresses the 6×6 matrices' dynamic range. A within-(session, maze)
-label-shuffle permutation null stands in for a bootstrap CI, since the
-estimator's noise floor at d = 6–144 should be measured, not assumed. Full
-reference: [eye_pre_flash/corr/corr.md](eye_pre_flash/corr/corr.md).
-
-```bash
-uv run python -m eye_pre_flash.corr.run --scope allplus
-uv run python -m eye_pre_flash.corr.run --source svm --feature occupancy --monkey Faure
-```
-
-Output: `eye_pre_flash/corr/out/<source>/<feature>/<variant>/<scope>/`.
-
-## Post-flash eye data (`eye_post_flash/`)
-
-Quantifies voluntary post-feedback saccades toward the most likely unchosen
-alternative exit, and asks which decision model explains where those saccades
-go. `counterfactual` tests whether the looked-at alternative tracks the
-hierarchical/sequential regime, by maze regime (`data.labeler.MAZE_GROUPS`)
-and by per-trial neural strategy label; `model_comparison` fits the
-manuscript's full model set (optimal, lapse, total-time, hierarchical,
-postdictive, revision) plus single-interval, proximity and empirical
-references to the same trials and ranks them by AIC/BIC. Full reference:
-[eye_post_flash/post_flash.md](eye_post_flash/post_flash.md).
-
-```bash
-uv run python -m eye_post_flash.counterfactual                   # both monkeys
-uv run python -m eye_post_flash.counterfactual --align response  # no cluster step needed
-uv run python -m eye_post_flash.model_comparison --align response
-uv run python -m eye_post_flash.model_comparison --plots-only  # rebuild figures, no refit
-```
-
-`--align feedback` (the reviewer's definition) needs behavioral npz that carry
-`feedback_time` — one light cluster job, `sbatch slurm/run_post_flash.sbatch`.
-Output under `eye_post_flash/out/counterfactual/<align>/<monkey>/`.
-
 ## Running on the cluster
 
-The full classifier pipeline runs end to end on Engaging under Slurm
-(`slurm/run_classifier.sbatch`), and the post-flash analysis has its own light
-job (`slurm/run_post_flash.sbatch`). Push code up, run, pull figures back;
+Every cache rebuilds from cold with one job (`slurm/run_rebuild.sbatch`), and
+the full classifier pipeline runs end to end under Slurm
+(`slurm/run_classifier.sbatch`). Push code up, run, pull figures back;
 `data/mat/` lives on the cluster and never moves. See [cloud.md](cloud.md).

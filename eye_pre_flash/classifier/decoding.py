@@ -41,7 +41,7 @@ from eye_pre_flash.classifier.classifier_io import (
     out_dir,
     render_table_png,
 )
-from eye_pre_flash.classifier.features import GRID_HI, GRID_LO, N_MAZES, load_features
+from eye_pre_flash.classifier.features import N_MAZES, load_features
 from eye_pre_flash.classifier.labels import (
     DEFAULT_SCOPE,
     MIN_LABEL_AGREEMENT,
@@ -57,8 +57,7 @@ MIN_PER_CLASS = 5
 N_SPLITS = 5
 SEED = 0
 
-# The table rows: block, codebook size, display label. Heatmaps are
-# codebook-free, so their two rows vary the grid instead of K.
+# The table rows: block, codebook size, display label.
 FEATURE_ROWS = (
     ("Codebook occupancy (ms), K=6", "occ_ms", 6),
     ("Codebook occupancy (ms), K=12", "occ_ms", 12),
@@ -66,16 +65,16 @@ FEATURE_ROWS = (
     ("Codebook occupancy (binary), K=12", "occ_bin", 12),
     ("State bigrams, K=6", "bigram", 6),
     ("State bigrams, K=12", "bigram", 12),
-    (f"Gaze heatmap, {GRID_LO}x{GRID_LO}", "heatmap_lo", 6),
-    (f"Gaze heatmap, {GRID_HI}x{GRID_HI}", "heatmap_hi", 6),
 )
 
-REGIMES = {"per-maze": "deg", "across-maze": "unith"}
+# Both regimes read the same unit-H features; the regime is a trial-grouping
+# axis (train within each maze, or pooled across mazes), not a coordinate space.
+REGIMES = ("per-maze", "across-maze")
 
 
-def load_labelled(monkey, sessions, *, k, space):
+def load_labelled(monkey, sessions, *, k):
     """Feature blocks and strategy labels, pooled over `sessions`."""
-    data = load_features(monkey, k=k, space=space)
+    data = load_features(monkey, k=k)
     rows = np.asarray(data["session"]).astype(str)
     y = labels_for_rows(
         rows, data["trial_indices_all"], strategy_label_lookup(sessions)
@@ -250,7 +249,7 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
     raw = []
 
     # Census from the k=6 unit-H cache; row sets are identical across caches.
-    data, y = load_labelled(monkey, sessions, k=6, space="unith")
+    data, y = load_labelled(monkey, sessions, k=6)
     mazes = np.asarray(data["maze_id"], dtype=int)
     census = counts_rows(y, mazes)
     census_cols = ["Maze", "Trials", "Hierarchical", "Sequential", "Per-maze CV"]
@@ -266,7 +265,7 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
         footnote=", ".join(sessions),
     )
 
-    for regime, space in REGIMES.items():
+    for regime in REGIMES:
         columns = ["Feature set", "d", "Trials"]
         if regime == "per-maze":
             columns.append("Mazes")
@@ -276,7 +275,7 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
         table = []
         by_maze = {name: [] for name in models}
         for label, block, k in FEATURE_ROWS:
-            data, y = load_labelled(monkey, sessions, k=k, space=space)
+            data, y = load_labelled(monkey, sessions, k=k)
             X = np.asarray(data[block], dtype=np.float64)
             mazes = np.asarray(data["maze_id"], dtype=int)
             groups = (
@@ -415,9 +414,8 @@ def run_monkey(monkey, sessions, *, scope, n_splits, seed):
             )
 
         stem = f"{'permaze' if regime == 'per-maze' else 'crossmaze'}_{monkey}"
-        space_note = "degrees" if space == "deg" else "unit-H"
         title = (
-            f"{monkey} -- {regime} decoding ({space_note} features, "
+            f"{monkey} -- {regime} decoding (unit-H features, "
             f"scope: {scope}). Balanced accuracy, chance = 0.500"
         )
         base = 4 if regime == "per-maze" else 3

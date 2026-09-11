@@ -25,7 +25,7 @@ from eye_pre_flash.plotting.similarities.heatmap_log import (
     plot_similarity as _plot_similarity,
 )
 
-VISUALIZER = "similarities/heatmap_fixations"
+VISUALIZER = "heatmap_fixations"
 
 
 def plot_similarity(monkey="Faure", **kwargs):

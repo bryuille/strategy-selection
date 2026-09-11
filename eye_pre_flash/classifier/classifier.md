@@ -97,38 +97,39 @@ plus a maze-identity reference row.
 ## 1. Data and feature sets
 
 Every feature describes one trial over the pre-fixation free-viewing window,
-`fix_start − 1466 ms` through `fix_start`, and is extracted in one of two
-coordinate **spaces**:
+`fix_start − 1466 ms` through `fix_start`, in **unit-H** maze space:
+`data.attractor.to_maze` warps degrees by the trial's `h1`–`h6` arm lengths so
+every maze becomes the same unit H with exits at `(±1, ±1)`, which mitigates the
+visual-geometry differences a pooled classifier could otherwise exploit. It is
+the only space in the analysis — there is one codebook, and it is fit here.
 
-| Space | Coordinates | Used by | Why |
-| ----- | ----------- | ------- | --- |
-| `deg` | raw screen degrees | **per-maze** tables | geometry is constant inside a maze; warping would only distort gaze |
-| `unith` | unit-H maze space: `data.attractor.to_maze` warps degrees by the trial's `h1`–`h6` arm lengths so every maze becomes the same unit H with exits at `(±1, ±1)` | **across-maze** tables | mitigates the visual-geometry differences a pooled classifier could otherwise exploit |
+Fixation *detection* is the one thing that stays in raw degrees, because I-DT's
+dispersion threshold is a physical quantity: unit H is dimensionless and warped
+per trial, so detecting on warped coordinates would make the effective threshold
+vary by maze. Detection happens once on degrees, and its spans are applied here.
 
-The warp is exact and invertible per trial, so `deg` coordinates are recovered
-losslessly from the unit-H caches.
+The **codebook** is a per-monkey k-means at **K = 6 and K = 12**, fit on the
+in-window fixation samples pooled across sessions. Each fixation is assigned as
+a whole: its mean warped position goes to the nearest prototype whose unit ball
+(radius 1.0) contains it, and gaze in no-man's-land is unassigned. Because the
+codebook is fit per animal, state `3` for Faure is a different maze location
+than state `3` for Nielsen — **all state-indexed features are only comparable
+within a monkey**, which is why every table is per-monkey.
 
-The **codebook** is a per-monkey k-means over gaze positions, at **K = 6 and
-K = 12**, fit separately in each space (the unit-H books come from
-`data.attractor`, the degree books are fit the same way in
-`eye_pre_flash.classifier.features`).
-Samples are assigned fixation-by-fixation to the nearest prototype within a
-radius; gaze in no-man's-land is unassigned. Because the codebook is fit per
-animal, state `3` for Faure is a different maze location than state `3` for
-Nielsen — **all state-indexed features are only comparable within a monkey**,
-which is why every table is per-monkey.
-
-**The table rows** — four simple feature families, eight rows:
+**The table rows** — three feature families, six rows:
 
 | Row | Dim | Represents |
 | --- | --- | ---------- |
 | Codebook occupancy (ms), K=6 / K=12 | 6 / 12 | **where gaze dwelt**: milliseconds in each codebook state |
 | Codebook occupancy (binary), K=6 / K=12 | 6 / 12 | **which** states were visited, not how long: `occupancy > 0` as {0, 1} |
 | State bigrams, K=6 / K=12 | 36 / 144 | **scan order**: state sequence collapsed to runs (`3 3 3 7 7 3` → `3 7 3`, so dwell time drops out), then the proportion of each ordered pair |
-| Gaze heatmap, 5×5 / 10×10 | 25 / 100 | **spatial gaze density**, codebook-free: normalised 2-D histogram of gaze position |
+
+Runs are collapsed over the assigned samples only, so two consecutive fixations
+landing on the same state are already one run — which is why no merge step is
+needed anywhere in the pipeline.
 
 Everything is cached under
-`data/processed/<Monkey>_clf2_k<K>_<space>_s1466_e0.npz`; no block has missing
+`data/processed/<Monkey>_clf2_k<K>_unith_s1466_e0.npz`; no block has missing
 values.
 
 ---
@@ -187,7 +188,7 @@ label composition, and how they compare with the published clustering.
 Within a monkey, trials are **concatenated across the scope's sessions** and
 two training regimes run:
 
-- **Per-maze** (`permaze_<Monkey>`, `deg` features): one classifier per maze,
+- **Per-maze** (`permaze_<Monkey>`): one classifier per maze,
   trained and cross-validated on that maze's pooled trials. Maze identity
   cannot help by construction — the model never sees a second maze. A maze
   enters only when both strategies appear ≥ 5 times in it; the census table
@@ -223,7 +224,7 @@ Everything lands under `out/decoding/<scope>/`, as `.png` plus a combined
 | File | Contents |
 | ---- | -------- |
 | `counts_<Monkey>.png` | the census: per-maze trial counts by strategy, and which mazes support per-maze CV. **Read this first** |
-| `permaze_<Monkey>` | per-maze decoding table (degrees features), pooled over mazes |
+| `permaze_<Monkey>` | per-maze decoding table, one classifier per maze |
 | `permaze_by_maze_<Monkey>` | the same CV numbers broken out per maze; both models per cell, each bolded against its own best |
 | `crossmaze_<Monkey>` | across-maze decoding table (unit-H features), maze-identity reference in the last row |
 | `results_raw.csv` | every number above in long format |
@@ -264,7 +265,7 @@ two need comparing cell for cell.)
 
 ```bash
 uv run python -m eye_pre_flash.classifier.pipeline --only pairs-all
-uv run python -m eye_pre_flash.classifier.pairwise --scope all --space unith
+uv run python -m eye_pre_flash.classifier.pairwise --scope all
 ```
 
 It exists because "gaze does not predict strategy" is only worth reading next to
@@ -301,12 +302,16 @@ unknown amount. Observed: every feature set lands at **0.488–0.510** in both
 monkeys, against off-diagonal means of 0.553–0.659, so the floor is where it
 should be. Row means and ranges exclude the diagonal throughout.
 
-**Features are in `deg`, not `unith`** — the one place in this package where
-that is the entire point. The question is whether gaze tracks the geometry
-actually on the screen, and the unit-H warp exists to remove that geometry.
-`--space unith` is therefore the control: a much flatter matrix is the warp
-working as intended, and is the direct check on the assumption behind the
+**Features are in unit-H**, like everything else here. A flat matrix is the warp
+working as intended: `data.attractor.to_maze` exists to remove maze geometry, so
+gaze that tracked only the geometry on screen should no longer separate one maze
+pair from another. That makes this the direct check on the assumption behind the
 across-maze regime in §3.
+
+This table used to run on raw degrees, with unit-H as its control, to ask
+whether gaze tracks on-screen geometry at all. That question needed a second
+codebook fit in a second coordinate space, which is exactly the duplication the
+pipeline was consolidated to remove, so only the control arm survives.
 
 Metric, CV, models and scopes are unchanged from §3 — balanced accuracy,
 stratified 5-fold, fixed seed, the same two models, the same three scopes. The

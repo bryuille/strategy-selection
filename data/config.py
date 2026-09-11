@@ -25,6 +25,19 @@ KINDS = {
     "single_trial": "Single_Trial_List",
 }
 
+# The analysis window: step 1 of the pipeline clips every trial to
+# [fix_start - PRE_FIX_START_MS, fix_start - PRE_FIX_END_MS] before anything
+# else happens, so these define what "in-window" means for detection, for the
+# k-means pool and for every feature block. Modules must import these rather
+# than define their own.
+#
+# 1466 is the measured minimum `geo_present -> fix_start` gap (Nielsen). A wider
+# window would reach back past `geo_present` on some trials and plot gaze from
+# before the maze was on screen.
+PRE_FIX_START_MS = 1466
+PRE_FIX_END_MS = 0
+PRE_FIX_WINDOW_MS = float(PRE_FIX_START_MS)
+
 MONKEY = "Faure"
 SESSION = "june_24_g0"
 

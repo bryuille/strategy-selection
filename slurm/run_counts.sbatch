@@ -1,40 +1,31 @@
 #!/bin/bash
-# H/S per-(session, maze) census heatmaps, on Engaging.
+# Presentation copies of the H/S census heatmaps (eye_pre_flash/counts), on Engaging.
 #
-#   mkdir -p logs
-#   sbatch slurm/run_counts.sbatch                       # both sources, Faure
-#   sbatch slurm/run_counts.sbatch --monkey Nielsen      # forwarded to the module
-#   sbatch slurm/run_counts.sbatch --source svm --scope all
+#   mkdir -p logs          # Slurm will not create the -o/-e directory for you
+#   sbatch slurm/run_counts.sbatch                       # both sources, both monkeys, allplus
+#   sbatch slurm/run_counts.sbatch --monkey Faure
+#   sbatch slurm/run_counts.sbatch --scope publication
 #
-# Light and read-only: it loads the already-built windowed feature cache
-# (`{monkey}_clf2_k6_unith_s1466_e0.npz`, ~12-30 MB) plus the ~5 KB strategy
-# labels, and writes two PNGs. Minutes, not hours -- but it is still a job
-# rather than a login-node command, because the login node's RLIMIT_NPROC
-# kills numpy.
+# Anything after the script name is forwarded to the module. Same cheap,
+# read-only load as `run_rebuild.sbatch` (the already-built windowed feature
+# cache, ~12-30 MB, plus ~5 KB of labels) -- still a job rather than a
+# login-node command, because the login node's RLIMIT_NPROC kills numpy.
 #
-# It needs the feature cache to *exist*: `load_features` would otherwise build
-# it, which means a cold attractor conversion and a race with any job doing
-# the same (see `run_saccades.sbatch`'s note on detector constants, and job
-# 22404715, which died exactly that way). Run this after the job that builds
-# the caches has finished, or -- as on 2026-09-10 -- for the monkey whose
-# caches are already written.
+# It needs the feature cache to already *exist*: see `run_rebuild.sbatch`'s
+# note on `load_features` racing a cold attractor conversion.
 #
-# Both sources come off the same feature table on purpose: the `dendro` and
-# `svm` figures then differ only in the label source, which is the comparison
-# the pair exists to make. Do not regenerate one of them against a feature
-# cache built under different detector constants and compare it with the other.
-#
-# Results leave ~/strategy-selection/eye_pre_flash/counts/ (run on the laptop):
-#   rsync -av engaging:strategy-selection/eye_pre_flash/counts/ \
-#       ./eye_pre_flash/counts/
+# Results leave ~/strategy-selection/eye_pre_flash/counts/ (run on the
+# laptop):
+#   rsync -av --exclude='__pycache__' \
+#       engaging:strategy-selection/eye_pre_flash/counts/ ./eye_pre_flash/counts/
 
-#SBATCH -J eyecounts
+#SBATCH -J eyeprescounts
 #SBATCH -p ou_bcs_low
 #SBATCH -c 1
 #SBATCH --mem=16G
 #SBATCH -t 00:30:00
-#SBATCH -o logs/eyecounts-%j.out
-#SBATCH -e logs/eyecounts-%j.err
+#SBATCH -o logs/eyeprescounts-%j.out
+#SBATCH -e logs/eyeprescounts-%j.err
 
 # One core: loading one npz and drawing one heatmap, both serial.
 
@@ -53,14 +44,7 @@ echo "args        $*"
 echo "started     $(date)"
 echo
 
-if [ "$#" -gt 0 ]; then
-  uv run python -u -m eye_pre_flash.counts.census "$@"
-else
-  for source in svm dendro; do
-    echo "=== source $source ==="
-    uv run python -u -m eye_pre_flash.counts.census --source "$source" --monkey Faure
-    echo
-  done
-fi
+uv run python -u -m eye_pre_flash.counts.build "$@"
 
+echo
 echo "finished    $(date)"

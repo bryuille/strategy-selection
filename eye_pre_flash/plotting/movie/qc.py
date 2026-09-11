@@ -26,12 +26,12 @@ from data.convert import (
     load_data,
     load_eye_data,
 )
-from eye_pre_flash.plotting.plot_io import OUT_ROOT
+from eye_pre_flash.plotting.movie.paths import OUT_ROOT
 
 SESSION = "june_24_g0"
 DATA_PATH = behavioral_mat_path(MONKEY, SESSION)
 EYE_PATH = eye_mat_path(MONKEY, SESSION)
-OUT_DIR = OUT_ROOT / "movie"
+OUT_DIR = OUT_ROOT
 
 # Movie settings
 N_TRIALS = 30

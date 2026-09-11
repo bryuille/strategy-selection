@@ -7,6 +7,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 
 from eye_pre_flash.plotting.plot_io import save_figure
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 
 MAZES = range(1, 7)
 N_SPLITS = 20
@@ -394,6 +395,6 @@ def plot_cv_grid(
                 fontsize=9,
             )
 
-    save_figure(fig, stem, rel_dir=rel_dir)
+    save_figure(fig, stem, out_root=OUT_ROOT, rel_dir=rel_dir)
     plt.close(fig)
     return fig

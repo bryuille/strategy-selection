@@ -19,7 +19,7 @@
 # default change moves nothing on its own.
 #
 # Strategy labels are NOT rebuilt here: the label sweep is the expensive half
-# of `run_similarity.sbatch` and the window has no bearing on labelling. The
+# of `run_rebuild.sbatch` and the window has no bearing on labelling. The
 # job prints the label count and the scope-based plots skip what is missing.
 #
 # Results leave ~/strategy-selection/eye_pre_flash/plotting/out/
@@ -38,7 +38,7 @@
 # Sizing:
 #
 #   mem    one monkey's eye npz is ~6 GB and the per-maze renderer holds
-#          320x320 count maps alongside it. 32G matches run_similarity.sbatch
+#          320x320 count maps alongside it. 32G matches run_rebuild.sbatch
 #          and leaves room for the 12x12 label matrices, which are the
 #          heaviest step here.
 #
@@ -84,7 +84,7 @@ echo "=== 1/3  heatmap_maze ==="
 for mod in core sum sum_log sum_log_norm sum_log_norm_diff sum_norm sum_norm_diff; do
     for monkey in Faure Nielsen; do
         echo "--- heatmap_maze.$mod --monkey $monkey"
-        uv run python -m "eye_pre_flash.plotting.heatmap_maze.$mod" --monkey "$monkey"
+        uv run python -m "eye_pre_flash.plotting.heatmaps.maze.$mod" --monkey "$monkey"
     done
 done
 
@@ -93,7 +93,7 @@ echo
 echo "=== 2/3  heatmap_label ==="
 for mod in sum sum_log sum_log_norm sum_log_norm_diff sum_norm sum_norm_diff; do
     echo "--- heatmap_label.$mod"
-    uv run python -m "eye_pre_flash.plotting.heatmap_label.$mod"
+    uv run python -m "eye_pre_flash.plotting.heatmaps.label.$mod"
 done
 
 echo

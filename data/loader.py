@@ -248,9 +248,9 @@ def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
     only 7.8% of trials (measured).
 
     Pre-fixation callers pass the analysis window and get a ~5x cheaper pass
-    (1466 ms against a median 7322 ms trial). `eye_post_flash` takes the
-    default whole-trial table, since its fixations sit in a post-feedback
-    window that a pre-fixation clip would throw away.
+    (1466 ms against a median 7322 ms trial), which is every caller today.
+    `start_ms=None` keeps the whole trial and is left in for an analysis whose
+    events sit outside the pre-fixation window.
     """
     if start_ms is None:
         stem = f"{monkey}_clean_eye_data"
@@ -268,24 +268,16 @@ def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
     return cleaned
 
 
-def load_attractor_eye_data(monkey="Faure", k=None):
-    from data.attractor import (
-        ATTRACTOR_EYE_DATA_KEYS,
-        DEFAULT_K,
-        produce_attractor_eye_data,
-    )
+def load_attractor_eye_data(monkey="Faure"):
+    """Warped positions, validity and timebase. K-independent by construction --
+    the codebook lives in `eye_pre_flash.classifier.features`, not here."""
+    from data.attractor import ATTRACTOR_EYE_DATA_KEYS, produce_attractor_eye_data
 
-    k = DEFAULT_K if k is None else int(k)
-    specific = processed_npz(f"{monkey}_attractor_k{k}_eye_data")
-    default = processed_npz(f"{monkey}_attractor_eye_data")
-    for path in (specific, default):
-        if not path.exists():
-            continue
+    path = processed_npz(f"{monkey}_attractor_eye_data")
+    if path.exists():
         loaded = load_npz(path)
-        if set(ATTRACTOR_EYE_DATA_KEYS) <= set(loaded) and int(loaded["codebook_k"]) == k:
+        if set(ATTRACTOR_EYE_DATA_KEYS) <= set(loaded):
             return loaded
-    data = produce_attractor_eye_data(load_eye_data(monkey), monkey=monkey, k=k)
-    savez_atomic(specific, **data)
-    if k == DEFAULT_K:
-        savez_atomic(default, **data)
+    data = produce_attractor_eye_data(load_eye_data(monkey), monkey=monkey)
+    savez_atomic(path, **data)
     return data

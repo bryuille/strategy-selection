@@ -52,7 +52,7 @@ def label_agreement(session, *, lookup=None, anchors=None):
 
     ``lookup`` and ``anchors`` default to the dendrogram lookup and the full
     five-maze `ANCHOR_MAJORITY`; a caller vetting a different label source
-    (e.g. `eye_pre_flash.corr`'s SVM labels, which are defined by mazes 1 and 6
+    (e.g. `eye_pre_flash.label_sources`' SVM labels, which are defined by mazes 1 and 6
     and so cannot be honestly graded against them) passes its own lookup and a
     restricted anchor map instead of duplicating this scoring logic.
     """
@@ -65,7 +65,7 @@ def label_agreement(session, *, lookup=None, anchors=None):
 
     monkey = monkey_for_session(session)
     if monkey not in _MAZE_FEATURES:
-        _MAZE_FEATURES[monkey] = load_features(monkey, k=6, space="unith")
+        _MAZE_FEATURES[monkey] = load_features(monkey, k=6)
     data = _MAZE_FEATURES[monkey]
     rows = np.asarray(data["session"]).astype(str)
     y = labels_for_rows(rows, data["trial_indices_all"], lookup)
@@ -89,11 +89,11 @@ def scope_sessions(scope, *, vet=None, stem="strategy_choices", sessions=None):
 
     ``stem`` selects which cached label a caller is scoping -- the dendrogram
     label by default (``<session>_strategy_choices.npz``), or e.g.
-    ``"strategy_svm"`` for `eye_pre_flash.corr`'s SVM labels
+    ``"strategy_svm"`` for `eye_pre_flash.label_sources`' SVM labels
     (``<session>_strategy_svm.npz``). ``sessions`` overrides `SCOPES[scope]`
     with a caller-supplied session list -- `corr` needs this because its SVM
     ``all``/``allplus`` scopes are not the same session lists as the
-    dendrogram's (see `eye_pre_flash.corr.labels.SVM_SCOPES`), while still
+    dendrogram's (see `eye_pre_flash.label_sources.SVM_SCOPES`), while still
     reusing this function's vetting and `available_label_sessions` filtering.
     """
     if scope not in SCOPES:

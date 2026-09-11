@@ -21,7 +21,8 @@ interactive session) sets `STRATEGY_DATA_ROOT` to point `data.config`'s
 ```
 ~/strategy-selection/
   *.py, slurm/, ...          code — replaced wholesale on every incoming push
-  eye_pre_flash/classifier/out/   written here by the job, then pulled down
+  eye_pre_flash/plotting/*/out/   figures, one out/ per plotting package
+  eye_pre_flash/{counts,scatter,maze_strategy_pairs}/   presentation figures
   logs/                      Slurm stdout/stderr. Must exist before sbatch
   .venv/                     built here by uv sync, never transferred
 
@@ -225,98 +226,70 @@ uv run python -m eye_pre_flash.classifier.pipeline --only decode-pub
 a script, prints a job ID, and returns immediately. That return means the request
 is filed, not that anything ran.
 
-**Post-flash counterfactual analysis.** One light job; it exists because the
-behavioral npz here predate `feedback_time` entering
-`data.convert.BEHAVIORAL_FIELDS`, and `mat/` never leaves this tree. It
-re-converts the behavioral npz (small — minutes), rebuilds the eye-behavioral
-caches, and runs `eye_post_flash.counterfactual` under both alignments:
+**Rebuilding every cache from cold (`slurm/run_rebuild.sbatch`).** This is the
+job to run after `processed/` has been emptied, and the only one that needs to
+be: nothing in this tree moves caches aside or forces a refresh, because an
+empty `processed/` *is* the invalidation. Every loader builds on miss, in
+dependency order, so one submission walks the whole chain:
 
 ```bash
-sbatch slurm/run_post_flash.sbatch
-# results leave ~/strategy-selection/eye_post_flash/out/ (run on the laptop):
-rsync -av engaging:strategy-selection/eye_post_flash/out/ ./eye_post_flash/out/
+sbatch slurm/run_rebuild.sbatch
+sbatch slurm/run_rebuild.sbatch june_24_g0   # figures for one session only
 ```
 
-**Maze x decoded-strategy occupancy similarity (`eye_pre_flash/corr/`).** This
-is the job that needs the cluster, not the laptop: its SVM label source
-(`--source svm`) needs the same cold ~23-session neural conversion the
-dendrogram label sweep already paid once, and only 4 sessions' neural npz
-stay on disk locally. `--with-svm` builds both label kinds off one
-conversion, so this is one job, not two:
+What it writes into `$STRATEGY_DATA_ROOT/processed/`, in order:
+
+| step | cache | note |
+| ---- | ----- | ---- |
+| 1 | `{monkey}_eye_behavioral.npz`, `{monkey}_eye_data.npz` | concatenated from `npz/`; ~3 GB and ~5 GB, roughly an hour |
+| 2 | `{monkey}_clean_eye_data_s1466_e0.npz` | I-DT fixations + saccades on the clipped, unwarped window |
+| 3 | `{monkey}_attractor_eye_data.npz` | unit-H warp, validity, timebase — K-independent, one per monkey |
+| 4 | `{monkey}_clf2_k{6,12}_unith_s1466_e0.npz` | the k-means codebook and the three feature blocks |
+
+`npz/` is the floor this stands on and is *not* rebuilt here: recreating it
+means re-running `data.convert` against `mat/`, which is the one thing in this
+tree that cannot be recovered from anywhere else.
+
+Then the figures, into the repo rather than into `processed/`:
 
 ```bash
-sbatch slurm/run_corr.sbatch
-# a single source, feature or scope re-runs without editing the script:
-sbatch slurm/run_corr.sbatch --source svm --scope allplus --monkey Faure
-# results leave ~/strategy-selection/eye_pre_flash/corr/out/ (run on the laptop):
-rsync -av engaging:strategy-selection/eye_pre_flash/corr/out/ ./eye_pre_flash/corr/out/
+# attractor figures leave ~/strategy-selection/eye_pre_flash/plotting/saccades/out/
+rsync -av engaging:strategy-selection/eye_pre_flash/plotting/saccades/out/ \
+    ./eye_pre_flash/plotting/saccades/out/
 ```
 
-The analysis half is quick once labels exist — the 12x12 per-split
-correlation is vectorised (two matrix multiplies, not 144 individual
-`pearson()` calls), measured at ~40s per (source, feature, variant, monkey,
-k, space) leaf's `allplus` scope with `--n-perm 1000` — so the 12h budget is
-headroom for the label sweep, not the analysis.
-
-**Single-maze H vs S similarity (`eye_pre_flash/mazestratpair/`).** Read-only
-on what `run_corr.sbatch` already built, so it needs no label sweep and no
-job dependency — but it will not build anything either. The script checks for
-the labels and the unit-H feature caches on the node and exits non-zero if
-either is missing, rather than letting `load_features` start a cold attractor
-conversion that would race any concurrent job (job 22404715 died that way).
-Run `sbatch slurm/run_corr.sbatch` first if `$STRATEGY_DATA_ROOT/processed`
-is cold.
+**The presentation figures (`counts`, `scatter`, `maze_strategy_pairs`).** Each
+is read-only on the caches above and fails fast if they are missing, rather
+than triggering a cold build that would race a concurrent job. Run them after
+`run_rebuild.sbatch`, or with `--dependency=afterok:<jobid>`:
 
 ```bash
-sbatch slurm/run_mazestratpair.sbatch --n-perm 50   # ~1 min smoke run
-sbatch slurm/run_mazestratpair.sbatch               # Nielsen maze 4, full sweep
-sbatch slurm/run_mazestratpair.sbatch --all-monkeys --all-mazes
-# results leave ~/strategy-selection/eye_pre_flash/mazestratpair/out/ (run on the laptop):
-rsync -av engaging:strategy-selection/eye_pre_flash/mazestratpair/out/ ./eye_pre_flash/mazestratpair/out/
-```
-
-Cheaper than `corr` per leaf on two counts: the matrix is 2x2 rather than
-12x12, and the permutation null builds each session's trial pool once and
-reshuffles only the labels, instead of rebuilding a `(session, trial_id)`
-lookup and re-scanning the whole feature table per resample. One core and 16G
-is the `run_counts.sbatch` sizing, not `run_corr.sbatch`'s — the 32G/12h there
-is a budget for its label sweep, which this job does not do.
-
-**H/S trial census (`eye_pre_flash/counts/`).** The cheapest job here: it
-reads the already-built windowed feature cache and the ~5 KB labels, and
-writes one heatmap per label source. Seconds, not hours — but still a job,
-because the login node's `RLIMIT_NPROC` kills numpy.
-
-```bash
-sbatch slurm/run_counts.sbatch                              # both sources, Faure
-sbatch slurm/run_counts.sbatch --source svm --monkey Nielsen
-# results leave ~/strategy-selection/eye_pre_flash/counts/ (run on the laptop):
+sbatch slurm/run_counts.sbatch
+sbatch slurm/run_scatter.sbatch
+sbatch slurm/run_maze_strategy_pairs.sbatch
+# each writes into its own package dir; results leave (run on the laptop):
 rsync -av --exclude='__pycache__' \
     engaging:strategy-selection/eye_pre_flash/counts/ ./eye_pre_flash/counts/
 ```
 
-It needs the feature cache to already **exist**: `load_features` would
-otherwise build it, racing anything else doing the same. Run it after the job
-that builds the caches, which is what `--dependency=afterok:<jobid>` is for.
-
-**Caches do not encode the settings they were built under.** The
-`{monkey}_clean_eye_data_s*_e*`, `{monkey}_attractor_k*` and
-`{monkey}_clf2_*` stems carry the window and k — not `data.builder`'s
-detector constants (`IDT_DISPERSION_THRESHOLD_DEG` and friends) and not its
-QC predicate (`qc_mask`). So changing any of those and rerunning silently
-reloads the old events instead of recomputing them. Move the affected caches
-aside first, which keeps the previous run recoverable:
+**Caches do not encode the settings they were built under.** A stem carries the
+window and K — never `data.builder`'s detector constants
+(`IDT_DISPERSION_THRESHOLD_DEG`, `FIXATION_MIN_DURATION_MS`) or its QC
+predicate (`qc_mask`). Change one of those and a rerun silently reloads the old
+events rather than recomputing them, because every loader checks only that the
+expected keys are present. So **after changing a detector constant, delete the
+caches it feeds** — there is no refresh flag, and deleting is the invalidation:
 
 ```bash
 cd "$STRATEGY_DATA_ROOT/processed"
-for f in *_clean_eye_data_s1466_e0.npz *_attractor*_eye_data.npz \
-         *_clf2_*_unith_s1466_e0.npz; do mv "$f" "$f.$(date +%F)"; done
+rm -f *_clean_eye_data_s*.npz *_attractor_eye_data.npz *_clf2_*.npz
 ```
 
-`{monkey}_eye_data.npz` and `{monkey}_eye_behavioral.npz` are safe to keep —
-raw gaze concatenation and behavioral fields, neither derived from the
-detectors or the QC screen. They are also the expensive ones (3.1 GB and
-4.9 GB), so keeping them cuts a cold rebuild to roughly an hour.
+`{monkey}_eye_data.npz` and `{monkey}_eye_behavioral.npz` survive that — raw
+gaze concatenation and behavioral fields, neither derived from the detectors nor
+the QC screen. They are also the expensive ones (3.1 GB and 4.9 GB), so keeping
+them cuts the rebuild from roughly an hour to minutes. Emptying `processed/`
+entirely is always safe; it just pays for those two again.
 
 ## Monitor
 
@@ -356,13 +329,15 @@ checkpointing finer than stage granularity, so a preemption partway through
 | Symptom | Fix |
 | ------- | --- |
 | `uv: command not found` in the job log | `PATH` — the script sets it; check uv really installed to `~/.local/bin` |
-| Killed, `State` = `OUT_OF_MEMORY` | raise `--mem` to 128G, rerun just that stage with `--from` |
-| `TIMEOUT` | stages are resumable; resubmit with `--from <stage>`, the log names the stage |
+| Killed, `State` = `OUT_OF_MEMORY` | raise `--mem` to 128G and resubmit; the caches already written are kept |
+| `TIMEOUT` in `run_rebuild` | resubmit — every completed cache is reused, so the rerun starts where it stopped |
 | `Disk quota exceeded` on `/home` | see "Storage: scratch, not `/home`" — `.venv` is the droppable thing there, `rm -rf .venv && uv sync` |
 | scratch filling up | `data.labeler --sweep --reclaim-neural` frees the neural npz + `trial_timebins` per session |
 | hangs during `uv sync` inside a job | run `uv sync` on the login node instead |
 | rsync or ssh to `engaging` hangs | stale control socket — `ssh -O exit engaging`, then reconnect |
 | cloud figures vanished | an incoming push with `--delete` — see "What crosses the boundary" |
+| figures unchanged after editing a detector constant | the caches predate the edit; delete them — see "Caches do not encode the settings they were built under" |
 
 Every stage is a cache warm, so rerunning is cheap: each loader skips work whose
-npz already exists. A failed stage prints its own `--from` resume command.
+npz already exists. That is also the trap — see the cache-invalidation note
+above before concluding a code change had no effect.

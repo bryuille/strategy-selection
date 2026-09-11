@@ -1,10 +1,21 @@
+"""Unit-H warping and fixation-to-cluster assignment.
+
+This module owns steps 2 and 5 of the pipeline: it warps raw degrees into the
+unit H that makes every maze comparable, and it snaps a fixation to a cluster
+point. It does **not** fit the codebook -- `eye_pre_flash.classifier.features`
+does that, on clipped in-window samples, and is the single source of every
+codebook in the analysis.
+
+The cache this module writes (`{monkey}_attractor_eye_data.npz`) is therefore
+K-independent: warped positions, a validity mask and a timebase, nothing more.
+"""
+
 from __future__ import annotations
 
 import argparse
 
 import numpy as np
 from pymovements.events.detection import out_of_screen
-from sklearn.cluster import KMeans
 
 from data.builder import (
     POSITION_LIMIT_DEG,
@@ -12,55 +23,33 @@ from data.builder import (
     trial_blink_mask,
     trial_fixation_mask,
 )
-from data.config import eye_npz_path, processed_npz
+from data.config import (
+    PRE_FIX_END_MS,
+    PRE_FIX_START_MS,
+    eye_npz_path,
+    processed_npz,
+)
 from data.convert import load_npz
-from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
 
-CODEBOOK_SWEEP = (4, 5, 6, 7, 8, 10, 12)
-DEFAULT_K = 12
-# Maze plot box; k-means samples and prototypes are clipped to this square.
+# Maze plot box. Warped samples outside it are off-maze.
 MAZE_SCREEN_LIM = 3.0
-# Assign a fixation only when gaze is within this radius of a prototype.
+# Assign a fixation only when its mean lies within this radius of a prototype --
+# the "unit ball" of step 5.
 ASSIGN_RADIUS = 1.0
-CODE_X_LIM = MAZE_SCREEN_LIM
-CODE_Y_LIM = MAZE_SCREEN_LIM
 BLINK_PADDING_MS = 50
 ARM_EPS = 1e-6
-# Physical height of the center vertical stem (fixation target → junction).
+# Physical height of the center vertical stem (fixation target -> junction).
 STEM_DEG = 7.0
-MAZE_EXITS = (
-    ("LU", (-1.0, 1.0)),
-    ("LD", (-1.0, -1.0)),
-    ("RU", (1.0, 1.0)),
-    ("RD", (1.0, -1.0)),
-)
-MAZE_ORIGIN = ("origin", (0.0, 0.0))
-EXTRA_HOLD_XY = (2.25, 0.25)
+
+FIXATION_EVENT = "fixation_idt"
 
 ATTRACTOR_EYE_DATA_KEYS = (
     "time",
     "eye_x",
     "eye_y",
-    "recon_x",
-    "recon_y",
-    "state_id",
     "valid",
-    "artifact_prob",
     "session",
     "trial_indices_all",
-    "codebook_xy",
-    "codebook_k",
-    "codebook_name",
-    "codebook_usage",
-    "valid_mae",
-    "transition_state",
-    "transition_onset",
-    "transition_offset",
-    "transition_duration",
-    "transition_location_x",
-    "transition_location_y",
-    "transition_session",
-    "transition_trial_indices_all",
 )
 
 
@@ -71,18 +60,15 @@ def in_maze_screen(x, y, lim=MAZE_SCREEN_LIM):
     return np.isfinite(x) & np.isfinite(y) & (np.abs(x) <= lim) & (np.abs(y) <= lim)
 
 
-def clip_codebook_xy(codebook_xy, lim=MAZE_SCREEN_LIM):
-    """Clip prototype coordinates into `[-lim, lim]²`."""
-    xy = np.asarray(codebook_xy, dtype=np.float32)
-    clipped = np.clip(xy, -lim, lim)
-    if xy.size and not np.allclose(xy, clipped):
-        n = int(np.any(np.abs(xy) > lim, axis=1).sum())
-        print(f"Clipped {n} codebook point(s) into [{-lim:g}, {lim:g}]^2")
-    return clipped.astype(np.float32, copy=False)
-
-
 def assign_states_inference(xy, codebook_xy, radius=ASSIGN_RADIUS):
-    """Pick the nearest prototype within `radius`, else return -1."""
+    """Nearest prototype within `radius`, else -1.
+
+    Two steps, in this order: the radius rejects points sitting outside every
+    ball, and among the prototypes that do contain the point the nearest one
+    wins. The tie-break is not an edge case -- prototypes routinely sit closer
+    together than `2 * radius`, so overlapping balls are the normal situation
+    and most central fixations are eligible for several at once.
+    """
     xy = np.asarray(xy, dtype=np.float32)
     codebook_xy = np.asarray(codebook_xy, dtype=np.float32)
     if xy.size == 0:
@@ -101,26 +87,18 @@ def assign_states_inference(xy, codebook_xy, radius=ASSIGN_RADIUS):
     return state
 
 
-def contiguous_true_runs(mask):
-    """Inclusive-exclusive sample slices `[start, end)` of contiguous True runs."""
-    idx = np.flatnonzero(mask)
-    if idx.size == 0:
-        return []
-    cuts = np.flatnonzero(np.diff(idx) > 1)
-    starts = np.concatenate(([0], cuts + 1))
-    ends = np.concatenate((cuts + 1, [idx.size]))
-    return [(int(idx[s]), int(idx[e - 1]) + 1) for s, e in zip(starts, ends)]
-
-
 def fixation_event_spans(event_rows):
-    """Fixation `(duration, onset, offset)` spans, shortest first."""
+    """I-DT fixation `(onset, offset)` spans, earliest first.
+
+    `fixation_idt` by name, not by substring: `data.builder` emits exactly one
+    fixation detector now, and naming it here keeps that true if another is ever
+    added alongside.
+    """
     spans = []
     for name, onset, offset in event_rows or ():
-        if "fixation" not in str(name).lower():
+        if str(name).lower() != FIXATION_EVENT:
             continue
-        onset = float(onset)
-        offset = float(offset)
-        spans.append((offset - onset, onset, offset))
+        spans.append((float(onset), float(offset)))
     spans.sort()
     return spans
 
@@ -128,12 +106,17 @@ def fixation_event_spans(event_rows):
 def assign_fixation_states(
     xy, t_ms, valid, event_rows, codebook_xy, radius=ASSIGN_RADIUS
 ):
-    """Assign each pymovements fixation as a whole to one prototype.
+    """Assign each fixation as a whole to one prototype.
 
-    The representative point is the mean of valid maze-space samples in the
-    event. That centroid is snapped with `assign_states_inference`; every valid
-    sample in the event inherits the result. Overlapping events keep the
-    longest event's assignment so a slow drift is not split at a Voronoi edge.
+    The representative point is the mean of the fixation's valid warped samples
+    -- "based on its average", step 5. That mean is snapped with
+    `assign_states_inference`, and every valid sample in the fixation inherits
+    the result. Samples outside any fixation (saccades, blinks, gaps) keep -1
+    and are dropped from every feature.
+
+    Fixations are assigned independently. Nothing merges them: two consecutive
+    fragments landing on the same prototype already collapse into one run
+    downstream, because `collapse_state_runs` sees only assigned samples.
     """
     n = len(xy)
     state = np.full(n, -1, dtype=np.int16)
@@ -141,18 +124,9 @@ def assign_fixation_states(
     if n == 0 or not valid.any():
         return state
 
-    spans = fixation_event_spans(event_rows)
-    if spans:
-        t_ms = np.asarray(t_ms)
-        groups = [valid & (t_ms >= onset) & (t_ms <= offset) for _, onset, offset in spans]
-    else:
-        groups = []
-        for start, end in contiguous_true_runs(valid):
-            hit = np.zeros(n, dtype=bool)
-            hit[start:end] = True
-            groups.append(hit)
-
-    for hit in groups:
+    t_ms = np.asarray(t_ms)
+    for onset, offset in fixation_event_spans(event_rows):
+        hit = valid & (t_ms >= onset) & (t_ms <= offset)
         if not hit.any():
             continue
         centroid = np.asarray(xy[hit], dtype=np.float32).mean(axis=0, keepdims=True)
@@ -274,114 +248,6 @@ def prepare_trial(
     }
 
 
-def inlier_xy(xy):
-    xy = np.asarray(xy, dtype=np.float32)
-    return (np.abs(xy[:, 0]) <= CODE_X_LIM) & (np.abs(xy[:, 1]) <= CODE_Y_LIM)
-
-
-def codebook_xy_pool(packed, max_samples=80000, seed=0):
-    """In-maze valid fixation samples used to fit k-means codes."""
-    chunks = []
-    for p in packed:
-        if p is None:
-            continue
-        keep = p["valid_orig"]
-        if not keep.any():
-            continue
-        xy = np.stack([p["x"][keep], p["y"][keep]], axis=1)
-        xy = xy[inlier_xy(xy)]
-        if xy.size:
-            chunks.append(xy)
-    if not chunks:
-        return np.empty((0, 2), dtype=np.float32)
-    xy = np.concatenate(chunks, axis=0)
-    rng = np.random.default_rng(seed)
-    if xy.shape[0] > max_samples:
-        xy = xy[rng.choice(xy.shape[0], max_samples, replace=False)]
-    return xy.astype(np.float32, copy=False)
-
-
-def fit_code_xy_kmeans(xy, k, seed=0):
-    """Hard k-means on in-maze (x, y) samples."""
-    rng = np.random.default_rng(seed)
-    xy = np.asarray(xy, dtype=np.float32)
-    if k <= 0:
-        return np.empty((0, 2), dtype=np.float32)
-    if xy.shape[0] == 0:
-        return rng.uniform(-1.0, 1.0, size=(k, 2)).astype(np.float32)
-    if xy.shape[0] < k:
-        reps = np.tile(xy, (int(np.ceil(k / xy.shape[0])), 1))[:k]
-        return reps.astype(np.float32, copy=False)
-    km = KMeans(n_clusters=k, n_init=10, random_state=seed)
-    km.fit(xy)
-    return km.cluster_centers_.astype(np.float32)
-
-
-def fit_code_xy(xy, k, seed=0):
-    """K-means codebook in maze units, clipped to the ±3 maze box."""
-    centers = clip_codebook_xy(fit_code_xy_kmeans(xy, k, seed=seed))
-    names = [f"k{i}" for i in range(k)]
-    return centers, names
-
-
-def pinned_landmarks(k):
-    """Geometric maze landmarks for diagnostics."""
-    exits = [(name, np.asarray(xy, dtype=np.float32)) for name, xy in MAZE_EXITS]
-    if k <= 4:
-        return exits[:k]
-    origin = (MAZE_ORIGIN[0], np.asarray(MAZE_ORIGIN[1], dtype=np.float32))
-    return [origin, *exits]
-
-
-def trial_inference(packed, codebook_xy):
-    n = min(packed["valid_orig"].size, packed["x"].size, packed["y"].size)
-    valid_orig = np.asarray(packed["valid_orig"][:n], dtype=bool)
-    xy = np.stack([packed["x"][:n], packed["y"][:n]], axis=1).astype(np.float32)
-    t_ms = np.round(np.asarray(packed["t"][:n], dtype=np.float64) * 1000.0).astype(
-        np.int64
-    )
-    state = assign_fixation_states(
-        xy, t_ms, valid_orig, packed.get("event_rows"), codebook_xy
-    )
-    state = np.where(valid_orig, state, np.int16(-1))
-
-    recon = np.full((n, 2), np.nan, dtype=np.float32)
-    ok = state >= 0
-    recon[ok] = codebook_xy[state[ok]]
-    artifact = np.where(valid_orig, 0.0, 1.0).astype(np.float32)
-    return state, recon, artifact, valid_orig, xy
-
-
-def state_runs(t_ms, state, codebook_xy, session, trial_id):
-    n = state.size
-    if n == 0:
-        return []
-    rows = []
-    start = 0
-    n_codes = len(codebook_xy)
-    for i in range(1, n + 1):
-        if i == n or state[i] != state[start]:
-            sid = int(state[start])
-            if 0 <= sid < n_codes:
-                onset = float(t_ms[start])
-                offset = float(t_ms[i - 1] if i - 1 < t_ms.size else t_ms[-1])
-                x, y = codebook_xy[sid]
-                rows.append(
-                    {
-                        "state": sid,
-                        "onset": onset,
-                        "offset": offset,
-                        "duration": max(offset - onset, 0.0),
-                        "location_x": float(x),
-                        "location_y": float(y),
-                        "session": session,
-                        "trial_indices_all": int(trial_id),
-                    }
-                )
-            start = i
-    return rows
-
-
 def h_lookup(behavioral):
     return {
         (str(session), int(trial_id)): tuple(
@@ -448,9 +314,7 @@ def pack_trials(
     hs = h_lookup(behavioral)
     # QC gate. A failing trial is packed as `None`, the signal `prepare_trial`
     # already uses for an unusable trial, so row indices stay aligned with
-    # `eye_data` while `codebook_xy_pool` and `build_attractor_eye_data` skip
-    # it. Without this the whole-trial k-means codebook is fitted on faded and
-    # photodiode-bad gaze.
+    # `eye_data` while the assembly below skips it.
     qc_ok = qc_mask(behavioral)
     qc_row = {
         (str(s_), int(t_)): j
@@ -490,39 +354,10 @@ def pack_trials(
     return packed, n_trials
 
 
-def print_codebook_diagnostics(codebook_xy, codebook_name, usage, k):
-    print("K-means prototypes (maze units):")
-    for j, ((px, py), name) in enumerate(zip(codebook_xy, codebook_name)):
-        print(f"  state {j:2d} {name:8s}: ({px:7.2f}, {py:7.2f})  usage={usage[j]:.3f}")
-    diagnostic = list(pinned_landmarks(max(k, 5))) + [
-        ("extra", np.asarray(EXTRA_HOLD_XY, dtype=np.float32))
-    ]
-    for name, pt in diagnostic:
-        d = np.hypot(codebook_xy[:, 0] - pt[0], codebook_xy[:, 1] - pt[1])
-        j = int(np.argmin(d))
-        print(f"  nearest to {name} ({pt[0]:g}, {pt[1]:g}): state {j} at {d[j]:.2f}")
-    if k > 1:
-        dmat = np.sqrt(
-            (codebook_xy[:, None, 0] - codebook_xy[None, :, 0]) ** 2
-            + (codebook_xy[:, None, 1] - codebook_xy[None, :, 1]) ** 2
-        )
-        np.fill_diagonal(dmat, np.inf)
-        print(f"  min prototype separation: {dmat.min():.2f}")
-
-
-def infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
-    codebook_xy = clip_codebook_xy(codebook_xy)
-    k = codebook_xy.shape[0]
-    times, xs, ys = [], [], []
-    recon_xs, recon_ys = [], []
-    state_ids, valids, artifacts = [], [], []
+def assemble_trials(packed, eye_data):
+    """Warped positions, validity and timebase, one row per `eye_data` trial."""
+    times, xs, ys, valids = [], [], [], []
     sessions, trial_ids = [], []
-    transition_rows = []
-    usage = np.zeros(k, dtype=np.float64)
-    usage_n = 0.0
-    abs_err = 0.0
-    err_n = 0.0
-    n_trials = len(packed)
 
     for i, p in enumerate(packed):
         t, x, y, session, trial_id = unpack_eye(eye_data, i)
@@ -531,113 +366,31 @@ def infer_all_trials(packed, eye_data, codebook_xy, codebook_name):
             times.append(t[:n].astype(np.float32))
             xs.append(np.full(n, np.nan, dtype=np.float32))
             ys.append(np.full(n, np.nan, dtype=np.float32))
-            recon_xs.append(np.full(n, np.nan, dtype=np.float32))
-            recon_ys.append(np.full(n, np.nan, dtype=np.float32))
-            state_ids.append(np.full(n, -1, dtype=np.int16))
             valids.append(np.zeros(n, dtype=bool))
-            artifacts.append(np.ones(n, dtype=np.float32))
-            sessions.append(session)
-            trial_ids.append(trial_id)
-            continue
-
-        state, recon, artifact, valid_orig, xy = trial_inference(p, codebook_xy)
-        n = state.size
-        t_ms = p["t"][:n] * 1000.0
-
-        times.append(p["t"][:n].astype(np.float32))
-        xs.append(p["x"][:n].astype(np.float32))
-        ys.append(p["y"][:n].astype(np.float32))
-        recon_xs.append(recon[:, 0].astype(np.float32))
-        recon_ys.append(recon[:, 1].astype(np.float32))
-        state_ids.append(state)
-        valids.append(valid_orig)
-        artifacts.append(artifact.astype(np.float32))
+        else:
+            n = p["valid_orig"].size
+            times.append(p["t"][:n].astype(np.float32))
+            xs.append(p["x"][:n].astype(np.float32))
+            ys.append(p["y"][:n].astype(np.float32))
+            valids.append(np.asarray(p["valid_orig"], dtype=bool))
         sessions.append(session)
         trial_ids.append(trial_id)
-        transition_rows.extend(state_runs(t_ms, state, codebook_xy, session, trial_id))
-
-        assigned = valid_orig & (state >= 0)
-        if assigned.any():
-            one_hot = np.zeros(k, dtype=np.float64)
-            for sid in state[assigned]:
-                one_hot[int(sid)] += 1.0
-            usage += one_hot
-            usage_n += float(assigned.sum())
-            err = np.hypot(
-                codebook_xy[state[assigned], 0] - xy[assigned, 0],
-                codebook_xy[state[assigned], 1] - xy[assigned, 1],
-            )
-            abs_err += float(err.sum())
-            err_n += float(err.size)
-
-        if (i + 1) % 2000 == 0:
-            print(f"  inferred {i + 1}/{n_trials}")
-
-    usage = (usage / max(usage_n, 1.0)).astype(np.float32)
-    mae = np.float32(abs_err / max(err_n, 1.0))
-    print(f"Assigned-sample MAE: {mae:.3f} maze units (radius={ASSIGN_RADIUS:g})")
-
-    if transition_rows:
-        transitions = {
-            key: np.asarray([r[key] for r in transition_rows]) for key in transition_rows[0]
-        }
-    else:
-        transitions = {
-            "state": np.asarray([], dtype=np.int16),
-            "onset": np.asarray([], dtype=np.float32),
-            "offset": np.asarray([], dtype=np.float32),
-            "duration": np.asarray([], dtype=np.float32),
-            "location_x": np.asarray([], dtype=np.float32),
-            "location_y": np.asarray([], dtype=np.float32),
-            "session": np.asarray([], dtype=object),
-            "trial_indices_all": np.asarray([], dtype=int),
-        }
 
     return {
         "time": np.asarray(times, dtype=object),
         "eye_x": np.asarray(xs, dtype=object),
         "eye_y": np.asarray(ys, dtype=object),
-        "recon_x": np.asarray(recon_xs, dtype=object),
-        "recon_y": np.asarray(recon_ys, dtype=object),
-        "state_id": np.asarray(state_ids, dtype=object),
         "valid": np.asarray(valids, dtype=object),
-        "artifact_prob": np.asarray(artifacts, dtype=object),
         "session": np.asarray(sessions),
         "trial_indices_all": np.asarray(trial_ids, dtype=int),
-        "codebook_xy": codebook_xy,
-        "codebook_k": np.int32(k),
-        "codebook_name": codebook_name,
-        "codebook_usage": usage,
-        "valid_mae": mae,
-        "transition_state": transitions["state"].astype(np.int16, copy=False),
-        "transition_onset": transitions["onset"].astype(np.float32, copy=False),
-        "transition_offset": transitions["offset"].astype(np.float32, copy=False),
-        "transition_duration": transitions["duration"].astype(np.float32, copy=False),
-        "transition_location_x": transitions["location_x"].astype(np.float32, copy=False),
-        "transition_location_y": transitions["location_y"].astype(np.float32, copy=False),
-        "transition_session": np.asarray(transitions["session"]),
-        "transition_trial_indices_all": transitions["trial_indices_all"].astype(
-            int, copy=False
-        ),
     }
-
-
-def fit_codebook_from_trials(packed, k, seed=0):
-    pool = codebook_xy_pool(packed, seed=seed)
-    codebook_xy, codebook_name = fit_code_xy(pool, k, seed=seed)
-    print(f"Fitted k-means codebook (K={k}, n={pool.shape[0]} fixation samples):")
-    for j, ((px, py), name) in enumerate(zip(codebook_xy, codebook_name)):
-        print(f"  state {j:2d} {name:8s}: ({px:7.2f}, {py:7.2f})")
-    return codebook_xy, codebook_name
 
 
 def build_attractor_eye_data(
     eye_data,
     *,
     monkey="Faure",
-    k=DEFAULT_K,
     max_trials=None,
-    seed=0,
     behavioral=None,
     events="auto",
 ):
@@ -652,29 +405,22 @@ def build_attractor_eye_data(
         max_trials=max_trials,
         events=events,
     )
-    print(f"Preparing {n_trials} maze-normalized fixation trials (K={k})")
-    codebook_xy, codebook_name = fit_codebook_from_trials(packed, k, seed=seed)
-    data = infer_all_trials(packed, eye_data, codebook_xy, codebook_name)
-    print_codebook_diagnostics(codebook_xy, codebook_name, data["codebook_usage"], k)
-    return data
+    print(f"Preparing {n_trials} maze-normalized fixation trials")
+    return assemble_trials(packed, eye_data)
 
 
 def produce_attractor_eye_data(
     eye_data,
     *,
     monkey="Faure",
-    k=DEFAULT_K,
     max_trials=None,
-    seed=0,
     behavioral=None,
     events="auto",
 ):
     return build_attractor_eye_data(
         eye_data,
         monkey=monkey,
-        k=k,
         max_trials=max_trials,
-        seed=seed,
         behavioral=behavioral,
         events=events,
     )
@@ -693,35 +439,16 @@ def save_attractor_eye_data(data, monkey, stem=None):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--monkey", default="Faure", choices=("Faure", "Nielsen"))
-    parser.add_argument("--k", type=int, default=DEFAULT_K)
     parser.add_argument("--max-trials", type=int, default=None)
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument(
-        "--sweep",
-        action="store_true",
-        help=f"Run K in {CODEBOOK_SWEEP}",
-    )
     args = parser.parse_args()
 
     from data.loader import load_eye_data
 
     eye = load_eye_data(args.monkey)
-    ks = CODEBOOK_SWEEP if args.sweep else (args.k,)
-    for k in ks:
-        data = produce_attractor_eye_data(
-            eye,
-            monkey=args.monkey,
-            k=k,
-            max_trials=args.max_trials,
-            seed=args.seed,
-        )
-        save_attractor_eye_data(
-            data, args.monkey, stem=f"{args.monkey}_attractor_k{k}_eye_data"
-        )
-        if k == DEFAULT_K:
-            save_attractor_eye_data(
-                data, args.monkey, stem=f"{args.monkey}_attractor_eye_data"
-            )
+    data = produce_attractor_eye_data(
+        eye, monkey=args.monkey, max_trials=args.max_trials
+    )
+    save_attractor_eye_data(data, args.monkey)
 
 
 if __name__ == "__main__":

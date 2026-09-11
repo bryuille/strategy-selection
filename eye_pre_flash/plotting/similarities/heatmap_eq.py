@@ -42,6 +42,7 @@ import numpy as np
 
 from data.loader import load_eye_behavioral_data, load_eye_data
 from eye_pre_flash.plotting.plot_io import save_figure
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW
 from eye_pre_flash.plotting.similarities.heatmap_log import (
     COARSE_BIN,
@@ -57,7 +58,7 @@ from eye_pre_flash.plotting.similarities.heatmap_log import (
     _trial_count_maps,
 )
 
-VISUALIZER = "similarities/heatmap_eq"
+VISUALIZER = "heatmap_eq"
 
 
 def equal_halves(n, n_half, rng):
@@ -254,7 +255,7 @@ def plot_similarity(
             )
 
     stem = f"similarities_bin{bin_w:g}" + ("" if n_half is None else f"_nhalf{n_half}")
-    save_figure(fig, stem, rel_dir=f"{visualizer}/{monkey}")
+    save_figure(fig, stem, out_root=OUT_ROOT, rel_dir=f"{visualizer}/{monkey}")
     plt.close(fig)
 
     print(f"{monkey} bin {bin_w:g} — reliability (diagonal), equal n:")

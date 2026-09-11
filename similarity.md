@@ -42,7 +42,7 @@ is warped to unit H (`to_maze`) so exits sit at `(±1, ±1)`.
 | Heatmap, log | `pre_flash_similarities_heatmap_log` | the same, `log1p(count / n_trials)` | ≥ 4 trials |
 | Occupancy | `pre_flash_similarities_occupancy` | seconds spent in each of the *K* codebook states | ≥ 2 trials |
 | Occupancy, binary | `pre_flash_similarities_occupancy_bin` | length-*K* 0/1 vector: 1 if that state was visited | ≥ 2 trials |
-| Transition | `pre_flash_similarities_transition` | bigram + trigram proportions of collapsed state runs (dwell time ignored). Path `k1 → k5 → k2` contributes bigrams `(k1, k5)`, `(k5, k2)` and trigram `(k1, k5, k2)` | ≥ 2 trials |
+| Transition | `pre_flash_similarities_transition` | bigram proportions of collapsed state runs (dwell time ignored). Path `k1 → k5 → k2` contributes bigrams `(k1, k5)` and `(k5, k2)` | ≥ 2 trials |
 
 Heatmap trials additionally require QC-passed fixed geometry (`path_type != -99`,
 photodiode OK, `trial_fade == 0`); the state-based plots require
@@ -81,7 +81,7 @@ directly against each other:
 | Script | Matrix | Question |
 | ------ | ------ | -------- |
 | `similarities.heatmap_eq` | 6×6, maze × maze | do two mazes elicit the same gaze map, once no maze is measured better than any other? |
-| `corr.run` | 12×12, (maze × strategy) | inside one maze, do trials sharing a decoded strategy produce more similar gaze? (see below) |
+| `maze_strategy_pairs.build` | 2×2, within one maze | inside one maze, do trials sharing a decoded strategy produce more similar gaze? |
 
 ### `heatmap_eq` — the maze matrix with counts equalised
 
@@ -106,60 +106,6 @@ uv run python -m eye_pre_flash.plotting.similarities.heatmap_eq --monkey Nielsen
 
 Output: `heatmap_eq/<monkey>/` under `eye_pre_flash/plotting/out/similarities/`,
 as `.png`.
-
-### Splitting a maze by decoded strategy
-
-This section used to carry `heatmap_labels`, a 12×12 over the (maze × decoded
-strategy) cells built the same split-half way as `heatmap_eq`, against
-102,400-dim spatial gaze maps. It has been **replaced by**
-[`eye_pre_flash/corr/corr.md`](eye_pre_flash/corr/corr.md), which asks the same
-group-vs-group question against low-dimensional codebook-occupancy vectors
-(d = 6–144) instead — a deliberately different fix for the same coverage
-problem, not a different method.
-
-The reason `heatmap_labels` was retired is coverage: group-vs-group needs every
-cell thick enough to split, so both the H *and* S side of every maze had to
-clear `--min-trials` — which forced the analysis onto `allplus` and still left
-most cells blank. `corr` answers this by **computing every cell regardless of
-count** and marking thin ones (`*`) rather than dropping them, and by adding a
-second, supervised label source (a maze-1-vs-6 linear SVM) alongside the
-dendrogram clustering. It does not column-centre; instead it reports two
-feature variants (`no_origin`, `pc1_removed`) that strip the dominant
-central-fixation profile the low-dimensional vectors share, and a
-within-(session, maze) label-shuffle permutation null in place of an assumed
-error bar, since a Pearson over as few as 6–12 points should have its noise
-floor measured rather than assumed.
-
----
-
-# Results: reliability vs. discriminability across k
-
-> **These tables were computed with the window ending at `fix_start − 300 ms`,
-> which the scripts no longer use** — the end moved to `fix_start` in commit
-> `706c452`. Re-run before quoting them against current figures. Everything else
-> below (20 splits, CV seed 0, mazes 1–6) still matches.
-
-Two different questions get asked of the same 6×6 CV matrix:
-
-- **Reliability** — the mean of the diagonal. "If I re-measured this maze's
-  state-occupancy profile from an independent half of trials, would I get the
-  same answer?"
-- **Discriminability** — diagonal vs. off-diagonal, reported as the **ratio**
-  diagonal-mean ÷ off-diagonal-mean. "Does this k actually tell mazes apart, or
-  do different mazes look about as similar to each other as a maze looks to
-  itself?" >1 means the codebook separates mazes; closer to 1 means it doesn't.
-
-Higher is better throughout this document, in every table.
-
-**Reliability alone is not evidence of a good k.** A degenerate k=1 codebook (one
-state covering everything) would score a perfect 1.0 while carrying zero
-information. Discriminability is the meaningful criterion here.
-
-This is also **not** the criterion the production codebook size was chosen by —
-that was codebook stability (held-out coverage × centroid reproducibility, which
-peaked at the production K; the selection scripts have since been retired). This
-section asks the narrower question of which k separates *maze types*, and the
-two need not agree.
 
 ## Reliability (mean diagonal)
 

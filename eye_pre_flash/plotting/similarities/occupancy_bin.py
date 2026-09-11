@@ -16,29 +16,24 @@ from __future__ import annotations
 
 import argparse
 
-from data.attractor import DEFAULT_K
-from data.loader import load_attractor_eye_data, load_eye_behavioral_data
-from data.occupancy import attractor_occupancy_bin_rows
+from eye_pre_flash.classifier.features import DEFAULT_K, feature_rows
 from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 from eye_pre_flash.plotting.similarities.common import (
     N_SPLITS,
     plot_cv_grid,
     session_averaged_cv,
 )
 
-VISUALIZER = "similarities/occupancy_bin"
+VISUALIZER = "occupancy_bin"
 
 
 def plot_similarity(monkey="Faure", *, k=DEFAULT_K, n_splits=N_SPLITS, seed=0):
-    attractor = load_attractor_eye_data(monkey, k=k)
-    behavioral = load_eye_behavioral_data(monkey)
-    features, sessions, _, mazes = attractor_occupancy_bin_rows(
-        attractor, behavioral, end_ms=PRE_FIX_END_MS
-    )
+    features, sessions, mazes = feature_rows(monkey, k=k, block="occ_bin")
     corr, counts, n_sessions = session_averaged_cv(
         features, sessions, mazes, n_splits=n_splits, seed=seed
     )
-    codebook_k = int(attractor["codebook_k"])
+    codebook_k = int(k)
     end_label = "fix_start" if PRE_FIX_END_MS == 0 else f"fix_start − {PRE_FIX_END_MS:g} ms"
     title = (
         f"{monkey} pre-fixation binary occupancy similarities (K={codebook_k}, CV)\n"

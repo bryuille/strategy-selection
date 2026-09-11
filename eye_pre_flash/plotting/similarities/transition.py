@@ -14,33 +14,28 @@ from __future__ import annotations
 
 import argparse
 
-from data.attractor import DEFAULT_K
-from data.loader import load_attractor_eye_data, load_eye_behavioral_data
-from data.occupancy import attractor_transition_rows
+from eye_pre_flash.classifier.features import DEFAULT_K, feature_rows
 from eye_pre_flash.plotting.plot_io import PRE_FIX_END_MS, PRE_FIX_START_MS
+from eye_pre_flash.plotting.similarities.paths import OUT_ROOT
 from eye_pre_flash.plotting.similarities.common import (
     N_SPLITS,
     plot_cv_grid,
     session_averaged_cv,
 )
 
-VISUALIZER = "similarities/transition"
+VISUALIZER = "transition"
 
 
 def plot_similarity(monkey="Faure", *, k=DEFAULT_K, n_splits=N_SPLITS, seed=0):
-    attractor = load_attractor_eye_data(monkey, k=k)
-    behavioral = load_eye_behavioral_data(monkey)
-    features, sessions, _, mazes = attractor_transition_rows(
-        attractor, behavioral, end_ms=PRE_FIX_END_MS
-    )
+    features, sessions, mazes = feature_rows(monkey, k=k, block="bigram")
     corr, counts, n_sessions = session_averaged_cv(
         features, sessions, mazes, n_splits=n_splits, seed=seed
     )
-    codebook_k = int(attractor["codebook_k"])
+    codebook_k = int(k)
     end_label = "fix_start" if PRE_FIX_END_MS == 0 else f"fix_start − {PRE_FIX_END_MS:g} ms"
     title = (
         f"{monkey} pre-fixation transition similarities (K={codebook_k}, CV)\n"
-        f"split-half Pearson r of bigram+trigram run order | "
+        f"split-half Pearson r of state bigram proportions | "
         f"avg over {n_sessions} sessions\n"
         f"fix_start − {PRE_FIX_START_MS:g} ms → {end_label} | {n_splits} splits | "
         f"n={','.join(str(n) for n in counts)}"
