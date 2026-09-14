@@ -34,7 +34,7 @@ from eye_pre_flash.classifier.labels import PUBLICATION_SESSIONS
 from eye_pre_flash.label_sources import SOURCES, source_scope_sessions
 from eye_pre_flash.counts.census import census_counts, plot_census, source_sessions
 
-OUT_ROOT = Path(__file__).resolve().parent
+OUT_ROOT = Path(__file__).resolve().parent / "out"
 TOP_TEN_SOURCE = "svm"  # top_ten is only defined for this source; see module docstring
 
 

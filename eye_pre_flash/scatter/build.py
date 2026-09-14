@@ -59,7 +59,7 @@ from eye_pre_flash.scatter.core import (
     subset,
 )
 
-OUT_ROOT = Path(__file__).resolve().parent
+OUT_ROOT = Path(__file__).resolve().parent / "out"
 # `linewidths` > 0: the maze palette's `viridis` ramp (`scatter.core.MAZE_COLORS`)
 # runs pale enough at its yellow end (~1.2:1 against this SURFACE) that an
 # unstroked fill is close to invisible. A thin dark edge keeps every step
@@ -137,7 +137,9 @@ def build(monkey, *, source, scope, space):
         trials, maze_groups, xlim=xlim, ylim=ylim,
         title=f"{monkey} — fixation at flash, by maze", axis_names=axis_names,
     )
-    path_maze = OUT_ROOT / f"{monkey}_by_maze{suffix}.png"
+    out_dir = OUT_ROOT / monkey
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path_maze = out_dir / f"by_maze{suffix}.png"
     fig.savefig(path_maze, dpi=300)
     plt.close(fig)
     print(f"Saved {path_maze}  (n={trials['x'].size} trials)")
@@ -150,7 +152,7 @@ def build(monkey, *, source, scope, space):
         strat_trials, strat_groups, xlim=xlim, ylim=ylim,
         title=f"{monkey} — fixation at flash, by decoded strategy", axis_names=axis_names,
     )
-    path_strategy = OUT_ROOT / f"{monkey}_by_strategy{suffix}.png"
+    path_strategy = out_dir / f"by_strategy{suffix}.png"
     fig.savefig(path_strategy, dpi=300)
     plt.close(fig)
     print(f"Saved {path_strategy}  (n={strat_trials['x'].size} labelled trials)")

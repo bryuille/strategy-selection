@@ -22,3 +22,20 @@ data/processed/
 .claude/
 # Slurm job logs
 /logs/
+
+# Sandbox-local tool caches (kept in-repo so no ~ carve-out is needed)
+.uv-cache/
+.mplconfig/
+
+# SSH control socket (host-local, never shared)
+.ssh-sockets/
+
+# Figures. Generated on the cluster, pulled down explicitly, never tracked.
+# A `git add -A` after a pull once committed 4482 saccade PNGs (722 MB),
+# undoing the history rewrite that took .git from 2.4 GB to 22 MB. The CSVs
+# under classifier/out/ are real results and stay tracked, so this ignores
+# image formats rather than the out/ directories themselves.
+**/out/**/*.png
+**/out/**/*.mp4
+**/out/**/*.pdf
+**/out/**/*.svg

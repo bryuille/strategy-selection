@@ -32,7 +32,6 @@
 .venv/
 .git/
 .matplotlib/
-.claude/
 .DS_Store
 
 # Strays. Note *.mat also covers zrefs/Dendogram_all/, which the classifier
@@ -55,6 +54,15 @@
 /eye_pre_flash/classifier/out/
 /eye_pre_flash/counts/dendro/
 /eye_pre_flash/counts/svm/
-/eye_pre_flash/scatter/*.png
-/eye_pre_flash/maze_strategy_pairs/*.png
+/eye_pre_flash/scatter/out/
+/eye_pre_flash/maze_strategy_pairs/out/
 /neural_traces/plotting/out/
+# Sandbox-local tool caches; the cluster builds its own
+/.uv-cache/
+/.mplconfig/
+
+# SSH control socket; host-local
+/.ssh-sockets/
+
+# Machine-specific Claude settings (absolute paths); never sync
+/.claude/settings.local.json

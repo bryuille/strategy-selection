@@ -45,7 +45,7 @@ from eye_pre_flash.maze_strategy_pairs import pair
 from eye_pre_flash.maze_strategy_pairs import variants as variantmod
 from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW, N_SPLITS
 
-OUT_ROOT = Path(__file__).resolve().parent
+OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 FEATURE_LABEL = {
     "occupancy": "occupancy",
@@ -62,8 +62,8 @@ def pair_labels(sessions, trials, source, keep_sessions):
 
 VARIANT = "mean_removed"
 K = 12
-MONKEY = "Nielsen"
-MAZES = (2, 4)
+MONKEYS = ("Faure", "Nielsen")
+MAZES = (1, 2, 3, 4, 5, 6)
 FEATURE_LIST = ("occupancy", "occupancy_bin")
 SOURCE_SCOPES_WANTED = (("dendro", "publication"), ("svm", "top_ten"))
 
@@ -111,8 +111,10 @@ def plot_single(result, null, *, monkey, maze, source, scope, feature, k):
 
     p = null.get("p_two_sided", np.nan)
     p_txt = _fmt(p, 4)
+    # A tilde marks the permutation floor: p cannot go below 1/(n_perm+1), so
+    # the printed value is an upper bound rather than an estimate.
     if np.isfinite(p) and null.get("n_perm") and abs(p - 1.0 / (null["n_perm"] + 1)) < 1e-12:
-        p_txt += " (floor)"
+        p_txt = f"~{p_txt}"
 
     feature_label = FEATURE_LABEL.get(feature, feature)
     source_label = SOURCE_LABEL.get(source, source)
@@ -169,8 +171,11 @@ def build_one(monkey, maze, source, scope, feature, *, k, n_perm, min_trials, mi
         return None
 
     fig = plot_single(result, null, monkey=monkey, maze=maze, source=source, scope=scope, feature=feature, k=k)
-    stem = f"{monkey}_maze{maze}_{feature}_{source}_{scope}_k{k}"
-    path = OUT_ROOT / f"{stem}.png"
+    # out/<source>/<monkey>/ -- the two axes you compare across, then the
+    # 6 mazes x 2 features that vary within one comparison.
+    out_dir = OUT_ROOT / source / monkey
+    out_dir.mkdir(parents=True, exist_ok=True)
+    path = out_dir / f"maze{maze}_{feature}_k{k}.png"
     fig.savefig(path, dpi=300)
     plt.close(fig)
     print(
@@ -182,7 +187,7 @@ def build_one(monkey, maze, source, scope, feature, *, k, n_perm, min_trials, mi
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--monkey", default=MONKEY)
+    parser.add_argument("--monkey", nargs="*", default=list(MONKEYS))
     parser.add_argument("--maze", type=int, nargs="*", default=list(MAZES))
     parser.add_argument("--feature", nargs="*", default=list(FEATURE_LIST), choices=tuple(FEATURES))
     parser.add_argument("--k", type=int, default=K)
@@ -193,11 +198,12 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
-    for maze in args.maze:
+    for monkey in args.monkey:
+      for maze in args.maze:
         for feature in args.feature:
             for source, scope in SOURCE_SCOPES_WANTED:
                 build_one(
-                    args.monkey, maze, source, scope, feature, k=args.k, n_perm=args.n_perm,
+                    monkey, maze, source, scope, feature, k=args.k, n_perm=args.n_perm,
                     min_trials=args.min_trials, min_stable=args.min_stable,
                     half_rule=args.half_rule, seed=args.seed,
                 )
