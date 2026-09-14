@@ -32,6 +32,7 @@
 .venv/
 .git/
 .matplotlib/
+.ruff_cache/
 .DS_Store
 
 # Strays. Note *.mat also covers zrefs/Dendogram_all/, which the classifier

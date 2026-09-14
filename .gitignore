@@ -27,6 +27,12 @@ data/processed/
 .uv-cache/
 .mplconfig/
 
+# Ruff's own default cache location -- not configured by this project, it
+# appears whenever an editor extension or `uvx ruff` runs here. Ruff already
+# self-ignores (it writes a `*` .gitignore inside the dir), so this line is
+# for visibility rather than effect.
+.ruff_cache/
+
 # SSH control socket (host-local, never shared)
 .ssh-sockets/
 
