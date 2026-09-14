@@ -1,33 +1,38 @@
-"""Presentation-ready single-panel `mazestratpair` figures.
+"""Merged-K single-maze H-vs-S similarity figures.
 
-`eye_pre_flash.maze_strategy_pairs.build` renders one 1x3 figure (full / no_origin /
-mean_removed side by side) per (monkey, maze, source, scope, feature, k), full
-of diagnostic text a slide doesn't want: half sizes, split counts, the null's
-mean/sd, degenerate-split counts, an explanatory xlabel. This script computes
-the exact same statistic -- it calls `pair.build_pools` and
-`pair.permutation_null` unchanged, so the numbers cannot drift from the
-canonical run -- and draws only one variant (`mean_removed`, the panel this
-project has been discussing) as its own compact figure: the 2x2 matrix, its
-trial counts, and the three statistics that matter (z, delta, p).
+One figure per (monkey, maze, source, feature, variant), carrying **both
+K = 6 and K = 12** as side-by-side 2x2 panels with independently computed
+statistics. Each panel's diagonal is a strategy's own split-half reliability
+and its off-diagonal the cross-strategy correlation, at an identical half size
+on both sides; the statistic is ``Δ = 0.5*(r_HH + r_SS) − r_HS`` against a
+within-(session, maze) label-shuffle null, reported beside the diagnostics
+that null cannot provide (`pair.amgm_floor`, `drift.delta_time`).
 
-One deliberate deviation from `mazestratpair.figures`: that module gives
-`mean_removed` a zero-centred diverging colormap because the variant can go
-negative by construction (see `mazestratpair/figures.py`'s `_panel_scale`).
-This script forces the same parula (`BLUE_YELLOW`) ramp every other panel
-uses, per request, so a viewer scans one colour language across every slide.
+`METHODS.md` is the methodology record. `STATS.md` is the slide-reading guide.
+
+Sweeps all three variants (`full`, `no_origin`, `mean_removed`) -- the variant
+is a directory level, which also fixes a latent bug: the old output path
+omitted it, so a three-variant sweep would have overwritten two thirds of its
+own figures.
 
 Must run where the feature caches live (the cluster) -- see cloud.md.
 
 Usage:
     uv run python -m eye_pre_flash.maze_strategy_pairs.build
-    uv run python -m eye_pre_flash.maze_strategy_pairs.build --maze 2 --n-perm 2000
+    uv run python -m eye_pre_flash.maze_strategy_pairs.build --maze 4 --n-perm 200
+    uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run
 
-Writes eye_pre_flash/pres/mazestratpair/<monkey>_maze<M>_<feature>_<source>_<scope>_k<K>.png
+Writes out/<source>/<monkey>/<variant>/maze<M>_<feature>.png plus
+results_pair.csv and results_raw_pair.csv beside them.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import shutil
+from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -40,173 +45,409 @@ from eye_pre_flash.label_sources import (
     source_lookup,
     source_scope_sessions,
 )
-from eye_pre_flash.maze_strategy_pairs import matrix as corrmatrix
+from eye_pre_flash.maze_strategy_pairs import drift
+from eye_pre_flash.maze_strategy_pairs import figures as figmod
 from eye_pre_flash.maze_strategy_pairs import pair
+from eye_pre_flash.maze_strategy_pairs import paths as pathmod
 from eye_pre_flash.maze_strategy_pairs import variants as variantmod
-from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW, N_SPLITS
+from eye_pre_flash.plotting.plot_io import save_figure
 
-OUT_ROOT = Path(__file__).resolve().parent / "out"
-
-FEATURE_LABEL = {
-    "occupancy": "occupancy",
-    "occupancy_bin": "binary occupancy",
-    "bigram": "state-bigram",
-}
-SOURCE_LABEL = {"dendro": "dendrogram", "svm": "SVM"}
 # Feature name -> the block it reads from `classifier.features`.
 FEATURES = {"occupancy": "occ_ms", "occupancy_bin": "occ_bin", "bigram": "bigram"}
 
-
-def pair_labels(sessions, trials, source, keep_sessions):
-    return labels_for_rows(sessions, trials, source_lookup(source, keep_sessions))
-
-VARIANT = "mean_removed"
-K = 12
 MONKEYS = ("Faure", "Nielsen")
 MAZES = (1, 2, 3, 4, 5, 6)
+KS = (6, 12)
 FEATURE_LIST = ("occupancy", "occupancy_bin")
 SOURCE_SCOPES_WANTED = (("dendro", "publication"), ("svm", "top_ten"))
 
 
-def _fmt(value, digits=3):
-    return "—" if not np.isfinite(value) else f"{value:.{digits}f}"
+@dataclass
+class Panel:
+    """One K's worth of a figure: the estimate, or the reason there isn't one."""
+
+    k: int
+    d: int
+    n_in_scope: int
+    result: object = None
+    null: dict = None
+    reason: str = None
+    delta_time_el: float = np.nan
+    delta_time_oe: float = np.nan
+    r_pb: float = np.nan
+    assoc: list = field(default_factory=list)
+    dropped: dict = field(default_factory=dict)
+    time_info: dict = field(default_factory=dict)
 
 
-def plot_single(result, null, *, monkey, maze, source, scope, feature, k):
-    names = pair.cell_labels(maze)
-    thin = pair.thin_mask(result)
-    corr = result.mean
+# `load_features` reads and fully materialises the npz on every call (no
+# mmap), so the 288-run sweep would otherwise do 288 full reads of four
+# distinct caches. Cached here rather than on `features.load_features` itself
+# because that returns a mutable dict shared with every other caller in the
+# repo; confining the aliasing to this script, whose use is read-only, is the
+# safer placement.
+@lru_cache(maxsize=8)
+def _features(monkey, k):
+    return load_features(monkey, k=k)
 
-    finite = corr[np.isfinite(corr)]
-    vmin, vmax = (0.0, 1.0) if not finite.size else (float(finite.min()), float(finite.max()))
-    if vmin == vmax:
-        vmax = vmin + 1e-12
 
-    fig, ax = plt.subplots(figsize=(4.6, 5.0), layout="constrained")
-    im = ax.imshow(corr, origin="upper", cmap=BLUE_YELLOW, vmin=vmin, vmax=vmax, aspect="equal")
+@lru_cache(maxsize=16)
+def _scope_sessions(source, scope):
+    by_monkey, _dropped = source_scope_sessions(source, scope)
+    return by_monkey
 
-    tick_names = [f"{name}*" if thin[i] else name for i, name in enumerate(names)]
-    ax.set_xticks(range(pair.N_CELLS), labels=tick_names, fontsize=13)
-    ax.set_yticks(range(pair.N_CELLS), labels=tick_names, fontsize=13)
 
-    for i in range(pair.N_CELLS):
-        for j in range(pair.N_CELLS):
-            val = corr[i, j]
-            if not np.isfinite(val):
-                ax.text(j, i, "—", ha="center", va="center", color="0.4", fontsize=13)
-                continue
-            r, g, b, _ = im.cmap(im.norm(val))
-            colour = "black" if 0.299 * r + 0.587 * g + 0.114 * b > 0.55 else "white"
-            ax.text(j, i, f"{val:.3f}", ha="center", va="center", color=colour, fontsize=15)
-            if i == j:
-                ax.text(
-                    j, i + 0.28, f"n = {int(result.census[i])}",
-                    ha="center", va="center", color=colour, fontsize=10,
-                )
+@lru_cache(maxsize=32)
+def _lookup(source, sessions):
+    return source_lookup(source, sessions)
 
-    cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
-    cbar.set_ticks([vmin, 0.5 * (vmin + vmax), vmax])
-    cbar.ax.set_yticklabels([f"{t:.2f}" for t in [vmin, 0.5 * (vmin + vmax), vmax]], fontsize=8)
-    cbar.set_label("r", fontsize=9)
 
-    p = null.get("p_two_sided", np.nan)
-    p_txt = _fmt(p, 4)
-    # A tilde marks the permutation floor: p cannot go below 1/(n_perm+1), so
-    # the printed value is an upper bound rather than an estimate.
-    if np.isfinite(p) and null.get("n_perm") and abs(p - 1.0 / (null["n_perm"] + 1)) < 1e-12:
-        p_txt = f"~{p_txt}"
-
-    feature_label = FEATURE_LABEL.get(feature, feature)
-    source_label = SOURCE_LABEL.get(source, source)
-    ax.set_title(
-        f"{monkey} maze {maze} — {feature_label}\n{source_label}, {scope}, K={k}\n"
-        f"z = {_fmt(null.get('z_perm', np.nan), 2)}   Δ = {_fmt(null.get('delta_obs', np.nan))}   "
-        f"p = {p_txt}   (n = {result.n_sessions} sessions)",
-        fontsize=11,
+def _meta(data):
+    return (
+        np.asarray(data["session"]).astype(str),
+        np.asarray(data["trial_indices_all"], dtype=int),
+        np.asarray(data["maze_id"], dtype=int),
     )
-    return fig
 
 
-def build_one(monkey, maze, source, scope, feature, *, k, n_perm, min_trials, min_stable, half_rule, seed):
-    data = load_features(monkey, k=k)
-    raw_X = np.asarray(data[FEATURES[feature]], dtype=float)
-    sessions = np.asarray(data["session"]).astype(str)
-    trials = np.asarray(data["trial_indices_all"], dtype=int)
-    mazes_all = np.asarray(data["maze_id"], dtype=int)
-    origin = variantmod.origin_state(data["codebook_xy"])
+def grand_mean_profile(monkey, feature, k, source):
+    """The `mean_removed` profile, keyed on the **source** as well.
 
+    The fit mask comes from `WIDEST_SCOPE[source]`, which is `top_four` for
+    dendro and `top_ten` for svm -- two different session sets. Keying on
+    (monkey, feature, k) alone would silently apply one source's grand mean to
+    the other source's panels and change every `mean_removed` number.
+    """
+    data = _features(monkey, k)
+    sessions, trials, _mazes = _meta(data)
     widest = WIDEST_SCOPE[source]
-    by_monkey_w, _dropped = source_scope_sessions(source, widest)
-    widest_sessions = by_monkey_w.get(monkey, ())
-    y_widest = pair_labels(sessions, trials, source, widest_sessions)
+    widest_sessions = tuple(_scope_sessions(source, widest).get(monkey, ()))
+    if not widest_sessions:
+        return None
+    y_widest = labels_for_rows(sessions, trials, _lookup(source, widest_sessions))
     fit_mask = np.isin(sessions, list(widest_sessions)) & np.isfinite(y_widest)
     if not fit_mask.any():
-        print(f"  {monkey}/{source}/{feature}: no labelled trial in {widest}; skipping")
         return None
-    mean_profile = variantmod.fit_grand_mean(raw_X[fit_mask])
+    raw = np.asarray(data[FEATURES[feature]], dtype=float)
+    return variantmod.fit_grand_mean(raw[fit_mask])
 
-    X_v, _dim_labels = variantmod.apply_variant(
-        raw_X, VARIANT, feature=FEATURES[feature], k=k, origin=origin, mean_profile=mean_profile,
+
+def run_one_k(
+    X_v, meta, *, monkey, maze, k, keep_sessions, lookup, args
+):
+    """Estimate one panel: pools, the null, and the drift controls."""
+    sessions, trials, mazes = meta
+    panel = Panel(k=k, d=X_v.shape[1], n_in_scope=len(keep_sessions))
+
+    pools, dropped = pair.build_pools(
+        X_v, sessions, trials, mazes,
+        maze=maze, keep_sessions=keep_sessions, label_lookup=lookup,
+        min_trials=args.min_trials, min_half=args.min_half,
+        n_half=args.n_half, seed=args.seed,
     )
+    panel.dropped = dropped
+    if not pools:
+        panel.reason = f"no session clears min_half {args.min_half}"
+        return panel
 
-    by_monkey_s, _dropped = source_scope_sessions(source, scope)
-    keep_sessions = by_monkey_s.get(monkey, ())
-    if not keep_sessions:
-        print(f"  {monkey}/{source}/{scope}: no sessions in scope; skipping")
-        return None
-    lookup = source_lookup(source, keep_sessions)
+    # Drift diagnostics are computed on the same pools, before any detrending,
+    # so the association number describes the data as collected.
+    panel.assoc, assoc_summary = drift.association_summary(pools)
+    panel.r_pb = assoc_summary["r_pb_median_abs"]
+    panel.time_info = dict(assoc_summary)
 
-    pools = pair.build_pools(
-        X_v, sessions, trials, mazes_all, maze=maze, keep_sessions=keep_sessions,
-        label_lookup=lookup, min_trials=min_trials, min_stable=min_stable,
-        half_rule=half_rule, seed=seed,
-    )
+    if args.detrend:
+        pools = drift.detrend_pools(pools, order=args.detrend_order)
+
+    plans = pair.build_plans(pools, n_splits=args.n_splits)
     null, result, _draws = pair.permutation_null(
-        pools, maze=maze, variant=VARIANT, n_splits=N_SPLITS, n_perm=n_perm, seed=seed,
-        half_rule=half_rule, min_trials=min_trials, min_stable=min_stable,
+        pools, plans=plans, maze=maze, variant=args.variant_current,
+        n_splits=args.n_splits, n_perm=args.n_perm, seed=args.seed,
+        r_clip=args.r_clip, min_trials=args.min_trials, min_half=args.min_half,
         n_sessions_in_scope=len(keep_sessions),
     )
     if not result.n_sessions:
-        print(f"  {monkey}/{source}/{scope}/maze{maze}/{feature}: no usable session")
-        return None
+        panel.reason = "no usable session (all matrices degenerate)"
+        return panel
 
-    fig = plot_single(result, null, monkey=monkey, maze=maze, source=source, scope=scope, feature=feature, k=k)
-    # out/<source>/<monkey>/ -- the two axes you compare across, then the
-    # 6 mazes x 2 features that vary within one comparison.
-    out_dir = OUT_ROOT / source / monkey
-    out_dir.mkdir(parents=True, exist_ok=True)
-    path = out_dir / f"maze{maze}_{feature}_k{k}.png"
-    fig.savefig(path, dpi=300)
-    plt.close(fig)
-    print(
-        f"Saved {path}  (z={null['z_perm']:+.2f}, delta={null['delta_obs']:+.4f}, "
-        f"p={null['p_two_sided']:.4f}, n={result.n_sessions} sessions)"
-    )
+    for scheme, attr in (("early_late", "delta_time_el"), ("odd_even", "delta_time_oe")):
+        value, info = drift.delta_time(
+            pools, scheme, maze=maze, variant=args.variant_current,
+            n_splits=args.n_splits, r_clip=args.r_clip,
+            min_trials=args.min_trials, min_half=args.min_half,
+        )
+        setattr(panel, attr, value)
+        panel.time_info[f"delta_time_{scheme}"] = value
+        panel.time_info[f"n_sessions_{scheme}"] = info["n_sessions"]
+
+    result.d = panel.d
+    panel.result, panel.null = result, null
+    return panel
+
+
+def csv_rows(panels, *, monkey, maze, feature, variant, source, scope):
+    """One summary row per (maze, feature, k), and one raw row per session."""
+    summary, raw = [], []
+    for panel in panels:
+        base = dict(
+            monkey=monkey, source=source, scope=scope, variant=variant,
+            feature=feature, maze=maze, k=panel.k, d=panel.d,
+            n_sessions_in_scope=panel.n_in_scope,
+        )
+        if panel.null is None:
+            summary.append({**base, "reason_skipped": panel.reason})
+            continue
+        summary.append(
+            {**base, **panel.null, **panel.time_info, "reason_skipped": ""}
+        )
+        assoc_by_session = {a["session"]: a for a in panel.assoc}
+        for i, name in enumerate(panel.result.session_names):
+            sm = panel.result.session_mats[i]
+            counts = panel.result.cell_counts[i]
+            a = assoc_by_session.get(name, {})
+            raw.append(
+                {
+                    **base,
+                    "session": name,
+                    "n_H": counts[pair.H_CELL],
+                    "n_S": counts[pair.S_CELL],
+                    "m": panel.result.half_sizes[i],
+                    "r_HH": sm.r[pair.H_CELL, pair.H_CELL],
+                    "r_SS": sm.r[pair.S_CELL, pair.S_CELL],
+                    "r_HS_ab": sm.r[pair.H_CELL, pair.S_CELL],
+                    "r_HS_ba": sm.r[pair.S_CELL, pair.H_CELL],
+                    "r_HH_raw": sm.r_raw[pair.H_CELL, pair.H_CELL],
+                    "r_SS_raw": sm.r_raw[pair.S_CELL, pair.S_CELL],
+                    "delta_session": panel.result.session_deltas[i],
+                    "n_splits_used": sm.n_splits_used,
+                    "n_splits_dropped": sm.n_splits_dropped,
+                    "n_clipped": int(sm.n_clipped_by_entry.sum()),
+                    "mw_U": a.get("mw_U", np.nan),
+                    "mw_p": a.get("mw_p", np.nan),
+                    "r_pb": a.get("r_pb", np.nan),
+                    "t_median_H": a.get("t_median_H", np.nan),
+                    "t_median_S": a.get("t_median_S", np.nan),
+                }
+            )
+    return summary, raw
+
+
+def write_csv(path, rows):
+    """Union of keys as the header, first-seen order, so a partial row is fine."""
+    if not rows:
+        return None
+    fields = []
+    for row in rows:
+        for key in row:
+            if key not in fields:
+                fields.append(key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+    print(f"Saved {path}")
     return path
 
 
+def warn_stale(out_root):
+    stale = pathmod.stale_dirs(out_root)
+    if not stale:
+        return
+    width = 74
+    print("\n" + "=" * width)
+    print("STALE OUTPUT from the previous single-K layout (not overwritten):")
+    for path, n_png in stale:
+        print(f"  {path}  ({n_png} png)")
+    print("\nThese are single-K `mean_removed` figures the new tree never writes to.")
+    print("They are gitignored, so git cannot restore them if you are wrong.")
+    print("Remove with `--prune-stale`, or by hand:")
+    for path, _ in stale:
+        print(f"  rm -rf {path}")
+    print("=" * width + "\n")
+
+
+def prune_stale(out_root):
+    stale = pathmod.stale_dirs(out_root)
+    if not stale:
+        print("No stale single-K directories found.")
+        return
+    for path, n_png in stale:
+        shutil.rmtree(path)
+        print(f"Removed {path} ({n_png} png)")
+
+
+def build_variant(
+    *, monkey, feature, source, scope, variant, ks, keep_sessions, lookup, args
+):
+    """Every maze for one (monkey, feature, source, variant). Returns CSV rows."""
+    X_v, meta = {}, {}
+    for k in ks:
+        data = _features(monkey, k)
+        meta[k] = _meta(data)
+        raw = np.asarray(data[FEATURES[feature]], dtype=float)
+        mean_profile = (
+            grand_mean_profile(monkey, feature, k, source)
+            if variant == "mean_removed"
+            else None
+        )
+        if variant == "mean_removed" and mean_profile is None:
+            print(f"  {monkey}/{source}/{feature}/k{k}: no widest-scope trial; skipping")
+            return [], []
+        X_v[k], _dims = variantmod.apply_variant(
+            raw, variant, feature=FEATURES[feature], k=k,
+            origin=variantmod.origin_state(data["codebook_xy"]),
+            mean_profile=mean_profile,
+        )
+
+    args.variant_current = variant
+    summary_rows, raw_rows = [], []
+    for maze in args.maze:
+        panels = [
+            run_one_k(
+                X_v[k], meta[k], monkey=monkey, maze=maze, k=k,
+                keep_sessions=keep_sessions, lookup=lookup, args=args,
+            )
+            for k in ks
+        ]
+        s_rows, r_rows = csv_rows(
+            panels, monkey=monkey, maze=maze, feature=feature,
+            variant=variant, source=source, scope=scope,
+        )
+        summary_rows += s_rows
+        raw_rows += r_rows
+
+        if not any(p.result is not None and p.result.n_sessions for p in panels):
+            reasons = "; ".join(f"K{p.k}: {p.reason}" for p in panels)
+            print(f"  {monkey}/{source}/{variant}/maze{maze}/{feature}: {reasons}")
+            continue
+
+        fig = figmod.pair_figure(
+            panels,
+            suptitle=figmod.pair_suptitle(
+                monkey=monkey, maze=maze, feature=feature,
+                variant=variant, source=source, scope=scope,
+            ),
+            footer=figmod.pair_footer(
+                n_splits=args.n_splits, n_perm=args.n_perm,
+                min_trials=args.min_trials, min_half=args.min_half,
+                seed=args.seed, detrend=args.detrend_order if args.detrend else 0,
+            ),
+            names=pair.cell_labels(maze),
+        )
+        save_figure(
+            fig, pathmod.stem(maze, feature),
+            out_root=args.out_root,
+            rel_dir=pathmod.rel_dir(source, monkey, variant),
+            dpi=args.dpi,
+        )
+        plt.close(fig)
+        for panel in panels:
+            if panel.null:
+                print(
+                    f"    K={panel.k}: z={panel.null['z_perm']:+.2f} "
+                    f"Δ={panel.null['delta_obs']:+.4f} "
+                    f"p={panel.null['p_two_sided']:.4f} "
+                    f"m={panel.null['half_size_median']} "
+                    f"n={panel.result.n_sessions} sessions"
+                )
+    return summary_rows, raw_rows
+
+
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("--monkey", nargs="*", default=list(MONKEYS))
     parser.add_argument("--maze", type=int, nargs="*", default=list(MAZES))
-    parser.add_argument("--feature", nargs="*", default=list(FEATURE_LIST), choices=tuple(FEATURES))
-    parser.add_argument("--k", type=int, default=K)
+    parser.add_argument(
+        "--feature", nargs="*", default=list(FEATURE_LIST), choices=tuple(FEATURES)
+    )
+    parser.add_argument(
+        "--variant", nargs="*", default=list(variantmod.VARIANTS),
+        choices=variantmod.VARIANTS,
+    )
+    parser.add_argument(
+        "--k", type=int, nargs="*", default=list(KS),
+        help="one panel per K (default both; pass a single value for one panel)",
+    )
+    parser.add_argument("--n-splits", type=int, default=pair.N_SPLITS)
     parser.add_argument("--n-perm", type=int, default=1000)
-    parser.add_argument("--min-trials", type=int, default=corrmatrix.MIN_TRIALS)
-    parser.add_argument("--min-stable", type=int, default=corrmatrix.MIN_STABLE)
-    parser.add_argument("--half-rule", default="stable_shared", choices=pair.HALF_RULES)
+    parser.add_argument("--min-trials", type=int, default=pair.MIN_TRIALS)
+    parser.add_argument(
+        "--min-half", type=int, default=pair.MIN_HALF,
+        help="drop a session whose m = min(n_H, n_S)//2 falls below this",
+    )
+    parser.add_argument(
+        "--n-half", type=int, default=None,
+        help="force one half size across sessions (robustness check)",
+    )
+    parser.add_argument("--r-clip", type=float, default=pair.R_CLIP)
+    parser.add_argument(
+        "--detrend", action="store_true",
+        help="regress trial index out of the features within (session, maze)",
+    )
+    parser.add_argument("--detrend-order", type=int, default=1)
+    parser.add_argument("--dpi", type=int, default=300)
+    parser.add_argument("--out-root", type=Path, default=pathmod.OUT_ROOT)
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="list the figures that would be written, compute nothing",
+    )
+    parser.add_argument("--prune-stale", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
+    args.variant_current = None
 
-    for monkey in args.monkey:
-      for maze in args.maze:
-        for feature in args.feature:
+    if args.prune_stale:
+        prune_stale(args.out_root)
+
+    if args.dry_run:
+        n = 0
+        for monkey in args.monkey:
             for source, scope in SOURCE_SCOPES_WANTED:
-                build_one(
-                    monkey, maze, source, scope, feature, k=args.k, n_perm=args.n_perm,
-                    min_trials=args.min_trials, min_stable=args.min_stable,
-                    half_rule=args.half_rule, seed=args.seed,
-                )
+                for variant in args.variant:
+                    for feature in args.feature:
+                        for maze in args.maze:
+                            rel = pathmod.rel_dir(source, monkey, variant)
+                            print(f"{args.out_root / rel / (pathmod.stem(maze, feature) + '.png')}")
+                            n += 1
+        print(f"\n{n} figures, {n * len(args.k)} estimator runs "
+              f"at n_perm={args.n_perm}, n_splits={args.n_splits}")
+        return
+
+    # The CSVs live at <source>/<monkey>/<variant>/, which has no feature
+    # level, so every feature's rows must accumulate into one file -- writing
+    # per feature would have each overwrite the last.
+    for monkey in args.monkey:
+        for source, scope in SOURCE_SCOPES_WANTED:
+            keep_sessions = tuple(_scope_sessions(source, scope).get(monkey, ()))
+            if not keep_sessions:
+                print(f"  {monkey}/{source}/{scope}: no sessions in scope; skipping")
+                continue
+            lookup = _lookup(source, keep_sessions)
+            for variant in args.variant:
+                summary, raw = [], []
+                for feature in args.feature:
+                    s_rows, r_rows = build_variant(
+                        monkey=monkey, feature=feature, source=source, scope=scope,
+                        variant=variant, ks=args.k, keep_sessions=keep_sessions,
+                        lookup=lookup, args=args,
+                    )
+                    summary += s_rows
+                    raw += r_rows
+                if summary:
+                    write_csv(
+                        pathmod.results_csv(args.out_root, source, monkey, variant),
+                        summary,
+                    )
+                    write_csv(
+                        pathmod.results_raw_csv(args.out_root, source, monkey, variant),
+                        raw,
+                    )
+
+    warn_stale(args.out_root)
 
 
 if __name__ == "__main__":

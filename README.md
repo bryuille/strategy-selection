@@ -187,20 +187,31 @@ the one form of the question where visual geometry is held identical on both
 sides and so cannot explain the answer.
 
 A 2x2 matrix per maze: the diagonal is each strategy's own split-half
-reliability, the off-diagonal the cross-strategy correlation at the same half
-size. The statistic is `Δ = 0.5·(r_HH + r_SS) − r_HS`, tested against a
-within-(session, maze) label-shuffle permutation null. Defaults to Nielsen
-maze 4, the one cell where both label sources agree the strategy split is
-genuinely mixed; every axis takes a list, so the same pipeline sweeps other
-mazes and Faure.
+reliability, the off-diagonal the cross-strategy correlation. **Both sides use
+an identical procedure** — one half size `m = min(n_H, n_S) // 2` for both
+cells with no exceptions, all-or-nothing splits and sessions, 200 splits
+averaged in Fisher-z — because a diagonal that exceeds the off-diagonal for
+procedural reasons would say nothing. The statistic is
+`Δ = 0.5·(r_HH + r_SS) − r_HS`, tested against a within-(session, maze)
+label-shuffle permutation null and reported beside the two things that null
+cannot see: the arithmetic-vs-geometric mean floor from unequal H/S
+reliability, and a time-defined surrogate null for intrasession drift.
+
+One figure per (monkey, maze, source, feature, variant), carrying both K = 6
+and K = 12 as side-by-side panels; all three variants (`full`, `no_origin`,
+`mean_removed`) are swept. Every axis takes a list.
 
 ```bash
-uv run python -m eye_pre_flash.maze_strategy_pairs.build              # Nielsen, mazes 2+4
+uv run python -m eye_pre_flash.maze_strategy_pairs.build                    # full sweep
+uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run          # list targets
 uv run python -m eye_pre_flash.maze_strategy_pairs.build --monkey Faure --maze 2
+uv run python -m eye_pre_flash.maze_strategy_pairs.checks                   # invariant checks
 ```
 
-Output under `eye_pre_flash/maze_strategy_pairs/`. Statistics reference:
-[eye_pre_flash/maze_strategy_pairs/STATS.md](eye_pre_flash/maze_strategy_pairs/STATS.md).
+Output under `eye_pre_flash/maze_strategy_pairs/out/<source>/<monkey>/<variant>/`,
+with `results_pair.csv` and `results_raw_pair.csv` beside the figures.
+Methodology: [eye_pre_flash/maze_strategy_pairs/METHODS.md](eye_pre_flash/maze_strategy_pairs/METHODS.md).
+How to read a panel: [eye_pre_flash/maze_strategy_pairs/STATS.md](eye_pre_flash/maze_strategy_pairs/STATS.md).
 
 ## Decision-variable traces (`neural_traces/`)
 

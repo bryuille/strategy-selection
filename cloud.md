@@ -277,10 +277,29 @@ than triggering a cold build that would race a concurrent job. Run them after
 sbatch slurm/run_counts.sbatch
 sbatch slurm/run_scatter.sbatch
 sbatch slurm/run_maze_strategy_pairs.sbatch
+sbatch slurm/run_maze_strategy_pairs_pooled.sbatch   # the pooled-across-sessions comparison
 # each writes into its own package dir; results leave (run on the laptop):
 rsync -av --exclude='__pycache__' \
     engaging:strategy-selection/eye_pre_flash/counts/ ./eye_pre_flash/counts/
+rsync -av --exclude='__pycache__' \
+    engaging:strategy-selection/eye_pre_flash/maze_strategy_pairs/ \
+    ./eye_pre_flash/maze_strategy_pairs/
 ```
+
+`run_maze_strategy_pairs.sbatch` sweeps 144 figures (2 monkeys x 6 mazes x 2
+features x 2 (source, scope) x 3 variants), each carrying K=6 and K=12 as two
+panels, so 288 estimator runs at `n_perm=1000` / `n_splits=200`. Use
+`--dry-run` to list the targets first and `--maze 4 --n-perm 200` as a smoke
+test. Its estimator has invariant checks that need no cache at all, so they
+run anywhere, including the login node:
+
+```bash
+uv run python -m eye_pre_flash.maze_strategy_pairs.checks
+```
+
+The previous single-K figures live in `out/<source>/<monkey>/k<k>/`, which the
+new layout (`out/<source>/<monkey>/<variant>/`) never overwrites; the build
+prints a warning naming them and `--prune-stale` removes them.
 
 **Caches do not encode the settings they were built under.** A stem carries the
 window and K — never `data.builder`'s detector constants
