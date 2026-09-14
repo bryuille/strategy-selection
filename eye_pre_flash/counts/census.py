@@ -56,14 +56,13 @@ from eye_pre_flash.classifier.labels import (
 )
 from eye_pre_flash.label_sources import SOURCE_STEM, SOURCES
 
-OUT_ROOT = Path(__file__).resolve().parent
+OUT_ROOT = Path(__file__).resolve().parent / "out"
 N_MAZES = 6
 
 # The census cache. `decoding.run_monkey` reads the same one and says why: the
-# feature row set is identical across k and space, so the counts do not depend
-# on this choice.
+# feature row set is identical across k, so the counts do not depend on this
+# choice. There is no space axis any more -- the pipeline is unit-H only.
 CENSUS_K = 6
-CENSUS_SPACE = "unith"
 
 # A cell needs both strategies to support a within-cell contrast. Below this
 # minority share it is marked rather than dropped -- the count is still real
@@ -108,7 +107,7 @@ def census_counts(monkey, sessions, source):
     sequential).
     """
     sessions = tuple(sorted(sessions))
-    data = load_features(monkey, k=CENSUS_K, space=CENSUS_SPACE)
+    data = load_features(monkey, k=CENSUS_K)
     rows = np.asarray(data["session"]).astype(str)
     y = labels_for_rows(
         rows,
