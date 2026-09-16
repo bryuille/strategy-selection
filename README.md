@@ -186,32 +186,44 @@ decoded strategies than it does across split halves of either strategy alone —
 the one form of the question where visual geometry is held identical on both
 sides and so cannot explain the answer.
 
-A 2x2 matrix per maze: the diagonal is each strategy's own split-half
-reliability, the off-diagonal the cross-strategy correlation. **Both sides use
-an identical procedure** — one half size `m = min(n_H, n_S) // 2` for both
-cells with no exceptions, all-or-nothing splits and sessions, 200 splits
-averaged in Fisher-z — because a diagonal that exceeds the off-diagonal for
-procedural reasons would say nothing. The statistic is
-`Δ = 0.5·(r_HH + r_SS) − r_HS`, tested against a within-(session, maze)
-label-shuffle permutation null and reported beside the two things that null
-cannot see: the arithmetic-vs-geometric mean floor from unequal H/S
-reliability, and a time-defined surrogate null for intrasession drift.
+A 2x2 matrix per maze. Trials for that maze are **pooled across every
+in-scope session** (per-session cells are too thin to estimate from), then cut
+into four disjoint groups of equal size `m = min(n_H, n_S) // 2` — two from H,
+two from S. Each of the four cross-group pairings is scored, and the whole
+thing is repeated over 100 fresh random groupings and averaged. The diagonal
+is within-strategy similarity, the off-diagonal cross-strategy. The statistic
+is `Δ = 0.5·(r_HH + r_SS) − 0.5·(r_HS + r_SH)`, tested against a label-shuffle
+null that reshuffles **within each session**, which keeps every session's H/S
+counts fixed so the null carries the same mix of same-session trial pairs as
+the data.
 
-One figure per (monkey, maze, source, feature, variant), carrying both K = 6
-and K = 12 as side-by-side panels; all three variants (`full`, `no_origin`,
-`mean_removed`) are swept. Every axis takes a list.
+Two ways of scoring a pairing are swept into parallel output trees:
+`trial_by_trial` averages the correlations between individual trials, while
+`block_means` averages each group into one vector first and correlates those.
+Their cells are on different scales — averaging suppresses trial noise before
+the correlation, so `block_means` runs much higher and rises with group size —
+so compare `z` between the trees, never the raw correlations.
+
+One figure per (method, monkey, maze, source, feature, variant), carrying both
+K = 6 and K = 12 as side-by-side panels; all three variants (`full`,
+`no_origin`, `mean_removed`) are swept. Every axis takes a list. Runs on a
+laptop in about 15 minutes — no cluster job needed, only the cached labels and
+feature blocks.
 
 ```bash
-uv run python -m eye_pre_flash.maze_strategy_pairs.build                    # full sweep
-uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run          # list targets
+uv run python -m eye_pre_flash.maze_strategy_pairs.build                    # full sweep, both methods
+uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run          # targets + pooled trial counts
 uv run python -m eye_pre_flash.maze_strategy_pairs.build --monkey Faure --maze 2
+uv run python -m eye_pre_flash.maze_strategy_pairs.build --estimator trial_by_trial
 uv run python -m eye_pre_flash.maze_strategy_pairs.checks                   # invariant checks
 ```
 
-Output under `eye_pre_flash/maze_strategy_pairs/out/<source>/<monkey>/<variant>/`,
-with `results_pair.csv` and `results_raw_pair.csv` beside the figures.
-Methodology: [eye_pre_flash/maze_strategy_pairs/METHODS.md](eye_pre_flash/maze_strategy_pairs/METHODS.md).
-How to read a panel: [eye_pre_flash/maze_strategy_pairs/STATS.md](eye_pre_flash/maze_strategy_pairs/STATS.md).
+Output under
+`eye_pre_flash/maze_strategy_pairs/out/<method>/<source>/<monkey>/<variant>/`,
+with `results.csv` beside the figures. A maze needs at least 10 pooled trials
+of each strategy or it gets no figure.
+How to read a panel, and what it does not control for:
+[eye_pre_flash/maze_strategy_pairs/CAVEATS.md](eye_pre_flash/maze_strategy_pairs/CAVEATS.md).
 
 ## Decision-variable traces (`neural_traces/`)
 

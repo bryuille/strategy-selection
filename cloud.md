@@ -268,38 +268,41 @@ rsync -av engaging:strategy-selection/eye_pre_flash/plotting/saccades/out/ \
     ./eye_pre_flash/plotting/saccades/out/
 ```
 
-**The presentation figures (`counts`, `scatter`, `maze_strategy_pairs`).** Each
-is read-only on the caches above and fails fast if they are missing, rather
-than triggering a cold build that would race a concurrent job. Run them after
-`run_rebuild.sbatch`, or with `--dependency=afterok:<jobid>`:
+**The presentation figures (`counts`, `scatter`).** Each is read-only on the
+caches above and fails fast if they are missing, rather than triggering a cold
+build that would race a concurrent job. Run them after `run_rebuild.sbatch`,
+or with `--dependency=afterok:<jobid>`:
 
 ```bash
 sbatch slurm/run_counts.sbatch
 sbatch slurm/run_scatter.sbatch
-sbatch slurm/run_maze_strategy_pairs.sbatch
-sbatch slurm/run_maze_strategy_pairs_pooled.sbatch   # the pooled-across-sessions comparison
 # each writes into its own package dir; results leave (run on the laptop):
 rsync -av --exclude='__pycache__' \
     engaging:strategy-selection/eye_pre_flash/counts/ ./eye_pre_flash/counts/
-rsync -av --exclude='__pycache__' \
-    engaging:strategy-selection/eye_pre_flash/maze_strategy_pairs/ \
-    ./eye_pre_flash/maze_strategy_pairs/
 ```
 
-`run_maze_strategy_pairs.sbatch` sweeps 144 figures (2 monkeys x 6 mazes x 2
-features x 2 (source, scope) x 3 variants), each carrying K=6 and K=12 as two
-panels, so 288 estimator runs at `n_perm=1000` / `n_splits=200`. Use
-`--dry-run` to list the targets first and `--maze 4 --n-perm 200` as a smoke
-test. Its estimator has invariant checks that need no cache at all, so they
-run anywhere, including the login node:
+**`maze_strategy_pairs` no longer needs a job.** Its estimator is a few
+seconds per panel, so the whole 240-figure sweep runs on the laptop in about
+15 minutes. It needs no neural data — only the cached labels and the windowed
+unit-H feature blocks, which come down once:
 
 ```bash
-uv run python -m eye_pre_flash.maze_strategy_pairs.checks
+# pull the caches the analysis reads (run on the laptop; -n first to preview)
+rsync -avP \
+    --include='*_strategy_choices.npz' --include='*_strategy_svm.npz' \
+    --include='*_clf2_k6_unith_s1466_e0.npz' \
+    --include='*_clf2_k12_unith_s1466_e0.npz' --exclude='*' \
+    engaging:/home/byuille/orcd/scratch/strategy_selection_data/processed/ \
+    ./data/processed/
+
+uv run python -m eye_pre_flash.maze_strategy_pairs.checks    # synthetic, no cache
+uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run
+uv run python -m eye_pre_flash.maze_strategy_pairs.build
 ```
 
-The previous single-K figures live in `out/<source>/<monkey>/k<k>/`, which the
-new layout (`out/<source>/<monkey>/<variant>/`) never overwrites; the build
-prints a warning naming them and `--prune-stale` removes them.
+`slurm/run_maze_strategy_pairs.sbatch` still exists for running it on the
+cluster alongside `run_rebuild.sbatch`, and `run_rebuild.sbatch` still chains
+it, but it is no longer the expected path.
 
 **Caches do not encode the settings they were built under.** A stem carries the
 window and K — never `data.builder`'s detector constants

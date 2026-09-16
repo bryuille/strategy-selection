@@ -2,6 +2,12 @@
 # Merged-K single-maze H-vs-S similarity figures (eye_pre_flash/maze_strategy_pairs),
 # on Engaging. Each figure carries both K=6 and K=12 as side-by-side panels.
 #
+# NOTE: this job is optional now. The estimator is a few seconds per panel and
+# reads only the label and feature caches, so the whole sweep runs on a laptop
+# in about 15 minutes -- see cloud.md for the rsync that brings those caches
+# down. This script stays for running it beside run_rebuild.sbatch, which
+# still chains it.
+#
 #   mkdir -p logs          # Slurm will not create the -o/-e directory for you
 #   sbatch slurm/run_maze_strategy_pairs.sbatch                  # full sweep (see below)
 #   sbatch slurm/run_maze_strategy_pairs.sbatch --monkey Faure --maze 2
@@ -24,29 +30,26 @@
 #       ./eye_pre_flash/maze_strategy_pairs/
 #
 # Run `python -m eye_pre_flash.maze_strategy_pairs.checks` first if the
-# estimator has been touched: it is synthetic-data only, needs no cache, and
-# no output regression against older figures is possible (the half-size rule,
-# NaN policy, symmetrisation and averaging rule all changed).
+# estimator has been touched: it is synthetic-data only and needs no cache.
 
 #SBATCH -J eyepresmazepair
 #SBATCH -p ou_bcs_low
 #SBATCH -c 1
 #SBATCH --mem=16G
-#SBATCH -t 12:00:00
+#SBATCH -t 6:00:00
 #SBATCH -o logs/eyepresmazepair-%j.out
 #SBATCH -e logs/eyepresmazepair-%j.err
 
-# One core: `pair.permutation_null` is a serial Python loop over permutations,
-# but the inner split loop is vectorised (one BLAS call per half-mean, all 200
-# splits at once), so extra cores would not help without restructuring.
+# One core: the permutation loop is serial Python, but each round's 100
+# groupings go through one BLAS call, so extra cores would not help without
+# restructuring.
 #
-# The default sweep is 2 monkeys x 6 mazes x 2 features x 2 (source, scope)
-# x 3 variants = 144 figures, each needing one estimator run per K = 288 runs
-# at n_perm=1000 and n_splits=200. Vectorised, that projects to roughly
-# 30-60 min; the 12 h wall is deliberate headroom for a cold label build
-# (see PRECONDITIONS) and for the bigram feature, which is 12x the
-# dimensionality. `--dry-run` lists the targets without computing anything,
-# and `--maze 4 --n-perm 200` is the smoke test.
+# The default sweep is 2 estimator methods x 2 monkeys x 6 mazes x 2 features
+# x 2 (source, scope) x 3 variants = 240 figures, each needing one estimator
+# run per K = 480 runs at n_perm=1000 and n_rounds=100. Measured at ~15 min
+# on a laptop; the 6 h wall is headroom for a cold label build (see
+# PRECONDITIONS). `--dry-run` lists targets and pooled trial counts without
+# computing anything, and `--maze 4 --n-perm 200` is the smoke test.
 
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"
