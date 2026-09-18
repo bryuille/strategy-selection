@@ -1,17 +1,24 @@
-"""Where the eyes are at the instant of `fix_start`, per trial.
+"""Where the eyes are, averaged over `fix_start` to `flash_one`, per trial.
 
 Every other pre-flash analysis in this repo integrates a *window* ending at
 `fix_start` (see `eye_pre_flash/plotting/plot_io.PRE_FIX_START_MS`). This one
-takes the single sample at `fix_start` itself -- one (x, y) per trial -- so a
-trial is a point rather than a cloud, and maze/strategy structure shows up as a
-shift of the point cloud instead of a shift of a heatmap.
+instead integrates the window *starting* at `fix_start` and running to
+`flash_one` -- the animal is already fixating and the flash has not yet
+appeared, so this is where the eyes sit once the pre-flash fixation is
+established but before anything happens. One (x, y) per trial -- the mean
+gaze over that window -- so a trial is still a point rather than a cloud, and
+maze/strategy structure shows up as a shift of the point cloud instead of a
+shift of a heatmap. Averaging over the window rather than reading a single
+sample at `fix_start` trades a small amount of temporal specificity for
+robustness to the 1 ms tracker's sample-to-sample jitter.
 
 Trial filters match the rest of the pre-flash family: gaze-tracked, QC-passed,
 unfaded, fixed-geometry trials of mazes 1-6 (`path_type != -99`,
-`photodiode_qc_bad` false, `trial_fade == 0`). On top of that the `fix_start`
-sample itself must exist: eye time is sampled at 1 ms, so the nearest sample is
-required to sit within `TOL_MS` of `fix_start` and to be finite and inside the
-tracker range (`POSITION_LIMIT_DEG`).
+`photodiode_qc_bad` false, `trial_fade == 0`). On top of that the window
+itself must be usable: `fix_start` and `flash_one` must both be finite with
+`flash_one` after `fix_start`, at least `MIN_SAMPLES` eye samples must fall
+inside it, and at least `MIN_SAMPLES` of those must be finite and inside the
+tracker range (`POSITION_LIMIT_DEG`) to average.
 
 Two coordinate frames, because they answer different questions:
 
@@ -42,14 +49,14 @@ OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 MAZES = tuple(range(1, 7))
 LABELS = (0, 1)
-# Eye data is sampled at 1 ms, so the sample "at fix_start" is always within
-# half a sample of it. Anything further out means the trial's gaze trace does
-# not cover fix_start and the trial is dropped rather than extrapolated.
-TOL_MS = 2.0
+# Below this many samples inside the fix_start->flash_one window, "average"
+# would mean averaging noise rather than gaze -- the trial is dropped rather
+# than kept on a mean of one or two jittery points.
+MIN_SAMPLES = 5
 
 SPACES = {
-    "deg": dict(axis="deg", label="Gaze at fix_start (deg from fixation target)"),
-    "unith": dict(axis="unit H", label="Gaze at fix_start (unit H)"),
+    "deg": dict(axis="deg", label="Mean gaze, fix_start to flash_one (deg from fixation target)"),
+    "unith": dict(axis="unit H", label="Mean gaze, fix_start to flash_one (unit H)"),
 }
 
 # --- Palette ---------------------------------------------------------------
@@ -147,6 +154,10 @@ def _fix_start_ms(behavioral, idx):
     return (behavioral["fix_start"][idx] - behavioral["geo_present"][idx]) * 1000
 
 
+def _flash_one_ms(behavioral, idx):
+    return (behavioral["flash_one"][idx] - behavioral["geo_present"][idx]) * 1000
+
+
 def _choice(behavioral, idx):
     """Chosen exit as 1 left-up, 2 left-down, 3 right-up, 4 right-down, else -1.
 
@@ -176,9 +187,8 @@ def collect_fix_start(
     sessions=None,
     label_lookup=None,
     space="deg",
-    tol_ms=TOL_MS,
 ):
-    """One (x, y) per trial: the gaze sample at `fix_start`.
+    """One (x, y) per trial: the mean gaze over `fix_start` to `flash_one`.
 
     `sessions` restricts to a session tuple (a classifier scope); `label_lookup`
     is ``(session, trial_id) -> 0/1`` from
@@ -226,19 +236,28 @@ def collect_fix_start(
             dropped["no_sample"] += 1
             continue
         fix_ms = _fix_start_ms(behavioral, beh_i)
-        k = int(np.argmin(np.abs(t_ms - fix_ms)))
-        if abs(t_ms[k] - fix_ms) > tol_ms:
+        flash_ms = _flash_one_ms(behavioral, beh_i)
+        if not (np.isfinite(fix_ms) and np.isfinite(flash_ms)) or flash_ms <= fix_ms:
+            dropped["no_sample"] += 1
+            continue
+        window = (t_ms >= fix_ms) & (t_ms <= flash_ms)
+        if window.sum() < MIN_SAMPLES:
             dropped["no_sample"] += 1
             continue
 
-        x = float(np.asarray(eye["eye_x"][eye_i], dtype=float)[k])
-        y = float(np.asarray(eye["eye_y"][eye_i], dtype=float)[k])
-        if not (np.isfinite(x) and np.isfinite(y)):
+        x_win = np.asarray(eye["eye_x"][eye_i], dtype=float)[window]
+        y_win = np.asarray(eye["eye_y"][eye_i], dtype=float)[window]
+        valid = (
+            np.isfinite(x_win) & np.isfinite(y_win)
+            & (np.abs(x_win) <= POSITION_LIMIT_DEG) & (np.abs(y_win) <= POSITION_LIMIT_DEG)
+        )
+        x_win, y_win = x_win[valid], y_win[valid]
+        if x_win.size < MIN_SAMPLES:
             dropped["bad_sample"] += 1
             continue
-        if abs(x) > POSITION_LIMIT_DEG or abs(y) > POSITION_LIMIT_DEG:
-            dropped["bad_sample"] += 1
-            continue
+
+        x = float(x_win.mean())
+        y = float(y_win.mean())
 
         if space == "unith":
             h = tuple(float(behavioral[f"h{i}"][beh_i]) for i in range(1, 7))
@@ -353,12 +372,19 @@ def clipped_count(x, y, xlim, ylim):
     return int(out.sum())
 
 
-def centroid_ci(v, *, z=1.96):
-    """Mean and 95% CI half-width of `v` (NaN-safe, needs 2+ points)."""
+def centroid_sd(v):
+    """Mean and sample SD of `v` (NaN-safe, SD needs 2+ points).
+
+    SD rather than the standard error or a CI: the bars this feeds are meant to
+    show how *spread* each group's gaze is, not how precisely its mean is
+    pinned down. With several hundred trials per maze the two differ by more
+    than an order of magnitude, so the choice is not cosmetic -- SEM bars on
+    this many trials would be shorter than the mean marker itself.
+    """
     v = np.asarray(v, dtype=float)
     v = v[np.isfinite(v)]
     if v.size == 0:
         return np.nan, np.nan
     if v.size < 2:
         return float(v.mean()), np.nan
-    return float(v.mean()), float(z * v.std(ddof=1) / np.sqrt(v.size))
+    return float(v.mean()), float(v.std(ddof=1))
