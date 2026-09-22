@@ -5,24 +5,25 @@
 #   sbatch slurm/run_scatter.sbatch
 #
 # Anything after the script name is forwarded to the module, so a single
-# monkey, source, scope or space can be re-run without editing this file. The
-# defaults are `--source svm --scope top_ten` (the 10 highest-`snr_auc`
-# sessions per monkey, see `eye_pre_flash.label_sources`):
+# monkey can be re-run without editing this file:
 #
 #   sbatch slurm/run_scatter.sbatch --monkey Faure
-#   sbatch slurm/run_scatter.sbatch --source dendro --scope top_four --space unith
 #
 # Light and read-only: it loads the already-built raw `{monkey}_eye_data.npz`
-# / `{monkey}_eye_behavioral.npz` caches (3-5 GB each, see cloud.md) plus the
-# ~5 KB strategy labels, averages the gaze samples between `fix_start` and
-# `flash_one` per trial, and writes two PNGs per monkey. Still a job rather
-# than a login-node command, because the login node's RLIMIT_NPROC kills
-# numpy.
+# / `{monkey}_eye_behavioral.npz` caches (3-5 GB each, see cloud.md), averages
+# the gaze samples between `fix_start` and `flash_one` per trial, and per
+# monkey writes `by_maze.png` (six per-maze mean-gaze dots with +-1 SD bars)
+# and `maze_pvalues.png` (a 6x6 table: p-value of maze i's mean position under
+# maze j's own per-axis SD, chi-square(2 df),
+# `eye_pre_flash.scatter.core.maze_pvalues` -- directional and uncorrected for
+# the 30 comparisons per monkey). No strategy labels needed. Still a job
+# rather than a login-node command, because the login node's RLIMIT_NPROC
+# kills numpy.
 #
 # Results leave ~/strategy-selection/eye_pre_flash/scatter/ (run on the
 # laptop):
-#   rsync -av engaging:strategy-selection/eye_pre_flash/scatter/ \
-#       ./eye_pre_flash/scatter/
+#   rsync -av engaging:strategy-selection/eye_pre_flash/scatter/out/ \
+#       ./eye_pre_flash/scatter/out/
 
 #SBATCH -J eyepresscatter
 #SBATCH -p ou_bcs_low

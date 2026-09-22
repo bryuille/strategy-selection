@@ -1,7 +1,13 @@
 """Output paths and table rendering for the eye-data strategy classifier.
 
 Mirrors ``eye_pre_flash.plotting.plot_io``: everything lands under
-``eye_pre_flash/classifier/out/``.
+``eye_pre_flash/classifier/out/`` by default.
+
+`render_table_png` is the repo's only publication-table renderer, so packages
+other than this one legitimately want it. They pass `out_root` to keep their
+own `out/` tree, per the one-`out/`-per-package rule in
+`plotting/plot_io.save_figure`; omitting it keeps this package's tree, which is
+what every caller inside `classifier/` does.
 """
 
 from __future__ import annotations
@@ -18,21 +24,22 @@ FOOT_LINE = 0.52
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 
-def out_dir(rel_dir=None):
-    path = OUT_ROOT / rel_dir if rel_dir else OUT_ROOT
+def out_dir(rel_dir=None, *, out_root=None):
+    root = out_root or OUT_ROOT
+    path = root / rel_dir if rel_dir else root
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def save_figure(fig, stem, *, rel_dir=None, dpi=300):
-    path = out_dir(rel_dir) / f"{stem}.png"
+def save_figure(fig, stem, *, rel_dir=None, dpi=300, out_root=None):
+    path = out_dir(rel_dir, out_root=out_root) / f"{stem}.png"
     fig.savefig(path, dpi=dpi, bbox_inches="tight", pad_inches=0.04)
     print(f"Saved {path}")
     return path
 
 
-def save_text(text, stem, suffix, *, rel_dir=None):
-    path = out_dir(rel_dir) / f"{stem}{suffix}"
+def save_text(text, stem, suffix, *, rel_dir=None, out_root=None):
+    path = out_dir(rel_dir, out_root=out_root) / f"{stem}{suffix}"
     path.write_text(text)
     print(f"Saved {path}")
     return path
@@ -68,6 +75,8 @@ def render_table_png(
     col_pad=0.55,
     fontsize=9.5,
     footnote=None,
+    out_root=None,
+    dpi=300,
 ):
     """Booktabs-style black-on-white table PNG.
 
@@ -227,7 +236,7 @@ def render_table_png(
             fontweight="bold",
         )
     fig.patch.set_facecolor("white")
-    return save_figure(fig, stem, rel_dir=rel_dir), fig
+    return save_figure(fig, stem, rel_dir=rel_dir, dpi=dpi, out_root=out_root), fig
 
 
 def render_table_latex(

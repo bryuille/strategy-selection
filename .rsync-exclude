@@ -46,18 +46,6 @@
 # Logs
 /logs/
 
-# Figures. Written on the cluster, pulled down explicitly; never pushed, so a
-# --delete push cannot remove them there.
-/eye_pre_flash/plotting/heatmaps/out/
-/eye_pre_flash/plotting/movie/out/
-/eye_pre_flash/plotting/saccades/out/
-/eye_pre_flash/plotting/similarities/out/
-/eye_pre_flash/classifier/out/
-/eye_pre_flash/counts/dendro/
-/eye_pre_flash/counts/svm/
-/eye_pre_flash/scatter/out/
-/eye_pre_flash/maze_strategy_pairs/out/
-/neural_traces/plotting/out/
 # Sandbox-local tool caches; the cluster builds its own
 /.uv-cache/
 /.mplconfig/
@@ -65,5 +53,7 @@
 # SSH control socket; host-local
 /.ssh-sockets/
 
-# Machine-specific Claude settings (absolute paths); never sync
-/.claude/settings.local.json
+# Per-host Claude Code overrides (e.g. cluster-only permission hooks).
+# .claude/settings.json itself still syncs; only the local override does not.
+/.claude/settings.json
+

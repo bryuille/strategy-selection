@@ -10,6 +10,7 @@ hierarchical/sequential strategy state.
 | [eye_pre_flash/classifier/classifier.md](eye_pre_flash/classifier/classifier.md) | strategy decoding from gaze: feature sets, models, CV design, how to read the tables |
 | [alt_defense.md](alt_defense.md) | the reviewer-response framing the decoding results support, with the numbers behind it |
 | [similarity.md](similarity.md) | maze-to-maze split-half similarity CV, and results across k |
+| [eye_pre_flash/clusters/clusters.md](eye_pre_flash/clusters/clusters.md) | choosing the codebook size K per maze by how much strategy information it carries |
 | [cloud.md](cloud.md) | running the pipeline on Engaging (Slurm, quota, rsync) |
 
 ## Setup
@@ -147,8 +148,9 @@ collapsed over the assigned-only sample subsequence, so they already count once.
 Everything about gaze during the pre-fixation viewing period lives under
 `eye_pre_flash/`: the codebook, feature blocks and strategy classifier in
 `classifier/`, the label-source registry in `label_sources.py`, the single-maze
-H vs S similarity in `maze_strategy_pairs/`, the H/S trial census in `counts/`,
-the fix-start scatter in `scatter/`, descriptive plots in `plotting/`.
+H vs S similarity in `maze_strategy_pairs/`, the per-maze codebook-size sweep in
+`clusters/`, the H/S trial census in `counts/`, the fix-start scatter in
+`scatter/`, descriptive plots in `plotting/`.
 
 ### Strategy classifier (`eye_pre_flash/classifier/`)
 
@@ -224,6 +226,67 @@ with `results.csv` beside the figures. A maze needs at least 10 pooled trials
 of each strategy or it gets no figure.
 How to read a panel, and what it does not control for:
 [eye_pre_flash/maze_strategy_pairs/CAVEATS.md](eye_pre_flash/maze_strategy_pairs/CAVEATS.md).
+
+### Codebook size per maze (`eye_pre_flash/clusters/`)
+
+Asks which codebook size K carries the most information about the strategy
+label, separately for each (monkey, maze), with the k-means fitted **per maze**
+rather than once per monkey. The K = 6 and K = 12 used everywhere else are
+inherited values; the study that chose them is gone from the tree, and what
+survives in [similarity.md](similarity.md) ranks K by reliability and by
+maze-identity discriminability, pooled over mazes.
+
+The score is held-out information in bits per trial (`CE_prior - CE_model`)
+with cross-validated R² beside it. It has to be held-out: in-sample variance
+explained and in-sample mutual information both rise monotonically with K, so
+an uncorrected version answers "largest K" by construction. Folds are grouped
+by session by default, because session-blind folds let the model fingerprint
+the session and recover its class prior — a leak that grows with K and would
+bias the winner upward.
+
+```bash
+uv run python -m eye_pre_flash.clusters.checks                # equivalence + invariants
+uv run python -m eye_pre_flash.clusters.build --dry-run       # target cells + trial counts
+uv run python -m eye_pre_flash.clusters.build
+sbatch slurm/run_clusters.sbatch                              # the full sweep
+```
+
+Output under `eye_pre_flash/clusters/out/<cv>/<source>/<monkey>/`, with
+`best_k.png` as the headline table and `results.csv` beside the figures. Unlike
+`maze_strategy_pairs`, this needs a cluster job: it builds a per-monkey fixation
+table off the attractor and clean-event caches first.
+
+**Read the minority-class column before any winning K.** Per-cell sample size
+spans 17 to 386 trials, and in the thin cells the winner is set by n rather
+than by information; `d_ceiling` flags those. The census and the ten caveats
+are in
+[eye_pre_flash/clusters/clusters.md](eye_pre_flash/clusters/clusters.md).
+
+### Fix-start scatter (`eye_pre_flash/scatter/`)
+
+One (x, y) per usable trial — the mean gaze over the window from `fix_start`
+to `flash_one`, i.e. where the eyes sit once pre-flash fixation is established
+but before anything has appeared — averaged per maze into one mean and SD,
+across trials, of that per-trial mean.
+
+`by_maze.png` plots the six per-maze means as dots with ±1 SD bars.
+`maze_pvalues.png` puts a number on how separated those dots are: for each
+ordered pair of mazes `(i, j)`, it standardizes maze `i`'s mean by maze `j`'s
+own SD on each axis (`zx`, `zy`), combines them as `zx**2 + zy**2` — a
+chi-square(2 df) statistic under the null that maze `i`'s mean is a typical
+draw from maze `j`'s per-trial spread — and reports the closed-form p-value
+`exp(-chi2/2)`. This is **directional** (`p[i][j] != p[j][i]` in general,
+since each cell uses a different maze's SD) and **uncorrected** for the 30
+comparisons per monkey — read raw p-values, not a family-wise significance
+call.
+
+```bash
+uv run python -m eye_pre_flash.scatter.build
+uv run python -m eye_pre_flash.scatter.build --monkey Faure
+```
+
+Output under `eye_pre_flash/scatter/out/<monkey>/`. Must run where the
+eye/behavioral caches live (the cluster) — see [cloud.md](cloud.md).
 
 ## Decision-variable traces (`neural_traces/`)
 
