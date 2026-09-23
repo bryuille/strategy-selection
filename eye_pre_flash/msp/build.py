@@ -16,8 +16,8 @@ Usage:
     uv run python -m eye_pre_flash.msp.build
     uv run python -m eye_pre_flash.msp.build --monkey Faure --maze 4 --n-perm 200
 
-Writes out/<Monkey>/<variant>/maze<M>.png, out/<Monkey>/<variant>/results.csv,
-out/<Monkey>/codebook.png and out/<Monkey>/strategy_maze<M>.png.
+Writes, under out/r<radius>/<Monkey>/: <variant>/maze<M>.png, <variant>/results.csv,
+codebook.png, codebook_maze<M>.png and strategy_maze<M>.png.
 """
 
 from __future__ import annotations
@@ -162,7 +162,7 @@ def codebook_figure(data, *, monkey, args, maze=None):
     fix_xy = np.asarray(data["fix_xy"])
     fix_state = np.asarray(data["fix_state"])
     if maze is None:
-        scope_txt, stem = "all sessions, mazes 1–6", pathmod.codebook_png(args.out_root, monkey).stem
+        scope_txt, stem = "all sessions, mazes 1–6", pathmod.codebook_stem()
     else:
         fix_maze = np.asarray(data["maze_id"], dtype=int)[np.asarray(data["fix_row"], dtype=int)]
         sel = fix_maze == maze
@@ -177,7 +177,10 @@ def codebook_figure(data, *, monkey, args, maze=None):
             f"every in-window fixation centroid, {scope_txt} ({fix_state.size} fixations)"
         ),
     )
-    figmod.save_figure(fig, stem, out_root=args.out_root, rel_dir=monkey, dpi=args.dpi)
+    figmod.save_figure(
+        fig, stem, out_root=args.out_root,
+        rel_dir=pathmod.monkey_dir(args.radius, monkey), dpi=args.dpi,
+    )
     plt.close(fig)
 
 
@@ -217,7 +220,8 @@ def strategy_figure(data, *, monkey, maze, keep_sessions, lookup, args):
         ),
     )
     figmod.save_figure(
-        fig, pathmod.strategy_stem(maze), out_root=args.out_root, rel_dir=monkey, dpi=args.dpi
+        fig, pathmod.strategy_stem(maze), out_root=args.out_root,
+        rel_dir=pathmod.monkey_dir(args.radius, monkey), dpi=args.dpi,
     )
     plt.close(fig)
 
@@ -243,7 +247,7 @@ def build_monkey(monkey, args):
             )
             rows.append(cell_row(result, reason, monkey=monkey, variant=variant,
                                  maze=maze, radius=args.radius))
-            target = pathmod.figure_png(args.out_root, monkey, variant, maze)
+            target = pathmod.figure_png(args.out_root, args.radius, monkey, variant, maze)
             if result is None:
                 print(f"  {monkey}/{variant}/maze{maze}: {reason}")
                 if target.exists():
@@ -259,7 +263,7 @@ def build_monkey(monkey, args):
             )
             figmod.save_figure(
                 fig, pathmod.stem(maze), out_root=args.out_root,
-                rel_dir=pathmod.rel_dir(monkey, variant), dpi=args.dpi,
+                rel_dir=pathmod.rel_dir(args.radius, monkey, variant), dpi=args.dpi,
             )
             plt.close(fig)
             print(
@@ -268,7 +272,7 @@ def build_monkey(monkey, args):
                 f"d={result.d} degenerate={result.n_degenerate} "
                 f"({result.n_sessions} sessions)"
             )
-        write_csv(pathmod.results_csv(args.out_root, monkey, variant), rows)
+        write_csv(pathmod.results_csv(args.out_root, args.radius, monkey, variant), rows)
 
 
 def dry_run(args):

@@ -75,7 +75,7 @@ every prototype and is dropped. The dropped fraction is therefore higher than
 under any fitted codebook, and it can differ between mazes and between
 strategies. `build --dry-run` prints, per maze, the share of in-window
 fixations assigned, each state's visit rate, and the share of all-zero rows;
-`out/<Monkey>/codebook.png` shows the balls over every fixation centroid:
+`codebook.png` shows the balls over every fixation centroid:
 one dot is one I-DT fixation, drawn at the mean warped position of its
 valid in-window samples, which is the point the assignment used. `codebook_maze<M>.png` is the same
 view restricted to one maze's fixations. Read those before the panels.
@@ -93,6 +93,35 @@ Measured at radius 1.0 on the svm/top_ten pooled rows (laptop caches,
 | Nielsen | 3 | 71% | 0.92 / 0.53 / 0.07 / 0.30 / 0.14 | 2.1% / 25.9% |
 | Nielsen | 4 | 67% | 0.92 / 0.32 / 0.04 / 0.33 / 0.16 | 2.2% / 38.2% |
 | Nielsen | 5 | 70% | 0.96 / 0.48 / 0.06 / 0.23 / 0.24 | 1.8% / 31.3% |
+
+The same at radius 0.5 (`--radius 0.5`, under `out/r0.5/`):
+
+| monkey | maze | fixations assigned | visit rate origin / LU / LD / RU / RD | all-zero rows: full / no_origin |
+|---|---|---|---|---|
+| Faure | 2 | 67% | 0.82 / 0.60 / 0.63 / 0.05 / 0.01 | 3.2% / 12.7% |
+| Faure | 3 | 62% | 0.86 / 0.38 / 0.56 / 0.14 / 0.01 | 4.3% / 23.7% |
+| Faure | 4 | 71% | 0.92 / 0.57 / 0.63 / 0.08 / 0.03 | 2.2% / 15.8% |
+| Faure | 5 | 63% | 0.88 / 0.42 / 0.42 / 0.17 / 0.03 | 4.9% / 27.6% |
+| Nielsen | 2 | 49% | 0.87 / 0.29 / 0.05 / 0.18 / 0.13 | 5.3% / 49.3% |
+| Nielsen | 3 | 51% | 0.88 / 0.43 / 0.05 / 0.10 / 0.11 | 6.6% / 44.4% |
+| Nielsen | 4 | 48% | 0.88 / 0.22 / 0.04 / 0.18 / 0.14 | 6.8% / 55.6% |
+| Nielsen | 5 | 52% | 0.92 / 0.36 / 0.05 / 0.08 / 0.22 | 2.8% / 43.9% |
+
+Halving the radius drops a fifth of Faure's assigned fixations and a third of
+Nielsen's, and roughly doubles the all-zero rows. The balls no longer overlap
+(origin-to-exit distance sqrt(2) > 2 * 0.5), so every assignment is
+unambiguous, at the price of coverage. Estimates at the two radii, for the
+two mazes with balanced strategy use, `full` / `no_origin` / `mean_removed`:
+
+| cell | radius 1.0 | radius 0.5 |
+|---|---|---|
+| Faure maze 2 | z +3.4 / +0.5 / +2.4 | z +2.4 / −0.8 / +1.8 |
+| Nielsen maze 4 | z +8.8 / +9.2 / +3.1 | z +9.8 / +8.2 / +2.9 |
+| Nielsen maze 2 | z +1.0 / +1.6 / +1.5 | z +2.7 / +2.9 / +1.6 |
+
+Nielsen maze 4 is unchanged; Faure maze 2 weakens and still fails
+`no_origin`; Nielsen maze 2 becomes marginal (p 0.03) under `full` and
+`no_origin`.
 
 Two things stand out. Faure's fixations sit on the landmarks (85-91%
 assigned, and the codebook figure shows the fixed prototypes on top of the
@@ -140,7 +169,7 @@ the default's cache. The codebook itself is verified on load; editing
 
 ## Fixation concentration by strategy
 
-`out/<Monkey>/strategy_maze<M>.png` asks the descriptive version of the
+`strategy_maze<M>.png` asks the descriptive version of the
 question the 2x2 tests: where do H trials' fixations land, where do S trials'
 land, and how does the share at each fixed state differ? Four panels per
 maze, using every in-scope labelled trial of that maze (the rows the
@@ -199,11 +228,17 @@ rsync -av --exclude='__pycache__' engaging:strategy-selection/eye_pre_flash/msp/
 ## Output
 
 ```
-out/<Monkey>/codebook.png                 prototypes, balls, every fixation centroid by state
-out/<Monkey>/codebook_maze<M>.png         the same for one maze's fixations (all sessions)
-out/<Monkey>/strategy_maze<M>.png         H vs S fixation density and per-state shares, one per maze
-out/<Monkey>/<variant>/maze<M>.png        one 2x2 per maze (2-5)
-out/<Monkey>/<variant>/results.csv        one row per maze
+out/r<radius>/<Monkey>/codebook.png                 prototypes, balls, every fixation centroid by state
+out/r<radius>/<Monkey>/codebook_maze<M>.png         the same for one maze's fixations (all sessions)
+out/r<radius>/<Monkey>/strategy_maze<M>.png         H vs S fixation density and per-state shares, one per maze
+out/r<radius>/<Monkey>/<variant>/maze<M>.png        one 2x2 per maze (2-5)
+out/r<radius>/<Monkey>/<variant>/results.csv        one row per maze
+```
+
+`r1/` is the default radius; `r0.5/` was produced with `--radius 0.5`. The
+radius is a directory level so the two never overwrite each other.
+
+```
 ```
 
 `results.csv` columns: `monkey, variant, maze, radius, r_HH, r_SS, r_HS,
