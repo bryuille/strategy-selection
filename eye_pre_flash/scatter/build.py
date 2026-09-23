@@ -20,9 +20,10 @@ Usage:
     uv run python -m eye_pre_flash.scatter.build --monkey Faure
 
 Also writes a p-value table, <monkey>/maze_pvalues.png: for each ordered pair
-of mazes (i, j), the chi-square(2 df) p-value of maze i's mean position under
-maze j's own per-axis SD (`eye_pre_flash.scatter.core.maze_pvalues`) --
-directional and uncorrected for multiple comparisons.
+of mazes (i, j), the one-sided p-value of the distance between maze i's and
+maze j's mean gaze, scaled by maze j's own SD of trial-to-mean distance
+(`eye_pre_flash.scatter.core.maze_pvalues`) -- directional and uncorrected for
+multiple comparisons.
 
 Writes eye_pre_flash/scatter/out/<monkey>/by_maze.png and
 eye_pre_flash/scatter/out/<monkey>/maze_pvalues.png.
@@ -170,7 +171,7 @@ def _pvalue_table(pvalues, monkey):
         rows,
         stem="maze_pvalues",
         rel_dir=monkey,
-        title=f"{monkey}: maze p-values (chi-square)",
+        title=f"{monkey}: maze p-values (z-test)",
         out_root=OUT_ROOT,
     )
 

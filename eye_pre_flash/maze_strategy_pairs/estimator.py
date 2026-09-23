@@ -1,35 +1,19 @@
-"""Pooled trial-by-trial H-vs-S gaze similarity, and its label-shuffle null.
+"""Pooled H-vs-S gaze similarity of group means, and its label-shuffle null.
 
 The whole method lives in this file. For one (monkey, maze, feature, K,
-variant) it pools every trial from every in-scope session, then asks: are two
-trials that share a decoded strategy more similar to each other than two
-trials that do not?
+variant) it pools every trial from every in-scope session, then asks: is the
+mean gaze of two groups that share a decoded strategy more similar than the
+mean gaze of two groups that do not?
 
-The unit of comparison is a **pair of individual trials**, not a pair of
-group means. That is the one design choice everything else follows from: a
-mean pairwise trial correlation means the same thing whatever the group size,
-so there is no need to equalise counts to keep the four cells comparable, and
-no group-size-dependent inflation to correct for afterwards.
+A pairing is scored by averaging each group into one d-dimensional vector and
+taking the single correlation between those two means. Averaging `m` trials
+suppresses their independent noise before the correlation, so the cells sit
+high and rise with group size. Compare `z` across panels, never the raw cells.
 
 Per round, the pooled trials are cut into four disjoint groups of exactly
 `m` -- two from H, two from S -- and each of the four cross-group pairings is
 scored. The groups are disjoint, so a trial is never compared with itself.
 100 rounds of fresh random groups are averaged.
-
-Two ways to score a pairing, swept side by side as `METHODS`:
-
-``trial_by_trial``  the mean correlation over the pairing's `m x m` individual
-                    trial pairs. Correlate first, average after.
-``block_means``     average each group into one d-dimensional vector, then
-                    take the single correlation between those two means.
-                    Average first, correlate after.
-
-They are **not** two estimates of one number. A correlation between two
-`m`-trial means is pulled up by each group's internal consistency, roughly as
-Spearman-Brown predicts, so `block_means` runs far higher and its scale moves
-with `m`; `trial_by_trial` does not depend on group size. Compare `z` between
-them, never the raw cells, and expect `block_means` to look much stronger for
-that reason alone.
 
 `CAVEATS.md` records what this does and does not control for. The short
 version: read `z`, not `delta`.
@@ -49,42 +33,16 @@ NULL_SEED_TAG = 1  # keeps the null's rng stream disjoint from the observed one
 N_ROUNDS = 100
 N_PERM = 1000
 
-TRIAL_BY_TRIAL = "trial_by_trial"
 BLOCK_MEANS = "block_means"
-METHODS = (TRIAL_BY_TRIAL, BLOCK_MEANS)
-
-
-def trial_correlation(X):
-    """``C[i, j]`` = Pearson r between trials `i` and `j`, over the d features.
-
-    Rows are centred and scaled to unit norm, so the whole matrix is one
-    ``Xc @ Xc.T`` rather than ``n^2`` calls to `np.corrcoef`. That matters:
-    `C` is computed once per panel and then re-read by 100 rounds x 1000
-    permutations, all of which only ever select submatrices of it.
-
-    A zero-variance trial (no gaze in the window, or -- under `no_origin` --
-    one that never looked away from centre) has no defined correlation with
-    anything, so its row and column come back NaN. Those are *skipped pair by
-    pair* in `quadrant_means`, not dropped from the pool; `undefined_trials`
-    counts them.
-    """
-    X = np.asarray(X, dtype=float)
-    Xc = X - X.mean(axis=1, keepdims=True)
-    norm = np.linalg.norm(Xc, axis=1, keepdims=True)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        Xc = np.where(norm > 0, Xc / norm, np.nan)
-    # Float error puts |r| a few ulp past 1, which is harmless here but would
-    # look like a bug in a printed cell. Clip rather than explain it later.
-    return np.clip(Xc @ Xc.T, -1.0, 1.0)
+METHODS = (BLOCK_MEANS,)
 
 
 def undefined_trials(X):
-    """Mask of trials whose correlation with anything is undefined.
+    """Mask of trials with no feature variance.
 
-    A row with no variance -- all-zero (no gaze in the window) or constant --
-    gives Pearson a zero denominator. These are **counted, not removed**: see
-    `quadrant_means` for why excluding them would be the more dangerous
-    choice.
+    A row that is all-zero (no gaze in the window) or constant. These are
+    **counted, not removed**: they still enter their group's mean, and
+    dropping them would make the trial set depend on K and on the variant.
     """
     X = np.asarray(X, dtype=float)
     return ~(np.isfinite(X).all(axis=1) & (X.std(axis=1) > 0))
@@ -94,11 +52,9 @@ def coverage(y, *, min_trials=MIN_TRIALS):
     """``(n_H, n_S, m, reason)``. `reason` is empty when the maze qualifies.
 
     `m` is the group size: with four disjoint groups of equal size, the
-    minority strategy caps it at ``min(n_H, n_S) // 2``. Equal groups are not
-    needed to keep the four cells unbiased -- a mean trial-pair correlation
-    does not depend on how many pairs it averages -- but they give all four
-    cells the same number of pairs and so the same sampling variance, which
-    is what makes the 2x2 readable as four comparable numbers.
+    minority strategy caps it at ``min(n_H, n_S) // 2``. Equal groups keep the
+    four cells on one scale, because a correlation between group means rises
+    with the number of trials that were averaged.
     """
     n_h = int(np.sum(y == H))
     n_s = int(np.sum(y == S))
@@ -127,8 +83,7 @@ def _group_indicators(idx, m, n, n_rounds, rng):
 def _round_groups(y, m, n_rounds, rng):
     """``(a, b)``: per-strategy ``(n_rounds, n)`` indicator matrices.
 
-    Shared by both estimators, so the two differ only in how a pairing is
-    scored and not in which trials land in which group.
+    One round's partition of each strategy into two disjoint groups of `m`.
     """
     n = len(y)
     a, b = {}, {}
@@ -152,15 +107,12 @@ def _rowwise_pearson(A, B):
 def quadrant_block_means(X, y, m, rng, *, n_rounds=N_ROUNDS):
     """The 2x2 from correlating **group means**: average first, correlate after.
 
-    The estimator this package used before the rewrite, kept as a comparison
-    arm. Each group's `m` trials collapse to one d-dimensional mean and the
-    pairing scores one correlation between two such means.
+    Each group's `m` trials collapse to one d-dimensional mean and the pairing
+    scores one correlation between two such means.
 
-    Read `CAVEATS.md` before comparing its cells to `quadrant_means`: averaging
-    `m` trials suppresses their independent noise, so these correlations sit
-    much higher and rise with `m`, which makes them incomparable across panels
-    with different group sizes. That group-size dependence is the whole reason
-    the trial-by-trial arm exists.
+    Averaging `m` trials suppresses their independent noise, so these
+    correlations sit high and rise with `m`. That makes raw cells incomparable
+    across panels with different group sizes. Read `z`, and see `CAVEATS.md`.
     """
     a, b = _round_groups(y, m, n_rounds, rng)
     means_a = {s: (a[s] @ X) / m for s in (H, S)}  # (n_rounds, d)
@@ -170,61 +122,6 @@ def quadrant_block_means(X, y, m, rng, *, n_rounds=N_ROUNDS):
     for i in (H, S):
         for j in (H, S):
             q[i, j] = np.nanmean(_rowwise_pearson(means_a[i], means_b[j]))
-    return q
-
-
-def quadrant_means(C, y, m, rng, *, n_rounds=N_ROUNDS, defined=None):
-    """The 2x2 of mean trial-pair similarity, averaged over `n_rounds` rounds.
-
-    Row is the strategy of the "a" group, column that of the "b" group, so
-    ``q[H, S]`` is H's first group against S's second. The diagonal is
-    within-strategy similarity, the off-diagonal cross-strategy.
-
-    **No trial is excluded.** A trial whose features have no variance -- one
-    with no gaze in the window, or, under `no_origin`, one that never looked
-    away from centre -- has an undefined correlation with everything, so its
-    pairs are *skipped* rather than its trial being dropped from the pool.
-    That distinction matters: those trials are not a random subset. Centre-only
-    trials run ~1.4x more common in S than in H, so excluding them would remove
-    a strategy-correlated slice of the data and could manufacture or mask the
-    very difference being measured. Keeping them in the pool keeps `n`, the
-    group draws and the coverage rule identical across every K, variant and
-    estimator arm.
-
-    So a cell is the mean over its **defined** pairs, which can be fewer than
-    ``m * m``. `defined` is the boolean matrix of which pairs those are;
-    `estimate` passes ``isfinite(C)``.
-
-    Mechanically this is exactly ``np.nanmean`` over each round's submatrix
-    -- verified equal to a literal fancy-indexed `np.nanmean` to 6e-17 given
-    the same partitions. It is written as ``sum / count`` because NaN
-    propagates through BLAS and would poison the whole product, so undefined
-    pairs contribute 0 to both and drop out. ``sum(C[A, B])`` is
-    ``1_A @ C @ 1_B``, which lets all `n_rounds` go through one matrix
-    multiplication; measured about 5x faster than the loop at these sizes,
-    over 100 rounds x 1000 permutations per panel.
-    """
-    if defined is None:
-        defined = np.isfinite(C)
-    # NaN would poison the matmul, so undefined pairs contribute 0 to the sum
-    # and 0 to the count, which is exactly "skip this pair".
-    C_filled = np.where(defined, C, 0.0)
-    D = defined.astype(float)
-
-    a, b = _round_groups(y, m, n_rounds, rng)
-
-    q = np.empty((2, 2))
-    for i in (H, S):
-        ac = a[i] @ C_filled  # (n_rounds, n)
-        ad = a[i] @ D
-        for j in (H, S):
-            total = (ac * b[j]).sum(axis=1)
-            count = (ad * b[j]).sum(axis=1)
-            with np.errstate(divide="ignore", invalid="ignore"):
-                per_round = np.where(count > 0, total / count, np.nan)
-            # A round in which one group is entirely undefined contributes
-            # nothing rather than dragging the cell to NaN.
-            q[i, j] = np.nan if np.isnan(per_round).all() else np.nanmean(per_round)
     return q
 
 
@@ -288,7 +185,7 @@ def estimate(
     y,
     session_ids,
     *,
-    method=TRIAL_BY_TRIAL,
+    method=BLOCK_MEANS,
     n_rounds=N_ROUNDS,
     n_perm=N_PERM,
     seed=0,
@@ -298,20 +195,14 @@ def estimate(
 
     Returns ``(Result, "")`` or ``(None, reason)``. `X` is the pooled
     ``(n, d)`` trial matrix for one maze, `y` its H/S labels, `session_ids` a
-    parallel array naming each trial's recording session. `method` selects
-    which of `METHODS` scores a pairing.
+    parallel array naming each trial's recording session. `method` is
+    `block_means`, the only scoring method.
 
-    **Every labelled trial is kept.** Trials whose features have no variance
-    have no defined correlation, so their *pairs* are skipped inside
-    `quadrant_means` while the trials themselves stay in the pool, in `n_H` /
-    `n_S`, and in the coverage decision. `n_degenerate` records how many there
-    were. This keeps the trial set identical across both K, all three variants
-    and both estimator arms, which per-panel exclusion did not: `no_origin`
-    strands ~15% of trials (those that never looked away from centre) and
-    at different rates per K, so excluding them made every panel a different
-    dataset. It is also the safer choice on the merits -- centre-only trials
-    are ~1.4x more common in S than in H, so dropping them removes a
-    strategy-correlated slice of the data.
+    **Every labelled trial is kept**, including trials whose features have no
+    variance. Those still enter their group's mean; dropping them would make
+    the trial set depend on K and on the variant. `n_degenerate` records how
+    many there were. Centre-only trials are more common in S than in H, so
+    dropping them would remove a strategy-correlated slice of the data.
     """
     if method not in METHODS:
         raise ValueError(f"unknown method {method!r}; choose from {METHODS}")
@@ -326,19 +217,9 @@ def estimate(
     if reason:
         return None, reason
 
-    # `trial_by_trial` reads the same (n, n) correlation matrix for every
-    # round and every permutation, so it is built once. `block_means` has to
-    # re-average the raw trials each round and cannot reuse anything.
-    if method == TRIAL_BY_TRIAL:
-        C = trial_correlation(X)
-        finite = np.isfinite(C)
-        score = lambda labels, rng: quadrant_means(
-            C, labels, m, rng, n_rounds=n_rounds, defined=finite
-        )
-    else:
-        score = lambda labels, rng: quadrant_block_means(
-            X, labels, m, rng, n_rounds=n_rounds
-        )
+    score = lambda labels, rng: quadrant_block_means(
+        X, labels, m, rng, n_rounds=n_rounds
+    )
 
     blocks = session_blocks(session_ids)
 
@@ -347,7 +228,7 @@ def estimate(
     d_obs = delta(q_obs)
 
     # A session with only one strategy present is invariant under the shuffle.
-    # It still contributes its pairs to every draw, so it is kept -- it just
+    # It still contributes its trials to every draw, so it is kept -- it just
     # cannot contribute label variation, which is the honest behaviour.
     rng_null = np.random.default_rng((seed, NULL_SEED_TAG))
     draws = np.empty(n_perm)

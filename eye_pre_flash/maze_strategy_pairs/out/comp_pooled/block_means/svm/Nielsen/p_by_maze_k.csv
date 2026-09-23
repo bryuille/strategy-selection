@@ -1,7 +1,0 @@
-feature,variant,maze,K7,n_K7,K9,n_K9,best_k,best_p
-occupancy,full,4,0.0110,10,0.0030,10,9,0.0030
-occupancy,mean_removed,4,0.0010,10,0.0020,10,7,0.0010
-occupancy,no_origin,4,0.0060,10,0.0070,10,7,0.0060
-occupancy_bin,full,4,0.0010,10,0.0010,10,7,0.0010
-occupancy_bin,mean_removed,4,0.0020,10,0.0010,10,9,0.0010
-occupancy_bin,no_origin,4,0.0010,10,0.0010,10,7,0.0010

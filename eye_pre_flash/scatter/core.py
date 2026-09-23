@@ -8,12 +8,15 @@ appeared, so this is where the eyes sit once the pre-flash fixation is
 established but before anything happens.
 
 `collect_fix_start` reduces each trial to one (x, y): the mean gaze over that
-window. `maze_stats` then reduces each maze's trials to one mean and one SD,
-across trials, of that per-trial mean. `maze_pvalues` compares those means
-pairwise, standardizing by each reference maze's own SD.
+window. `maze_stats` then reduces each maze's trials to one mean and SD (per
+axis), across trials, of that per-trial mean, plus the SD of each trial's own
+distance to that mean (`sd_r`). `maze_pvalues` compares those means pairwise,
+scaling the distance between two mazes' means by the reference maze's `sd_r`.
 """
 
 from __future__ import annotations
+
+import math
 
 import numpy as np
 
@@ -62,28 +65,36 @@ def collect_fix_start(monkey):
 
 
 def maze_stats(trials):
-    """Mean and SD, across trials, of each maze's per-trial mean gaze."""
+    """Mean and SD, across trials, of each maze's per-trial mean gaze.
+
+    Also `sd_r`: the SD, across that maze's trials, of each trial's own
+    Euclidean distance to the maze's mean -- the spread `maze_pvalues` scales
+    against.
+    """
     stats = {}
     for m in MAZES:
         mask = trials["maze"] == m
         x, y = trials["x"][mask], trials["y"][mask]
+        mean_x, mean_y = float(np.nanmean(x)), float(np.nanmean(y))
+        r = np.hypot(x - mean_x, y - mean_y)
         stats[m] = dict(
-            mean_x=float(np.nanmean(x)),
+            mean_x=mean_x,
             sd_x=float(np.nanstd(x, ddof=1)),
-            mean_y=float(np.nanmean(y)),
+            mean_y=mean_y,
             sd_y=float(np.nanstd(y, ddof=1)),
+            sd_r=float(np.nanstd(r, ddof=1)),
             n=int(mask.sum()),
         )
     return stats
 
 
 def maze_pvalues(stats):
-    """p-value of maze i's mean position under each other maze j's own spread.
+    """p-value of the distance between maze i's and maze j's mean gaze.
 
-    Standardizes the mean difference on each axis by maze j's own sd_x/sd_y,
-    combines into a chi-square(2 df) statistic, and returns its closed-form
-    survival function exp(-chi2/2). Directional: p[i][j] uses maze j's SDs,
-    so p[i][j] != p[j][i] in general.
+    Scales the Euclidean distance between the two means by maze j's own
+    `sd_r` (how far its trials typically sit from its own mean) and reads off
+    the one-sided normal tail: p = P(Z > distance / sd_r). Directional:
+    p[i][j] uses maze j's sd_r, so p[i][j] != p[j][i] in general.
     """
     p = {}
     for i in MAZES:
@@ -92,7 +103,7 @@ def maze_pvalues(stats):
             if i == j:
                 continue
             si, sj = stats[i], stats[j]
-            zx = (si["mean_x"] - sj["mean_x"]) / sj["sd_x"]
-            zy = (si["mean_y"] - sj["mean_y"]) / sj["sd_y"]
-            p[i][j] = float(np.exp(-(zx**2 + zy**2) / 2))
+            d = math.hypot(si["mean_x"] - sj["mean_x"], si["mean_y"] - sj["mean_y"])
+            z = d / sj["sd_r"]
+            p[i][j] = 0.5 * math.erfc(z / math.sqrt(2))
     return p

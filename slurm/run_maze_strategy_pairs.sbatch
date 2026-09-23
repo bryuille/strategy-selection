@@ -44,12 +44,12 @@
 # groupings go through one BLAS call, so extra cores would not help without
 # restructuring.
 #
-# The default sweep is 2 estimator methods x 2 monkeys x 6 mazes x 2 features
-# x 2 (source, scope) x 3 variants = 240 figures, each needing one estimator
-# run per K = 480 runs at n_perm=1000 and n_rounds=100. Measured at ~15 min
-# on a laptop; the 6 h wall is headroom for a cold label build (see
-# PRECONDITIONS). `--dry-run` lists targets and pooled trial counts without
-# computing anything, and `--maze 4 --n-perm 200` is the smoke test.
+# The default sweep is 2 monkeys x 6 mazes x 2 features
+# x 2 (source, scope) x 3 variants = 144 figures, each needing one estimator
+# run per K = 288 runs at n_perm=1000 and n_rounds=100. The 6 h wall is
+# headroom for a cold label build (see PRECONDITIONS). `--dry-run` lists
+# targets and pooled trial counts without computing anything, and
+# `--maze 4 --n-perm 200` is the smoke test.
 
 set -euo pipefail
 cd "$SLURM_SUBMIT_DIR"

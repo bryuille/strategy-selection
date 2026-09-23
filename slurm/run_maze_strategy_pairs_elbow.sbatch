@@ -30,7 +30,7 @@
 #
 # READ eye_pre_flash/maze_strategy_pairs/elbow.md BEFORE THE OUTPUT. Two
 # things in it are load-bearing. Fixing K removes one degree of freedom, not
-# the other four: 4 mazes x 2 features x 3 variants x 2 methods is 48 cells,
+# the other three: 4 mazes x 2 features x 3 variants is 24 cells,
 # and the pre-committed primary cell plus the Holm family over mazes are named
 # there. And selected_k.csv's identifiability columns decide whether the chosen
 # K is a measurement at all -- a one-session smoke test had the EV curve still
@@ -91,8 +91,8 @@
 #   mazes x 2 monkeys, a few minutes. `--no-stability` skips the ARI and saves
 #   no k-means at all.
 #
-#   Estimation: 48 cells (4 mazes x 2 features x 3 variants x 2 methods),
-#   against comp_pooled's ~1,250 and run_maze_strategy_pairs' 480 -- because
+#   Estimation: 24 cells (4 mazes x 2 features x 3 variants),
+#   against comp_pooled's ~625 and run_maze_strategy_pairs' 288 -- because
 #   there is no K axis left to sweep. Well under an hour.
 #
 #   Plus two attractor scans per monkey: one to build the selection pools, one

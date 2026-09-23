@@ -63,8 +63,8 @@
 # cold build is well above what the pooled job ever touches.
 #
 # Sizing. Extraction: 2 monkeys x 13 K = 26 passes, each fitting one k-means
-# per (session, maze) over all six mazes. Estimation: 2 monkeys x 13 K x 2
-# methods x 4 mazes (2-5) x ~10 sessions x 2 features x 3 variants ~= 12,500
+# per (session, maze) over all six mazes. Estimation: 2 monkeys x 13 K x
+# 4 mazes (2-5) x ~10 sessions x 2 features x 3 variants ~= 6,250
 # cells at n_perm=1000, minus everything that fails coverage -- which on this
 # data is most of them, so the real count is far lower and the wall below is
 # mostly headroom for the cold cache build. `--k 6 12 --n-perm 200` is the

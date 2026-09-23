@@ -64,9 +64,9 @@
 # Memory and wall time are sized like run_maze_strategy_pairs_comp.sbatch, not
 # the lighter run_maze_strategy_pairs.sbatch, even though the *estimation*
 # side of this job is far cheaper (no per-session multiplication -- roughly
-# 2 monkeys x 13 K x 2 methods x 4 mazes x 2 features x 3 variants ~= 1,250
-# cells, an order of magnitude below comp's ~12,500, and comparable to
-# run_maze_strategy_pairs.sbatch's own 480). The expensive part this job
+# 2 monkeys x 13 K x 4 mazes x 2 features x 3 variants ~= 625
+# cells, an order of magnitude below comp's ~6,250, and comparable to
+# run_maze_strategy_pairs.sbatch's own 288). The expensive part this job
 # shares with comp, not with the pooled job, is *feature extraction*: 26
 # passes (2 monkeys x 13 K) over the attractor/behavioral/clean-event caches
 # to fit codebooks, one cold pass per K exactly as comp_features.py pays --

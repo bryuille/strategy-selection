@@ -7,30 +7,21 @@ geometry is held fixed, so a difference cannot be a visual confound.
 
 **The estimator.** Pool every trial of that maze from every in-scope session.
 Cut them into four disjoint groups of equal size `m = min(n_H, n_S) // 2` —
-two from H, two from S — and score each of the four cross-group pairings.
-Average over 100 fresh random groupings.
+two from H, two from S — average each group into one vector, and take the
+correlation between those two means. Average over 100 fresh random groupings.
+Output lives under `out/<source>/`.
 
-Two ways of scoring a pairing are swept into parallel output trees:
-
-| tree | how a pairing is scored |
-|---|---|
-| `out/trial_by_trial/` | mean correlation over the pairing's `m × m` individual trial pairs — correlate first, average after |
-| `out/block_means/` | average each group into one vector, then take the single correlation between those two means — average first, correlate after |
-
-Everything else is identical: same pooled trials, same `m`, same 100
-partitions (both arms draw them from the same seeded RNG), same null.
-
-* **Diagonal** (`HH`, `SS`) — how similar two trials of that strategy are to
-  each other, on average.
-* **Off-diagonal** (`HS`, `SH`) — how similar an H trial and an S trial are.
-  These are two draws of one quantity, not two directions of an axis, and they
-  agree to about three decimals.
+* **Diagonal** (`HH`, `SS`) — how similar the two group means of that strategy
+  are.
+* **Off-diagonal** (`HS`, `SH`) — how similar an H group mean and an S group
+  mean are. These are two draws of one quantity, not two directions of an
+  axis, and they agree to about three decimals.
 * **`n = …`** under each diagonal cell — how many trials of that strategy
   the groups were drawn from, pooled over every session in scope. **No trial
-  is excluded**, so this is identical across both K, all three variants and
-  both estimator trees. It is not the count behind any one correlation: each
-  cell averages up to `m × m` pairs from groups of `m = min(n_H, n_S) // 2`,
-  which is what sets the precision and lives in `results.csv`.
+  is excluded**, so this is identical across both K and all three variants.
+  Each cell is one correlation of two means of `m = min(n_H, n_S) // 2`
+  trials, averaged over the rounds; `m` is what sets the precision and lives
+  in `results.csv`.
 * **Δ** = `0.5·(r_HH + r_SS) − 0.5·(r_HS + r_SH)`.
 * **z** = `(Δ − null_mean) / null_sd`, the null being 1000 reshuffles of the
   H/S labels **within each session**.
@@ -40,48 +31,33 @@ partitions (both arms draw them from the same seeded RNG), same null.
   how much.
 
 **Colour is a within-figure read only.** The scale spans each figure's own
-min-to-max, because trial-pair correlations occupy a narrow band and any
-fixed range renders all four cells one flat colour. A noise panel therefore
-gets the same visual contrast as a strong one. Judge strength by `z`, never by
-how colourful the panel looks. `--vmax 1.0` forces a fixed scale if panels
-need comparing by eye.
+min-to-max, so the diagonal-vs-off-diagonal gap stays visible. A noise panel
+therefore gets the same visual contrast as a strong one. Judge strength by
+`z`, never by how colourful the panel looks. `--vmax 1.0` forces a fixed scale
+if panels need comparing by eye.
 
 ---
 
 ## Caveats
 
-**0a. Some trial pairs have no defined correlation, and are skipped.**
+**0a. Zero-variance trials stay in the pool.**
 A trial with no variance — no gaze in the window, or under `no_origin` one
-that never looked away from centre — has a zero denominator against
-everything. Those **pairs** are skipped; the **trial** stays in the pool, in
-`n`, and in the coverage decision.
+that never looked away from centre — still enters its group's mean. It is
+counted in `n_degenerate` and in `n`, and it is not dropped.
 
-Excluding such trials instead would be worse on two counts. It would make the
-trial set depend on K and variant — `no_origin` strands ~15% of trials, at
-different rates per K — so no two panels would rest on the same data. And the
-stranded trials are not a random slice: centre-only trials are about 1.4x more
-common in S than in H (Faure 12.6% vs 8.8%, Nielsen 18.9% vs 12.0%), so
-dropping them removes a strategy-correlated subset of the data. Verified in
-`checks.py` that skipping the pairs gives the same estimate as excluding the
-trials would, to within round noise.
+Excluding such trials would be worse on two counts. It would make the trial
+set depend on K and variant — `no_origin` strands ~15% of trials, at different
+rates per K — so no two panels would rest on the same data. And the stranded
+trials are not a random slice: centre-only trials are about 1.4x more common
+in S than in H (Faure 12.6% vs 8.8%, Nielsen 18.9% vs 12.0%), so dropping them
+removes a strategy-correlated subset of the data.
 
-Consequence to keep in mind: under `no_origin` a cell can be averaging far
-fewer than `m × m` pairs, so those panels are noisier than their `m` suggests.
-`n_degenerate` in `results.csv` says how many trials were affected.
-
-**0. The two trees' cells are on different scales. Never compare them.**
+**0. Raw cells rise with group size. Compare `z`, not `r`.**
 Averaging `m` trials suppresses their independent noise *before* the
-correlation is taken, so `block_means` runs far higher — a diagonal of 0.95
-where `trial_by_trial` reads 0.31 — and it climbs with group size. Measured on
-synthetic data (`checks.py`): as `m` goes 5 → 40 the `block_means` diagonal
-rises 0.69 → 0.95 while `trial_by_trial` holds at 0.31 → 0.31.
-
-Within one panel that changes nothing, since both arms use the same `m`. It
-bites when comparing `block_means` panels **to each other**: real `m` runs
-from 5 (Faure/dendro maze 6) to 175 (Nielsen/svm maze 4), so a high diagonal
-in that tree may mean nothing but a bigger pool. `trial_by_trial` has no such
-dependence. `z` stays comparable in both trees, because each panel's null is
-built at that panel's own `m`.
+correlation is taken, so the diagonal climbs toward 1 as `m` grows. Real `m`
+runs from 5 (Faure/dendro maze 6) to 175 (Nielsen/svm maze 4), so a high
+diagonal may mean nothing but a bigger pool. `z` stays comparable, because
+each panel's null is built at that panel's own `m`.
 
 **1. Pooling mixes within-session and between-session trial pairs.** Two trials
 from the same day are more similar than two trials from different days —
@@ -113,10 +89,10 @@ eye-tracker drift alone will make within-strategy pairs more similar. The
 shuffle is blind to trial order, so a Δ driven entirely by this can still clear
 the null.
 
-**4. Δ is not comparable across features, variants, K, or — in the
-`block_means` tree — group size.** Different transforms and dimensionalities
-live on different scales. `z` is the cross-panel number, being normalised by
-each panel's own chance variability.
+**4. Δ is not comparable across features, variants, K, or group size.**
+Different transforms and dimensionalities live on different scales, and the
+correlation of group means rises with `m` (caveat 0). `z` is the cross-panel
+number, being normalised by each panel's own chance variability.
 
 **5. `mean_removed` pushes correlations negative by arithmetic, not biology.**
 Subtracting the pooled grand-mean profile leaves residuals that sum to ~zero,
@@ -126,9 +102,9 @@ gap survives. Read `no_origin` — a structural rather than fitted way of
 stripping the same common profile — alongside it. Agreement means the finding
 is robust; if only the fitted one shows an effect, distrust it.
 
-**6. Trial pairs are not independent.** Each trial appears in many pairs. That
-is fine for a permutation test, which never assumes independence, but do not
-compute a parametric standard error from the pair count.
+**6. Rounds are not independent.** Each trial is redrawn into many groupings.
+That is fine for a permutation test, which never assumes independence, but do
+not compute a parametric standard error from the round count.
 
 **7. The SVM source's maze-1 S and maze-6 H cells are near-empty by
 construction.** That classifier is trained on mazes 1 vs 6, so those cells are
@@ -159,7 +135,7 @@ no cache needed. It pins: the four groups are disjoint and exactly `m` (so no
 trial is ever correlated with itself); independent trials give a flat 2×2;
 relabelling H↔S moves Δ only by sampling noise, which shrinks as
 `1/sqrt(n_rounds)` rather than sitting at a fixed offset; the shuffle preserves
-each session's counts; both arms give `|z| < 3` on a null case even with
-session offsets present; both find a real effect; `block_means` sits above
-`trial_by_trial` and rises with `m` while `trial_by_trial` does not; and the
-coverage rule admits exactly `n_H ≥ 10 and n_S ≥ 10`.
+each session's counts; a null case gives `|z| < 3` even with session offsets
+present; a planted H/S difference is detected; the diagonal rises with `m`;
+zero-variance trials stay in the pool; and the coverage rule admits exactly
+`n_H ≥ 10 and n_S ≥ 10`.

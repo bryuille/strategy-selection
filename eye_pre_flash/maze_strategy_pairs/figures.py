@@ -23,17 +23,10 @@ from eye_pre_flash.plotting.similarities.common import BLUE_YELLOW
 
 FEATURE_LABEL = {"occupancy": "occupancy", "occupancy_bin": "binary occupancy"}
 SOURCE_LABEL = {"dendro": "dendrogram", "svm": "SVM"}
-# Named on the figure, not just in the path: the two arms produce very
-# different numbers from the same trials, so a PNG that does not say which
-# one it is invites exactly the wrong comparison.
 METHOD_LABEL = {
-    "trial_by_trial": "trial-by-trial similarity",
     "block_means": "similarity of group means",
 }
-# What one cell actually is, which differs between the arms -- a mean over
-# m*m trial-pair correlations, versus one correlation between two group means.
 CBAR_LABEL = {
-    "trial_by_trial": "mean trial-pair r",
     "block_means": "r between group means",
 }
 
@@ -52,12 +45,8 @@ MIN_FIG_W = 7.2
 def colour_limits(panels, *, vmax=None):
     """``(vmin, vmax, cmap)`` shared by every panel in one figure.
 
-    Default spans the figure's own min-to-max. That is a deliberate change
-    from the fixed 0-1 scale the mean-vs-mean estimator used, and the reason
-    is that trial-pair correlations occupy a narrow band -- a real panel might
-    run 0.28 to 0.37 -- so any wider fixed range renders all four cells as one
-    flat colour and hides the diagonal-vs-off-diagonal gap the figure exists
-    to show.
+    Default spans the figure's own min-to-max, so a fixed 0-1 range cannot
+    flatten the diagonal-vs-off-diagonal gap the figure exists to show.
 
     The cost is that colour is a **within-figure** read only: a panel of pure
     noise gets the same visual contrast as a strong one, because the range

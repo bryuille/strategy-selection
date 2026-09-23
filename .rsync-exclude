@@ -26,7 +26,6 @@
 /data/mat/
 /data/npz/
 /data/processed/
-/data/archive/
 
 # Local env and caches (the cloud runs its own `uv sync`)
 .venv/
@@ -43,17 +42,10 @@
 # Movies are large and are not figures. Remove if you want them synced.
 *.mp4
 
-# Logs
-/logs/
-
 # Sandbox-local tool caches; the cluster builds its own
 /.uv-cache/
 /.mplconfig/
 
 # SSH control socket; host-local
 /.ssh-sockets/
-
-# Per-host Claude Code overrides (e.g. cluster-only permission hooks).
-# .claude/settings.json itself still syncs; only the local override does not.
-/.claude/settings.json
 

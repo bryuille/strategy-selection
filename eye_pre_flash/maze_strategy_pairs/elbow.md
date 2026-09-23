@@ -101,17 +101,17 @@ a selection. It means the curve never bent inside the range searched.
 ## Caveats specific to this analysis
 
 **1. Fixing K does not make this one test.** 4 mazes × 2 features × 3 variants
-× 2 estimator methods = **48 cells**. Fixing K removes one degree of freedom;
-it does not remove the other four. The pre-committed primary is:
+= **24 cells**. Fixing K removes one degree of freedom; it does not remove the
+other three. The pre-committed primary is:
 
-> **`occupancy` / `full` / `trial_by_trial`**, with **Holm correction over the
-> four mazes** — four tests, not 48.
+> **`occupancy` / `full` / `block_means`**, with **Holm correction over the
+> four mazes** — four tests, not 24.
 
 `occupancy` over `occupancy_bin` because dwell time uses strictly more
 information than visited/not. `full` because the other two variants are derived
-transforms of it. `trial_by_trial` because, per `CAVEATS.md` caveat 0,
-`block_means` cells scale with group size and so are not comparable between
-panels, while `trial_by_trial` carries no such dependence.
+transforms of it. `block_means` is the only scoring method. Its raw cells
+scale with group size (`CAVEATS.md` caveat 0), so the cross-maze read is `z`,
+not `r`.
 
 **Every other cell is exploratory.** They are computed and reported because
 they are cheap and because agreement across variants is informative (see

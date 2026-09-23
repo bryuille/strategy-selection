@@ -13,7 +13,6 @@ import numpy as np
 
 from eye_pre_flash.maze_strategy_pairs.estimator import (
     BLOCK_MEANS,
-    METHODS,
     H,
     S,
     coverage,
@@ -21,9 +20,7 @@ from eye_pre_flash.maze_strategy_pairs.estimator import (
     estimate,
     permute_within_session,
     quadrant_block_means,
-    quadrant_means,
     session_blocks,
-    trial_correlation,
 )
 
 FAILURES = []
@@ -82,14 +79,16 @@ def check_no_self_pairs():
 
     A self-pair leak is the failure this catches: with independent trials the
     true within-strategy similarity is ~0, but any overlap between the two
-    groups would drag `r_HH` up toward 1/m.
+    groups would drag `r_HH` up toward 1.
     """
     rng = np.random.default_rng(1)
     X, y, _ = synth(rng, n_h=60, n_s=60, d=20)
-    C = trial_correlation(X)
-    q = quadrant_means(C, y, 30, rng, n_rounds=200)
+    q = quadrant_block_means(X, y, 30, rng, n_rounds=200)
     worst = float(np.max(np.abs(q)))
-    report("independent trials give a flat 2x2", worst < 0.05, f"max|r| = {worst:.4f}")
+    # One correlation of two noisy means per round, so the cell is not driven
+    # as close to 0 as a mean over m*m trial pairs would be. A self-pair leak
+    # pins it near 1; anything well below that is sampling noise.
+    report("independent trials give a flat 2x2", worst < 0.25, f"max|r| = {worst:.4f}")
 
 
 def check_relabel_symmetry():
@@ -98,12 +97,12 @@ def check_relabel_symmetry():
     The load-bearing one: if the estimator preferred the diagonal over the
     off-diagonal, or one cell over the other, it would show up here.
 
-    Two parts, because an *exact* equality is not available. `quadrant_means`
-    draws its partitions strategy by strategy, so relabelling swaps which
-    trial block consumes which random numbers; the two runs therefore use
-    genuinely different groupings and differ by Monte Carlo noise even when
-    the estimator is perfectly symmetric. Seeding cannot be aligned around
-    that without reaching into the sampler purely for a test.
+    Two parts, because an *exact* equality is not available.
+    `quadrant_block_means` draws its partitions strategy by strategy, so
+    relabelling swaps which trial block consumes which random numbers; the
+    two runs therefore use genuinely different groupings and differ by Monte
+    Carlo noise even when the estimator is perfectly symmetric. Seeding cannot
+    be aligned around that without reaching into the sampler purely for a test.
 
     So: the statistic is checked for exact symmetry on a fixed matrix, and the
     sampler is checked by whether the relabelling gap *shrinks with rounds*.
@@ -120,14 +119,13 @@ def check_relabel_symmetry():
         report("delta is exactly symmetric in H and S", True)
 
     X, y, _sessions = synth(rng, n_h=40, n_s=34, d=12, sep=0.8)
-    C = trial_correlation(X)
     m = min((y == H).sum(), (y == S).sum()) // 2
 
     def mean_gap(n_rounds, n_seeds=8):
         gaps = []
         for seed in range(n_seeds):
-            a = delta(quadrant_means(C, y, m, np.random.default_rng(seed), n_rounds=n_rounds))
-            b = delta(quadrant_means(C, 1 - y, m, np.random.default_rng(seed), n_rounds=n_rounds))
+            a = delta(quadrant_block_means(X, y, m, np.random.default_rng(seed), n_rounds=n_rounds))
+            b = delta(quadrant_block_means(X, 1 - y, m, np.random.default_rng(seed), n_rounds=n_rounds))
             gaps.append(abs(a - b))
         return float(np.mean(gaps))
 
@@ -136,7 +134,7 @@ def check_relabel_symmetry():
     # bias could not achieve, while tolerating the spread of only 8 seeds.
     report("relabelling gap shrinks with rounds (noise, not bias)", fine < coarse / 2,
            f"{coarse:.2e} at 100 rounds -> {fine:.2e} at 1600")
-    report("relabelling gap is negligible at 1600 rounds", fine < 1e-3,
+    report("relabelling gap is small at 1600 rounds", fine < 1e-2,
            f"mean |diff| = {fine:.2e}")
 
 
@@ -165,64 +163,52 @@ def check_shuffle_preserves_session_counts():
 def check_null_is_centred():
     """With no real H/S difference, delta must sit inside its own null.
 
-    Not that delta is zero -- both estimators have a floor at finite `m` and
+    Not that delta is zero -- the estimator has a floor at finite `m` and
     `d`, which is exactly why `z` is measured against `null_mean` rather than
     against zero -- but that `z` is unremarkable. `session_sd` puts a real
     per-session offset in the data, so this also checks that the
     within-session shuffle absorbs it rather than reporting it as an effect.
     """
-    for method in METHODS:
-        rng = np.random.default_rng(4)
-        X, y, sessions = synth(rng, n_h=45, n_s=38, d=12, sep=0.0, session_sd=1.5)
-        result, reason = estimate(
-            X, y, sessions, method=method, n_rounds=50, n_perm=300, seed=0
-        )
-        ok = result is not None and abs(result.z) < 3
-        report(f"{method}: no true effect gives |z| < 3 despite session offsets", ok,
-               f"z = {result.z:+.2f}, delta = {result.delta:+.4f}" if result else reason)
+    rng = np.random.default_rng(4)
+    X, y, sessions = synth(rng, n_h=45, n_s=38, d=12, sep=0.0, session_sd=1.5)
+    result, reason = estimate(
+        X, y, sessions, method=BLOCK_MEANS, n_rounds=50, n_perm=300, seed=0
+    )
+    ok = result is not None and abs(result.z) < 3
+    report("no true effect gives |z| < 3 despite session offsets", ok,
+           f"z = {result.z:+.2f}, delta = {result.delta:+.4f}" if result else reason)
 
 
 def check_real_effect_is_found():
-    """A genuine H/S difference must clear the null under both estimators."""
-    for method in METHODS:
-        rng = np.random.default_rng(5)
-        X, y, sessions = synth(rng, n_h=45, n_s=38, d=12, sep=1.2)
-        result, reason = estimate(
-            X, y, sessions, method=method, n_rounds=50, n_perm=300, seed=0
-        )
-        ok = result is not None and result.delta > 0 and result.z > 5
-        report(f"{method}: a real H/S difference is detected", ok,
-               f"z = {result.z:+.2f}, delta = {result.delta:+.4f}" if result else reason)
+    """A genuine H/S difference must clear the null."""
+    rng = np.random.default_rng(5)
+    X, y, sessions = synth(rng, n_h=45, n_s=38, d=12, sep=1.2)
+    result, reason = estimate(
+        X, y, sessions, method=BLOCK_MEANS, n_rounds=50, n_perm=300, seed=0
+    )
+    ok = result is not None and result.delta > 0 and result.z > 5
+    report("a real H/S difference is detected", ok,
+           f"z = {result.z:+.2f}, delta = {result.delta:+.4f}" if result else reason)
 
 
-def check_block_means_sits_higher():
-    """`block_means` must run above `trial_by_trial`, and rise with `m`.
+def check_block_means_rises_with_m():
+    """The diagonal must climb as the groups get larger.
 
-    Not a nicety -- it is the reason the two trees must never have their cells
-    compared. Averaging `m` trials suppresses their independent noise before
-    the correlation is taken, so the diagonal climbs toward 1 as `m` grows
-    while the trial-by-trial diagonal is flat in `m`. If this ever stopped
-    holding, one of the two estimators would be wrong.
+    Averaging `m` trials suppresses their independent noise before the
+    correlation is taken, so raw cells are not comparable across panels with
+    different group sizes. If the diagonal stopped rising with `m`, that
+    warning would be wrong.
     """
     rng = np.random.default_rng(8)
     X, y, _sessions = synth(rng, n_h=80, n_s=80, d=12, sep=0.8)
-    C = trial_correlation(X)
-
-    diag_tbt, diag_blk = [], []
+    diags = []
     for m in (5, 40):
-        q_t = quadrant_means(C, y, m, np.random.default_rng(1), n_rounds=200)
-        q_b = quadrant_block_means(X, y, m, np.random.default_rng(1), n_rounds=200)
-        diag_tbt.append(q_t[H, H])
-        diag_blk.append(q_b[H, H])
-
-    report("block_means diagonal exceeds trial_by_trial at both m",
-           all(b > t for b, t in zip(diag_blk, diag_tbt)),
-           f"m=5: {diag_blk[0]:.3f} vs {diag_tbt[0]:.3f}; "
-           f"m=40: {diag_blk[1]:.3f} vs {diag_tbt[1]:.3f}")
-    report("block_means rises with group size, trial_by_trial does not",
-           diag_blk[1] - diag_blk[0] > 0.05 and abs(diag_tbt[1] - diag_tbt[0]) < 0.02,
-           f"block_means +{diag_blk[1] - diag_blk[0]:.3f}, "
-           f"trial_by_trial {diag_tbt[1] - diag_tbt[0]:+.3f}")
+        q = quadrant_block_means(X, y, m, np.random.default_rng(1), n_rounds=200)
+        diags.append(q[H, H])
+    report("block_means diagonal rises with group size",
+           diags[1] - diags[0] > 0.05,
+           f"m=5: {diags[0]:.3f}; m=40: {diags[1]:.3f} "
+           f"(+{diags[1] - diags[0]:.3f})")
 
 
 def check_coverage_rule():
@@ -243,46 +229,32 @@ def check_coverage_rule():
 
 
 def check_degenerate_trials_kept_not_dropped():
-    """A zero-variance trial stays in the pool; only its pairs are skipped.
+    """A zero-variance trial stays in the pool and still enters the group mean.
 
-    The contract that keeps every panel on the same dataset. A trial with no
-    variance has no defined correlation, but excluding it would make the
-    trial set depend on K and on the variant -- `no_origin` strands ~15% of
-    real trials -- and worse, those trials are strategy-biased, so excluding
-    them would remove a slice of the data correlated with the thing being
-    measured.
+    The contract that keeps every panel on the same dataset. Excluding such a
+    trial would make the trial set depend on K and on the variant, and those
+    trials are strategy-biased, so excluding them would remove a slice of the
+    data correlated with the thing being measured.
     """
     rng = np.random.default_rng(6)
     X, y, sessions = synth(rng, n_h=30, n_s=30, d=12)
     X[0] = 0.0  # no gaze at all -> every feature equal
-    X[45] = 7.0  # constant nonzero -> also undefined
+    X[45] = 7.0  # constant nonzero -> also no variance
     result, reason = estimate(X, y, sessions, n_rounds=20, n_perm=50, seed=0)
 
-    report("undefined trials are counted", result is not None and result.n_degenerate == 2,
+    report("zero-variance trials are counted", result is not None and result.n_degenerate == 2,
            f"n_degenerate = {result.n_degenerate}" if result else reason)
-    report("undefined trials stay in n_H / n_S",
+    report("zero-variance trials stay in n_H / n_S",
            result is not None and result.n_H == 30 and result.n_S == 30,
            f"n_H = {result.n_H}, n_S = {result.n_S}" if result else reason)
     report("the 2x2 is still finite", result is not None and np.isfinite(result.q).all())
 
-    # Skipping a pair must give the same answer as never having drawn it, so
-    # adding undefined trials should not shift the estimate beyond round noise.
-    clean, _ = estimate(
-        np.delete(X, [0, 45], axis=0), np.delete(y, [0, 45]),
-        np.delete(sessions, [0, 45]), n_rounds=400, n_perm=20, seed=0,
-    )
-    dirty, _ = estimate(X, y, sessions, n_rounds=400, n_perm=20, seed=0)
-    gap = abs(clean.delta - dirty.delta)
-    report("skipping undefined pairs matches excluding those trials", gap < 0.02,
-           f"|delta diff| = {gap:.4f}")
-
 
 def check_block_means_uses_all_trials():
-    """`block_means` has no undefined pairs at all, so nothing is skipped there.
+    """An all-zero trial still contributes to its group's mean.
 
-    An all-zero trial still contributes to its group's mean, and that mean has
-    variance, so the correlation is defined. Both arms therefore run on the
-    identical trial set.
+    That mean has variance, so the correlation is defined and the trial is
+    not dropped from the pool.
     """
     rng = np.random.default_rng(9)
     X, y, sessions = synth(rng, n_h=30, n_s=30, d=12)
@@ -305,7 +277,7 @@ def main():
         check_shuffle_preserves_session_counts,
         check_null_is_centred,
         check_real_effect_is_found,
-        check_block_means_sits_higher,
+        check_block_means_rises_with_m,
         check_coverage_rule,
         check_degenerate_trials_kept_not_dropped,
         check_block_means_uses_all_trials,

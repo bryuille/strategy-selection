@@ -41,7 +41,7 @@ data/processed/
 # undoing the history rewrite that took .git from 2.4 GB to 22 MB. The CSVs
 # under classifier/out/ are real results and stay tracked, so this ignores
 # image formats rather than the out/ directories themselves.
-**/out/**/*.png
+# **/out/**/*.png
 **/out/**/*.mp4
 **/out/**/*.pdf
 **/out/**/*.svg

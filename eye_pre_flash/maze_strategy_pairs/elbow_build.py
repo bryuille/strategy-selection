@@ -23,11 +23,10 @@ Three things follow and are worth knowing before reading any output:
   in-scope sessions only, so the selected K sizes the population it is applied
   to. The consequence is that `p` here is **not** comparable cell-for-cell to
   `comp_pooled`'s: the two rest on codebooks fitted from different pools.
-* **Fixing K does not make this one test.** 4 mazes x 2 features x 3 variants x
-  2 methods is 48 cells. The pre-committed primary cell and the correction
-  family over mazes are stated in `elbow.md`, which must be read first --
-  without them the multiplicity objection simply moves from K to the other
-  axes.
+* **Fixing K does not make this one test.** 4 mazes x 2 features x 3 variants
+  is 24 cells. The pre-committed primary cell and the correction family over
+  mazes are stated in `elbow.md`, which must be read first -- without them the
+  multiplicity objection simply moves from K to the other axes.
 * **The elbow may not be identified.** `selected_k.csv` carries the modal
   kneedle pick across the individual splits and how many distinct values they
   produced. If that spread is wide, "the elbow" is not a measurement and no
@@ -38,9 +37,8 @@ Usage:
     uv run python -m eye_pre_flash.maze_strategy_pairs.elbow_build
     uv run python -m eye_pre_flash.maze_strategy_pairs.elbow_build --monkey Faure --maze 5
 
-Writes out/elbow/<source>/<monkey>/{ev_curves.png,selected_k.csv} and
-out/elbow/<method>/<source>/<monkey>/{maze<M>_<feature>_<variant>.png,results.csv}
-plus a summary_<monkey>.md.
+Writes out/elbow/<source>/<monkey>/{ev_curves.png,selected_k.csv,
+maze<M>_<feature>_<variant>.png,results.csv} plus a summary_<monkey>.md.
 """
 
 from __future__ import annotations
@@ -267,18 +265,18 @@ def write_csv(path, rows):
     return path
 
 
-def write_summary_md(path, rows, *, monkey, method, source, mazes):
+def write_summary_md(path, rows, *, monkey, source, mazes):
     """One block per (feature, variant): maze, selected K, and the estimate."""
     if not rows:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# Elbow-selected K - {monkey} / {method} / {source}",
+        f"# Elbow-selected K - {monkey} / {source}",
         "",
         "K chosen per maze from the held-out explained-variance elbow, with",
         "the H/S labels never consulted, and fixed before this test was run --",
-        "so `p` needs no correction over K. It is still one of 48 cells across",
-        "maze, feature, variant and method: read `elbow.md` for the",
+        "so `p` needs no correction over K. It is still one of 24 cells across",
+        "maze, feature and variant: read `elbow.md` for the",
         "pre-committed primary cell and the correction family over mazes.",
         "",
         "`p` here is **not** comparable to `out/comp_pooled/`'s: that codebook",
@@ -401,10 +399,10 @@ def sweep(args):
 
 def emit(rows_by_tree, args):
     for (method, source, scope, monkey), rows in sorted(rows_by_tree.items()):
-        write_csv(elbowpath.results_csv(args.out_root, method, source, monkey), rows)
+        write_csv(elbowpath.results_csv(args.out_root, source, monkey), rows)
         write_summary_md(
-            elbowpath.summary_md(args.out_root, method, source, monkey),
-            rows, monkey=monkey, method=method, source=source, mazes=args.maze,
+            elbowpath.summary_md(args.out_root, source, monkey),
+            rows, monkey=monkey, source=source, mazes=args.maze,
         )
 
         for row in rows:
@@ -425,7 +423,7 @@ def emit(rows_by_tree, args):
             save_figure(
                 fig, elbowpath.stem(row["maze"], row["feature"], row["variant"]),
                 out_root=args.out_root,
-                rel_dir=elbowpath.rel_dir(method, source, monkey),
+                rel_dir=elbowpath.rel_dir(source, monkey),
                 dpi=args.dpi,
             )
             plt.close(fig)

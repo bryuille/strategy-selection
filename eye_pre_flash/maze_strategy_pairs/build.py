@@ -5,10 +5,9 @@ both K = 6 and K = 12 as side-by-side 2x2 panels with independently computed
 statistics. Each panel's diagonal is within-strategy similarity and its
 off-diagonal cross-strategy, against a within-session label-shuffle null.
 
-Both scoring methods are swept by default into parallel output trees:
-`trial_by_trial` averages similarities between individual trials,
-`block_means` correlates the groups' mean vectors. Their cells are on
-different scales and must not be compared directly -- see `CAVEATS.md`.
+A pairing is scored by correlating the groups' mean vectors (`block_means`).
+Those correlations rise with group size, so compare `z` across panels, never
+the raw cells -- see `CAVEATS.md`.
 
 Runs on a laptop -- the estimator is a few seconds per panel and needs no
 neural data, only the cached labels and feature blocks under
@@ -19,7 +18,7 @@ Usage:
     uv run python -m eye_pre_flash.maze_strategy_pairs.build --dry-run
     uv run python -m eye_pre_flash.maze_strategy_pairs.build --maze 3 --n-perm 200
 
-Writes out/<method>/<source>/<monkey>/<variant>/maze<M>_<feature>.png plus
+Writes out/<source>/<monkey>/<variant>/maze<M>_<feature>.png plus
 results.csv.
 """
 
@@ -240,13 +239,13 @@ def build_variant(
         # nothing and never silently discards a good panel.
         target = (
             args.out_root
-            / pathmod.rel_dir(method, source, monkey, variant)
+            / pathmod.rel_dir(source, monkey, variant)
             / f"{pathmod.stem(maze, feature)}.png"
         )
         usable = [p for p in panels if p.result is not None]
         if len(usable) < len(panels):
             why = "; ".join(f"K{p.k}: {p.reason}" for p in panels if p.result is None)
-            print(f"  {method}/{monkey}/{source}/{variant}/maze{maze}/{feature}: {why}")
+            print(f"  {monkey}/{source}/{variant}/maze{maze}/{feature}: {why}")
         if not usable:
             # A previous run may have left a figure here. Leaving it would put
             # stale numbers under a current-looking filename, which is worse
@@ -269,7 +268,7 @@ def build_variant(
         save_figure(
             fig, pathmod.stem(maze, feature),
             out_root=args.out_root,
-            rel_dir=pathmod.rel_dir(method, source, monkey, variant),
+            rel_dir=pathmod.rel_dir(source, monkey, variant),
             dpi=args.dpi,
         )
         plt.close(fig)
@@ -302,7 +301,7 @@ def main():
     parser.add_argument(
         "--estimator", nargs="*", default=list(estimator.METHODS),
         choices=estimator.METHODS, dest="methods",
-        help="how a group pairing is scored; both arms by default",
+        help="how a group pairing is scored (group means)",
     )
     parser.add_argument("--n-rounds", type=int, default=estimator.N_ROUNDS)
     parser.add_argument("--n-perm", type=int, default=estimator.N_PERM)
@@ -337,10 +336,10 @@ def main():
                     continue
                 lookup = _lookup(source, keep_sessions)
                 for variant in args.variant:
-                    # The CSV lives at <method>/<source>/<monkey>/<variant>/,
-                    # which has no feature level, so every feature's rows
-                    # accumulate into one file -- writing per feature would
-                    # have each overwrite the last.
+                    # The CSV lives at <source>/<monkey>/<variant>/, which has
+                    # no feature level, so every feature's rows accumulate into
+                    # one file -- writing per feature would have each overwrite
+                    # the last.
                     rows = []
                     for feature in args.feature:
                         rows += build_variant(
@@ -351,7 +350,7 @@ def main():
                     if rows:
                         write_csv(
                             pathmod.results_csv(
-                                args.out_root, method, source, monkey, variant
+                                args.out_root, source, monkey, variant
                             ),
                             rows,
                         )

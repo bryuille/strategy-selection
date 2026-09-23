@@ -13,8 +13,8 @@
 # / `{monkey}_eye_behavioral.npz` caches (3-5 GB each, see cloud.md), averages
 # the gaze samples between `fix_start` and `flash_one` per trial, and per
 # monkey writes `by_maze.png` (six per-maze mean-gaze dots with +-1 SD bars)
-# and `maze_pvalues.png` (a 6x6 table: p-value of maze i's mean position under
-# maze j's own per-axis SD, chi-square(2 df),
+# and `maze_pvalues.png` (a 6x6 table: p-value of the distance between maze
+# i's and maze j's means, scaled by maze j's sd_r, one-sided normal tail,
 # `eye_pre_flash.scatter.core.maze_pvalues` -- directional and uncorrected for
 # the 30 comparisons per monkey). No strategy labels needed. Still a job
 # rather than a login-node command, because the login node's RLIMIT_NPROC

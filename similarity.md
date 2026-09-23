@@ -81,7 +81,7 @@ directly against each other:
 | Script | Matrix | Question |
 | ------ | ------ | -------- |
 | `similarities.heatmap_eq` | 6×6, maze × maze | do two mazes elicit the same gaze map, once no maze is measured better than any other? |
-| `maze_strategy_pairs.build` | 2×2, within one maze | inside one maze, do trials sharing a decoded strategy produce more similar gaze? Uses its own estimator: trials pooled across sessions, cut into four equal disjoint groups, scored over 100 random groupings, both trial-by-trial and group-mean variants — see [CAVEATS.md](eye_pre_flash/maze_strategy_pairs/CAVEATS.md); the "20 random splits" below applies to the 6×6 family only. |
+| `maze_strategy_pairs.build` | 2×2, within one maze | inside one maze, do trials sharing a decoded strategy produce more similar gaze? Uses its own estimator: trials pooled across sessions, cut into four equal disjoint groups, each group averaged to one vector, those means correlated over 100 random groupings — see [CAVEATS.md](eye_pre_flash/maze_strategy_pairs/CAVEATS.md); the "20 random splits" below applies to the 6×6 family only. |
 
 ### `heatmap_eq` — the maze matrix with counts equalised
 

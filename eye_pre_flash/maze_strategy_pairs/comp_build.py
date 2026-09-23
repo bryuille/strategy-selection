@@ -37,7 +37,7 @@ Usage:
     uv run python -m eye_pre_flash.maze_strategy_pairs.comp_build
     uv run python -m eye_pre_flash.maze_strategy_pairs.comp_build --k 6 12 --maze 3
 
-Writes out/comp/<method>/<source>/<monkey>/maze<M>.png, results.csv,
+Writes out/comp/<source>/<monkey>/maze<M>.png, results.csv,
 p_by_maze_k.csv and a summary_<monkey>.md table of p for maze x K.
 """
 
@@ -202,8 +202,6 @@ def average_over_sessions(rows):
     than NaN, so a caller cannot mistake "nothing cleared coverage" for
     "p happened to be missing".
     """
-    # The two estimator arms put their numbers on different scales and must
-    # never land in one mean -- see `estimator`'s docstring and `CAVEATS.md`.
     # `emit` already groups by method, so this only fires on a caller that
     # bypassed it, which is exactly when it is worth failing loudly.
     methods = {row["method"] for row in rows}
@@ -255,13 +253,13 @@ def table_rows(averages, ks, mazes):
     return out
 
 
-def write_summary_md(path, rows, ks, mazes, *, monkey, method, source):
+def write_summary_md(path, rows, ks, mazes, *, monkey, source):
     """The maze x K table, one block per (feature, variant), human-readable."""
     if not rows:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# Mean p over sessions - {monkey} / {method} / {source}",
+        f"# Mean p over sessions - {monkey} / {source}",
         "",
         "Codebook fitted per (session, maze); the estimator runs on one session",
         "of one maze at a time and the p-values are averaged across sessions.",
@@ -354,19 +352,19 @@ def sweep(args):
 
 def emit(rows_by_tree, args):
     for (method, source, scope, monkey), rows in sorted(rows_by_tree.items()):
-        write_csv(comppath.results_csv(args.out_root, method, source, monkey), rows)
+        write_csv(comppath.results_csv(args.out_root, source, monkey), rows)
 
         averages = average_over_sessions(rows)
         if not averages:
-            print(f"  {method}/{source}/{monkey}: no cell cleared coverage; no table")
+            print(f"  {source}/{monkey}: no cell cleared coverage; no table")
             continue
 
         table = table_rows(averages, args.k, args.maze)
-        write_csv(comppath.table_csv(args.out_root, method, source, monkey), table)
+        write_csv(comppath.table_csv(args.out_root, source, monkey), table)
         write_summary_md(
-            comppath.summary_md(args.out_root, method, source, monkey),
+            comppath.summary_md(args.out_root, source, monkey),
             table, args.k, args.maze,
-            monkey=monkey, method=method, source=source,
+            monkey=monkey, source=source,
         )
 
         n_scope = len(set(r["session"] for r in rows))
@@ -382,7 +380,7 @@ def emit(rows_by_tree, args):
                 for variant in args.variant
             }
             if not any(curves.values()):
-                print(f"  {method}/{source}/{monkey}/maze{maze}: no points; no figure")
+                print(f"  {source}/{monkey}/maze{maze}: no points; no figure")
                 continue
             fig = compfig.p_vs_k_figure(
                 curves,
@@ -395,7 +393,7 @@ def emit(rows_by_tree, args):
             save_figure(
                 fig, comppath.stem(maze),
                 out_root=args.out_root,
-                rel_dir=comppath.rel_dir(method, source, monkey),
+                rel_dir=comppath.rel_dir(source, monkey),
                 dpi=args.dpi,
             )
             plt.close(fig)

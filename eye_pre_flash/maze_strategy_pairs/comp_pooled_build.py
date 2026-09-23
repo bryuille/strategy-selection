@@ -48,7 +48,7 @@ Usage:
     uv run python -m eye_pre_flash.maze_strategy_pairs.comp_pooled_build
     uv run python -m eye_pre_flash.maze_strategy_pairs.comp_pooled_build --k 6 12 --maze 4
 
-Writes out/comp_pooled/<method>/<source>/<monkey>/maze<M>.png, results.csv,
+Writes out/comp_pooled/<source>/<monkey>/maze<M>.png, results.csv,
 p_by_maze_k.csv and a summary_<monkey>.md table of p for maze x K.
 """
 
@@ -275,13 +275,13 @@ def table_rows(indexed, ks, mazes):
     return out
 
 
-def write_summary_md(path, rows, ks, mazes, *, monkey, method, source):
+def write_summary_md(path, rows, ks, mazes, *, monkey, source):
     """The maze x K table, one block per (feature, variant), human-readable."""
     if not rows:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [
-        f"# Pooled p by maze and K - {monkey} / {method} / {source}",
+        f"# Pooled p by maze and K - {monkey} / {source}",
         "",
         "Codebook fitted per (monkey, maze), pooled across every in-scope",
         "session; the estimator pools every in-scope session's trials of one",
@@ -376,19 +376,19 @@ def sweep(args):
 
 def emit(rows_by_tree, args):
     for (method, source, scope, monkey), rows in sorted(rows_by_tree.items()):
-        write_csv(comppath.results_csv(args.out_root, method, source, monkey), rows)
+        write_csv(comppath.results_csv(args.out_root, source, monkey), rows)
 
         indexed = index_rows(rows)
         if not indexed:
-            print(f"  {method}/{source}/{monkey}: no cell cleared coverage; no table")
+            print(f"  {source}/{monkey}: no cell cleared coverage; no table")
             continue
 
         table = table_rows(indexed, args.k, args.maze)
-        write_csv(comppath.table_csv(args.out_root, method, source, monkey), table)
+        write_csv(comppath.table_csv(args.out_root, source, monkey), table)
         write_summary_md(
-            comppath.summary_md(args.out_root, method, source, monkey),
+            comppath.summary_md(args.out_root, source, monkey),
             table, args.k, args.maze,
-            monkey=monkey, method=method, source=source,
+            monkey=monkey, source=source,
         )
 
         for maze in args.maze:
@@ -404,7 +404,7 @@ def emit(rows_by_tree, args):
                 for variant in args.variant
             }
             if not any(curves.values()):
-                print(f"  {method}/{source}/{monkey}/maze{maze}: no points; no figure")
+                print(f"  {source}/{monkey}/maze{maze}: no points; no figure")
                 continue
 
             # Coverage (n_H, n_S, n_sessions) is identical across every K,
@@ -429,7 +429,7 @@ def emit(rows_by_tree, args):
             save_figure(
                 fig, comppath.stem(maze),
                 out_root=args.out_root,
-                rel_dir=comppath.rel_dir(method, source, monkey),
+                rel_dir=comppath.rel_dir(source, monkey),
                 dpi=args.dpi,
             )
             plt.close(fig)

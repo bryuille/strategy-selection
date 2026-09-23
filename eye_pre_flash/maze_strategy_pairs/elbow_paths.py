@@ -3,23 +3,16 @@
 Shares `paths.OUT_ROOT` with the pooled analysis and both K sweeps, but takes
 its own `elbow/` subtree, so nothing here can collide with any of them.
 
-The tree has two halves, because this analysis has two stages that depend on
-different things:
-
 ``out/elbow/<source>/<monkey>/ev_curves.png``            held-out EV against K, one line per maze
 ``out/elbow/<source>/<monkey>/selected_k.csv``           K per maze, all three rules, diagnostics
+``out/elbow/<source>/<monkey>/maze<M>_<feature>_<variant>.png``  2x2 panel at the selected K
+``out/elbow/<source>/<monkey>/results.csv``              one row per (maze, feature, variant)
+``out/elbow/<source>/summary_<monkey>.md``               the same, readable
 
-``out/elbow/<method>/<source>/<monkey>/maze<M>.png``     the 2x2 panel at the selected K
-``out/elbow/<method>/<source>/<monkey>/results.csv``     one row per (maze, feature, variant)
-``out/elbow/<method>/<source>/summary_<monkey>.md``      the same, readable
-
-`<method>` is absent from the selection half on purpose. Selecting K is
-label-blind *and* estimator-blind -- it never calls `estimator.estimate`, so
-`trial_by_trial` and `block_means` would receive byte-identical files. Writing
-them under a `<method>` level would mean writing the same numbers twice and
-inviting a reader to diff two files that cannot differ. The estimate half does
-depend on the method, so it keeps that level, exactly as `comp_pooled_paths`
-does.
+Selection and estimation share one directory: selecting K is label-blind and
+never calls `estimator.estimate`, but with only one scoring method
+(`block_means`) there is no reason to keep a separate method level for the
+estimate half.
 
 As in `comp_pooled_paths.py`, there is no `<variant>` level -- a variant is a
 row in the table, not a directory -- and K is not a level either. Here K is not
@@ -38,13 +31,13 @@ ELBOW = "elbow"
 
 
 def select_dir(source, monkey):
-    """The method-independent half: everything about choosing K."""
+    """Directory for both K selection artefacts and the estimate at that K."""
     return f"{ELBOW}/{source}/{monkey}"
 
 
-def rel_dir(method, source, monkey):
-    """The method-dependent half: the estimate at the selected K."""
-    return f"{ELBOW}/{method}/{source}/{monkey}"
+def rel_dir(source, monkey):
+    """Alias of `select_dir` -- estimate and selection share one directory."""
+    return select_dir(source, monkey)
 
 
 def stem(maze, feature, variant):
@@ -65,9 +58,9 @@ def selected_k_csv(out_root, source, monkey):
     return out_root / select_dir(source, monkey) / "selected_k.csv"
 
 
-def results_csv(out_root, method, source, monkey):
-    return out_root / rel_dir(method, source, monkey) / "results.csv"
+def results_csv(out_root, source, monkey):
+    return out_root / rel_dir(source, monkey) / "results.csv"
 
 
-def summary_md(out_root, method, source, monkey):
-    return out_root / f"{ELBOW}/{method}/{source}" / f"summary_{monkey}.md"
+def summary_md(out_root, source, monkey):
+    return out_root / f"{ELBOW}/{source}" / f"summary_{monkey}.md"

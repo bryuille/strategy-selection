@@ -4,12 +4,11 @@ The repo convention (see `plotting/plot_io.save_figure`) is that each figure
 package owns one `out/` declared here, so the tree template lives in exactly
 one place.
 
-``out/<method>/<source>/<monkey>/<variant>/maze<M>_<feature>.png``
-``out/<method>/<source>/<monkey>/<variant>/results.csv``
+``out/<source>/<monkey>/<variant>/maze<M>_<feature>.png``
+``out/<source>/<monkey>/<variant>/results.csv``
 
-`<method>` is `trial_by_trial` or `block_means` (`estimator.METHODS`): the two
-ways of scoring a group pairing, swept side by side over an otherwise
-identical figure set, so the same panel can be compared between them.
+There is only one scoring method (`block_means` in `estimator.py`), so it is
+not a directory level.
 
 `k` is **not** a directory level: both K = 6 and K = 12 are panels inside one
 file, so a `k<k>` directory would be a lie. The variant takes that slot --
@@ -23,13 +22,13 @@ from pathlib import Path
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 
-def rel_dir(method, source, monkey, variant):
-    return f"{method}/{source}/{monkey}/{variant}"
+def rel_dir(source, monkey, variant):
+    return f"{source}/{monkey}/{variant}"
 
 
 def stem(maze, feature):
     return f"maze{maze}_{feature}"
 
 
-def results_csv(out_root, method, source, monkey, variant):
-    return out_root / rel_dir(method, source, monkey, variant) / "results.csv"
+def results_csv(out_root, source, monkey, variant):
+    return out_root / rel_dir(source, monkey, variant) / "results.csv"
