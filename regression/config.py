@@ -11,8 +11,6 @@ from pathlib import Path
 
 import numpy as np
 
-from data.config import PRE_FIX_START_MS
-
 # ---- scope -------------------------------------------------------------------
 
 SESSIONS = {
@@ -24,20 +22,15 @@ N_MAZES = 6
 
 # ---- windows -----------------------------------------------------------------
 # Each maps a trial's fix_start (ms from geo_present) to (lo, hi), also ms from
-# geo_present. Both go through the identical detect -> warp -> assign path.
+# geo_present, and goes through the detect -> warp -> assign path.
 
 
 def _geofix(fix_ms):
     return 0.0, float(fix_ms)
 
 
-def _pre1466(fix_ms):
-    return float(fix_ms) - float(PRE_FIX_START_MS), float(fix_ms)
-
-
 WINDOWS = {
     "geofix": _geofix,  # [geo_present, fix_start], variable length
-    "pre1466": _pre1466,  # [fix_start - 1466 ms, fix_start], the msp window
 }
 WINDOW_NAMES = tuple(WINDOWS)
 
@@ -72,19 +65,17 @@ ZERO_SD = 1e-9  # columns with smaller SD are dropped
 # always 1 at the exits in a ~1.5 s window); fewer and a handful of revisit
 # trials can perfectly predict the label (quasi-separation, beta -> infinity).
 MIN_OFF_MODE = 10
-# Total dwell, visit count and mean duration are tied by
-# log(dwell) = log(visits) + log(duration), so they nearly always overlap. A
-# column whose variance is more than this fraction explained by the earlier
-# predictors of the same state (order: PREDICTORS) is dropped and the reason
-# recorded: it would not add a separately estimable effect.
+# A column whose variance is more than this fraction explained by the earlier
+# predictors of the same state (order: PREDICTORS), or whose leftover variation
+# comes from fewer than MIN_OFF_MODE trials, is dropped and the reason recorded:
+# it would not add a separately estimable effect.
 MAX_R2 = 0.9
 ALPHA = 0.05
 SEED = 0
 
-# The four predictors, in the order they are tried (and drawn): (key, label).
+# The three predictors, in the order they are tried (and drawn): (key, label).
 PREDICTORS = (
     ("occupied", "bin occupancy"),
-    ("time", "time occupancy"),
     ("visits", "visit count"),
     ("duration", "mean fixation duration"),
 )

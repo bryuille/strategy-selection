@@ -110,7 +110,6 @@ def build_monkey(monkey, tag, spec, args):
                 X, y, sess, _prof = cells[maze]
                 run, reason = estimator.run_maze(
                     features.apply_variant(X, variant), y, sess,
-                    transform=features.variant_transform(variant),
                     seed=estimator.maze_seed(args.seed, maze),
                     n_rounds=args.n_rounds, n_perm=args.n_perm,
                     min_trials=args.min_trials,

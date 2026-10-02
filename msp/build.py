@@ -10,16 +10,14 @@ within-session label-shuffle null. See `msp.md`.
 
 Fixed here, and so not a CLI axis: SVM labels at the top-ten scope, binary
 occupancy, K = 5 with the codebook in `config.py`, mazes 2-5 only.
-Assignment is uniform balls by default (`--radius`, e.g. ``r0.5`` / ``r0.75`` /
-``r1``). The analysis window defaults to ``geofix`` (maze onset to fixation
-onset, re-detected per trial, top-ten sessions); ``--window pre1466`` uses the
-legacy attractor caches and writes under ``out/r0.5_pre1466/``.
+Assignment is uniform balls by default (`--radius`, e.g. ``r0.5`` / ``r1``).
+The analysis window is ``geofix`` (maze onset to fixation onset, re-detected
+per trial, top-ten sessions).
 
 Usage:
     uv run python -m msp.build --dry-run
     uv run python -m msp.build
     uv run python -m msp.build --radius 0.5
-    uv run python -m msp.build --radius 0.5 --window pre1466   # legacy window
     uv run python -m msp.build --monkey Faure --maze 4 --n-perm 200
 
 Writes, under out/<tag>/<Monkey>/: <variant>/maze<M>.png, <variant>/results.csv,
@@ -347,11 +345,6 @@ def main():
         help="uniform assignment radius around each fixed prototype (unit H); "
              "carried in the cache stem, so a new value triggers one extraction pass",
     )
-    parser.add_argument(
-        "--window", default=cfg.DEFAULT_WINDOW, choices=list(cfg.WINDOW_NAMES),
-        help="analysis clip: geofix (default, tag r<radius>; re-detects from raw "
-             "eye) or pre1466 (tag r<radius>_pre1466; attractor caches)",
-    )
     parser.add_argument("--n-rounds", type=int, default=estimator.N_ROUNDS)
     parser.add_argument("--n-perm", type=int, default=estimator.N_PERM)
     parser.add_argument(
@@ -372,7 +365,7 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     args.maze = sorted(set(args.maze))
-    args.assignment = cfg.resolve_assignment(radius=args.radius, window=args.window)
+    args.assignment = cfg.resolve_assignment(radius=args.radius)
 
     if args.dry_run:
         dry_run(args)

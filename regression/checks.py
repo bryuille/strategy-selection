@@ -22,13 +22,13 @@ N_PER_MAZE = 80
 ORIGIN, LU, LD, RU, RD = range(K)
 
 
-def synth(rng, *, beta_occ_lu=0.0, beta_time_ld=0.0, geometry=True):
+def synth(rng, *, beta_occ_lu=0.0, beta_dur_ld=0.0, geometry=True):
     """Mazes whose geometry sets both the gaze profile and the S base rate.
 
     Within a maze the label depends on gaze only through the planted betas, so
     with both at 0 any gaze effect a model reports is geometry leaking.
     Origin and LD get revisits (visit counts vary); the exits are almost always
-    a single visit, so there total dwell and mean duration coincide.
+    a single visit, so visit count cannot be estimated there.
     """
     mazes, occ, visits, dwell, dur, base = [], [], [], [], [], []
     for c in range(N_MAZES):
@@ -47,11 +47,11 @@ def synth(rng, *, beta_occ_lu=0.0, beta_time_ld=0.0, geometry=True):
         "occ": np.vstack(occ), "visits": np.vstack(visits),
         "dwell_ms": np.vstack(dwell), "dur_ms": np.vstack(dur),
     }
-    # planted time effect: per SD of log dwell among visited LD trials, 0 if unvisited
+    # planted duration effect: per SD of log mean duration among visited LD trials, 0 if unvisited
     seen = meas["occ"][:, LD] > 0
-    lw = np.log(np.where(seen, meas["dwell_ms"][:, LD], 1.0))
+    lw = np.log(np.where(seen, meas["dur_ms"][:, LD], 1.0))
     z_ld = np.where(seen, (lw - lw[seen].mean()) / lw[seen].std(), 0.0)
-    eta = np.concatenate(base) + beta_time_ld * z_ld
+    eta = np.concatenate(base) + beta_dur_ld * z_ld
     y = (rng.random(eta.size) < expit(eta)).astype(float)
     return meas, np.asarray(mazes), y
 
@@ -110,18 +110,18 @@ def check_offsets_remove_geometry(n_seeds=200):
 
 
 def check_planted_effects(n_seeds=40):
-    """Planted occupied[LU] = 1.5 and time[LD] = 1.0 per SD: recovered, and
+    """Planted occupied[LU] = 1.5 and duration[LD] = 1.0 per SD: recovered, and
     the 95% interval covers the truth about 95% of the time."""
     cover, est = [], []
     for seed in range(n_seeds):
-        meas, mazes, y = synth(np.random.default_rng(100 + seed), beta_occ_lu=1.5, beta_time_ld=1.0)
+        meas, mazes, y = synth(np.random.default_rng(100 + seed), beta_occ_lu=1.5, beta_dur_ld=1.0)
         rows, _ = analyse(meas, mazes, y, sorted(set(mazes)), list(range(K)))
-        a, b = _row(rows, "occupied", "LU"), _row(rows, "time", "LD")
+        a, b = _row(rows, "occupied", "LU"), _row(rows, "duration", "LD")
         est.append((a["beta"], b["beta"]))
         cover.append((a["ci_lo"] < 1.5 < a["ci_hi"], b["ci_lo"] < 1.0 < b["ci_hi"]))
     est, cover = np.mean(est, axis=0), np.mean(cover, axis=0)
     print(f"  planted occupied[LU]=1.5: mean est {est[0]:+.2f}, CI coverage {cover[0]:.2f}")
-    print(f"  planted time[LD]=1.0: mean est {est[1]:+.2f}, CI coverage {cover[1]:.2f}")
+    print(f"  planted duration[LD]=1.0: mean est {est[1]:+.2f}, CI coverage {cover[1]:.2f}")
     assert abs(est[0] - 1.5) < 0.25 and abs(est[1] - 1.0) < 0.25
     assert (cover > 0.8).all(), cover
 
@@ -141,19 +141,31 @@ def check_offsets_are_maze_log_odds():
 
 
 def check_redundant_predictors_reported():
-    """Exits with single visits: visits is dropped (no variation) and mean
-    duration is dropped as the same thing as time occupancy. Where visits do
-    vary, duration = time / visits is almost fully explained by the other two.
-    Each drop says why."""
+    """Exits with single visits: visits is dropped (no variation) with its
+    reason; mean duration is still fitted there. Where visits vary, both fit."""
     meas, mazes, y = synth(np.random.default_rng(6))
     rows, _ = analyse(meas, mazes, y, sorted(set(mazes)), list(range(K)))
     vis = _row(rows, "visits", "LU")["status"]
     dur = _row(rows, "duration", "LU")["status"]
     assert vis.startswith("not fit: only"), vis
-    assert dur.startswith("not fit: same as time occupancy"), dur
+    assert dur == "fit", dur
     assert _row(rows, "visits", "origin")["status"] == "fit"
-    assert "explained by occupied + time + visits" in _row(rows, "duration", "origin")["status"]
+    assert _row(rows, "duration", "origin")["status"] == "fit"
     print(f"  LU visits -> '{vis}'; LU duration -> '{dur}'")
+
+
+def check_separation_dropped():
+    """Labels fully determined by LU occupancy: occupied[LU] runs off to
+    infinity. The fit must converge by dropping a column, with the reason
+    reported, and leave the other landmarks' columns fitted."""
+    meas, mazes, y = synth(np.random.default_rng(10))
+    y = (meas["occ"][:, LU] > 0).astype(float)
+    rows, summary = analyse(meas, mazes, y, sorted(set(mazes)), list(range(K)))
+    st = _row(rows, "occupied", "LU")["status"]
+    assert summary["converged"], summary
+    assert st.startswith("not fit: separates the labels"), st
+    assert _row(rows, "occupied", "origin")["status"] == "fit"
+    print(f"  separating column dropped, fit converged: LU occupied -> '{st}'")
 
 
 def check_window_term():
@@ -191,6 +203,7 @@ def main():
         check_offsets_remove_geometry,
         check_offsets_are_maze_log_odds,
         check_redundant_predictors_reported,
+        check_separation_dropped,
         check_window_term,
         check_figure_renders,
     ):

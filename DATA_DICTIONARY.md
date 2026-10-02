@@ -6,16 +6,16 @@ values repeat across neurons. `trial_indices_all` is the stable trial key and
 must be used for cross-file joins; row position must not be used as a trial ID.
 
 Paths below are given as they appear in the published distribution
-(`Data/Physiology/...`). In this repo the same files live under `data/mat/`, and
+(`Data/Physiology/...`). In this repo the same files live under `<MAT_ROOT>/`, and
 all path construction goes through `data/config.py`:
 
 | Published path | This repo | Read by |
 | -------------- | --------- | ------- |
-| `Data/Physiology/Behavioral_Data/<Monkey>/` | `data/mat/Behavioral_Data/<Monkey>/` | `data.convert behavioral` |
-| `Data/Physiology/Neural_Data/<Monkey>/` | `data/mat/Neural_Data/<Monkey>/` | `data.convert neural` |
-| `Data/Physiology/Eye_Data/<Monkey>/` | `data/mat/Eye_Data/<Monkey>/` | `data.convert eye` |
-| `Data/Physiology/Single_Trial_List/<Monkey>/` | `data/mat/Single_Trial_List/<Monkey>/` | `data.convert single_trial` |
-| `Data/Physiology/Decoding_Data/<Monkey>/` | `data/mat/Decoding_Data/<Monkey>/` | nothing — reference only |
+| `Data/Physiology/Behavioral_Data/<Monkey>/` | `<MAT_ROOT>/Behavioral_Data/<Monkey>/` | `data.mat.load_behavioral` |
+| `Data/Physiology/Neural_Data/<Monkey>/` | `<MAT_ROOT>/Neural_Data/<Monkey>/` | `data.mat.load_neural` |
+| `Data/Physiology/Eye_Data/<Monkey>/` | `<MAT_ROOT>/Eye_Data/<Monkey>/` | `data.mat.load_eye` |
+| `Data/Physiology/Single_Trial_List/<Monkey>/` | `<MAT_ROOT>/Single_Trial_List/<Monkey>/` | `data.mat.load_single_trial` |
+| `Data/Physiology/Decoding_Data/<Monkey>/` | `<MAT_ROOT>/Decoding_Data/<Monkey>/` | nothing — reference only |
 | `Data/Pre_Physiology/` | not present | nothing — reference only |
 
 The last two sections of this file describe trees the Python code never opens.
@@ -139,7 +139,7 @@ QC is applied after this range is loaded; the optimization is not rerun.
 
 ## Decoder outputs (reference only)
 
-Files: `Data/Physiology/Decoding_Data/<Monkey>/`. Present in `data/mat/` but not
+Files: `Data/Physiology/Decoding_Data/<Monkey>/`. Present in `<MAT_ROOT>/` but not
 read by any Python module here; the DV decoders in `neural_traces/decoders/` refit from
 firing rates rather than loading these.
 

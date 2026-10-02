@@ -10,7 +10,6 @@
 * ``x[s,k]``, for each codebook state s (origin, LU, LD, RU, RD):
 
   ``occupied``  1 if state s received any dwell, centred (beta = visited vs not)
-  ``time``      z(log total dwell), 0 where unvisited
   ``visits``    z(visit count), 0 where unvisited
   ``duration``  z(log mean fixation duration), 0 where unvisited
 
@@ -103,7 +102,6 @@ def _state_columns(meas, s):
         out["occupied"] = (occ - occ.mean(), None)
 
     with np.errstate(invalid="ignore", divide="ignore"):
-        log_dwell = np.where(visited, np.log(meas["dwell_ms"][:, s]), np.nan)
         log_dur = np.where(visited, np.log(meas["dur_ms"][:, s]), np.nan)
     visits = np.where(visited, meas["visits"][:, s], np.nan)
 
@@ -113,7 +111,7 @@ def _state_columns(meas, s):
         off_mode = int(ref.size - counts.max())
     else:
         off_mode = 0
-    for key, raw in (("time", log_dwell), ("visits", visits), ("duration", log_dur)):
+    for key, raw in (("visits", visits), ("duration", log_dur)):
         if key == "visits" and off_mode < MIN_OFF_MODE:
             out[key] = (None, f"only {off_mode} trials off the modal count")
             continue
@@ -122,12 +120,14 @@ def _state_columns(meas, s):
     return out
 
 
-def build_design(meas, mazes, maze_names, states):
+def build_design(meas, mazes, maze_names, states, exclude=None):
     """Design matrix: one offset per maze, then each kept state's predictors.
 
     A predictor is dropped (and recorded with its reason) when it cannot vary,
     when visits are almost always the modal count, or when more than `MAX_R2`
     of it is explained by the earlier predictors of the same state.
+    `exclude` maps ``(state name, predictor)`` to a reason: those columns are
+    dropped up front (used when a fit fails to converge).
     """
     n = mazes.size
     cols = [(mazes == m).astype(float) for m in maze_names]
@@ -143,14 +143,9 @@ def build_design(meas, mazes, maze_names, states):
         kept = []  # (key, column)
         for key, _ in PREDICTORS:
             col, reason = _state_columns(meas, s)[key]
-            if col is not None and key == "duration" and any(
-                d[:2] == (STATE_NAMES[s], "visits") for d in dropped
-            ):
-                # visits are single on all but a few trials, so mean duration
-                # equals total dwell except on those few; they alone would
-                # carry the "difference" and can separate the labels.
-                col, reason = None, "same as time occupancy (visits are single on almost every trial)"
-            elif col is not None and kept:
+            if (STATE_NAMES[s], key) in (exclude or {}):
+                col, reason = None, exclude[(STATE_NAMES[s], key)]
+            if col is not None and kept:
                 P = np.column_stack([c for _, c in kept])
                 resid = col - P @ np.linalg.lstsq(P, col, rcond=None)[0]
                 r2 = 1.0 - float(resid @ resid) / float(col @ col)
@@ -281,8 +276,20 @@ def analyse(meas, mazes, y, maze_names, states):
     were dropped (``status`` says why; their numbers are NaN). `p_holm` is the
     Holm adjustment over the fitted gaze coefficients only.
     """
-    d = build_design(meas, mazes, maze_names, states)
-    f = fit_logit(d.X, y)
+    # A fit that does not converge (an estimate running off to infinity: the
+    # labels are separated by some combination of columns) is repaired by
+    # dropping the gaze column with the largest |beta| and refitting, until it
+    # converges. Each dropped column is reported with this reason.
+    exclude = {}
+    while True:
+        d = build_design(meas, mazes, maze_names, states, exclude)
+        f = fit_logit(d.X, y)
+        gaze_j = [j for j in range(d.n_lead, len(d.names))]
+        if f.converged or not gaze_j:
+            break
+        j = max(gaze_j, key=lambda j: abs(f.beta[j]))
+        key, _, st = d.names[j].partition("[")
+        exclude[(st.rstrip("]"), key)] = "separates the labels (estimate ran off to infinity)"
     se = np.sqrt(np.clip(np.diag(f.cov), 0, None)) if f.cov is not None else np.full(len(d.names), np.nan)
     z = f.beta / np.where(se > 0, se, np.nan)
     p = 2 * norm.sf(np.abs(z))

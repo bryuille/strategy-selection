@@ -2,7 +2,7 @@
 
 Read straight from ``<session>_strategy_choices.npz`` (the published Ward
 clustering), never through `data.loader.load_strategy_choices`: that loader
-builds on a miss, and a build means converting the session's neural
+builds on a miss, and a build means reading the session's neural
 recording, which must not start silently inside an analysis job. A missing
 label file raises and names the session.
 

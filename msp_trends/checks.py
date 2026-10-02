@@ -32,7 +32,9 @@ def check_matches_msp():
         assert getattr(a, f) == getattr(b, f), (f, getattr(a, f), getattr(b, f))
     print("ok  run_maze == msp.estimator.estimate")
 
-    t = features.balanced_mean_removed
+    def t(X, labels):  # label-dependent: centre on the H mean
+        return X - X[labels == 0].mean(axis=0)
+
     run, _ = estimator.run_maze(X, y, sess, seed=7, n_rounds=20, n_perm=50, transform=t)
     ref, _ = msp_est.estimate(X, y, sess, seed=7, n_rounds=20, n_perm=50, transform=t)
     assert np.array_equal(run.result.q, ref.q)
@@ -89,37 +91,6 @@ def check_tiny_strategy():
     print("ok  undefined observed score -> z, p NaN (no floor p)")
 
 
-def check_balanced_centre():
-    """Residual means are w_other·(μ_X − μ_other), with w ∝ sqrt(n)."""
-    rng = np.random.default_rng(6)
-    X, y, _ = _synthetic(rng, 400, 25, [0.8, 0.9, 0.2], [0.5, 0.95, 0.4])
-    R = features.balanced_mean_removed(X, y)
-    mu_h, mu_s = X[y == 0].mean(0), X[y == 1].mean(0)
-    w_h, w_s = np.sqrt(400) / (np.sqrt(400) + np.sqrt(25)), np.sqrt(25) / (np.sqrt(400) + np.sqrt(25))
-    assert np.allclose(R[y == 0].mean(0), w_s * (mu_h - mu_s))
-    assert np.allclose(R[y == 1].mean(0), w_h * (mu_s - mu_h))
-    print(f"ok  balanced centre: w_H = {w_h:.2f}, w_S = {w_s:.2f} (grand mean: 0.94 / 0.06)")
-
-
-def check_balanced_diagonals():
-    """10:1 imbalance, planted effect: the grand mean leaves the diagonals far
-    apart; sqrt(n) centring brings them together."""
-    rng = np.random.default_rng(7)
-    gaps = {"mean_removed": [], "mean_removed_balanced": []}
-    for rep in range(6):
-        X, y, sess = _synthetic(rng, 500, 50, [0.75, 0.9, 0.25], [0.6, 0.93, 0.4])
-        for variant in gaps:
-            run, _ = estimator.run_maze(
-                features.apply_variant(X, variant), y, sess, seed=rep,
-                n_rounds=100, n_perm=2, transform=features.variant_transform(variant),
-            )
-            q = run.result.q
-            gaps[variant].append(abs(q[0, 0] - q[1, 1]))
-    g_grand, g_bal = np.mean(gaps["mean_removed"]), np.mean(gaps["mean_removed_balanced"])
-    assert g_bal < 0.5 * g_grand, (g_grand, g_bal)
-    print(f"ok  |r_HH − r_SS| at 500:50 — grand mean {g_grand:.2f}, sqrt(n) {g_bal:.2f}")
-
-
 def check_two_state_degenerate():
     """Why three states: Pearson of two 2-vectors is always ±1."""
     rng = np.random.default_rng(4)
@@ -173,49 +144,23 @@ def check_region_rule():
     print("ok  region rule: origin ball, rounded-square perimeter, quadrant ties")
 
 
-def check_stem_rule():
-    """Stem strip taken after the origin ball and before the quadrant split."""
-    O, LU, RU, STEM = 0, 1, 3, 5
-    pts = np.array([
-        [0.1, 0.3],    # origin ball wins over the stem
-        [-0.2, 0.8],   # stem (would be LU)
-        [0.2, 1.2],    # stem top (would be RU)
-        [0.0, 1.3],    # above STEM_TOP -> RU
-        [-0.3, 0.8],   # outside the strip -> LU
-        [0.1, -0.8],   # below the origin: no stem there -> RD
-    ])
-    got = features.region_states(pts, radius=0.5, stem=True)
-    assert list(got) == [O, STEM, STEM, RU, LU, 4], got
-    assert list(features.region_states(pts, radius=0.5)) == [O, LU, RU, RU, LU, 4]
-    m = {r: features.merge_columns(np.eye(6), "max", CODEBOOKS[r]) for r in ("halvesstem", "quadsstem")}
-    assert np.array_equal(m["halvesstem"][5], [0, 0, 1, 0])  # stem column
-    assert np.array_equal(m["quadsstem"][5], [0, 0, 0, 1, 0, 0])
-    print("ok  stem rule: origin first, strip |x| <= 0.25 up to y 1.25, then quadrants")
-
-
 def check_region_patch_scoped():
     original, k = msp_features.assign_states, msp_features.K
     with features._rule_context(features.REGION_RULE):
         assert msp_features.assign_states is features.region_states and msp_features.K == 5
-    with features._rule_context(features.STEM_RULE):
-        assert msp_features.K == 6
-        assert msp_features.assign_states(np.array([[0.0, 0.8]]), None, 0.5)[0] == 5
     assert msp_features.assign_states is original and msp_features.K == k
-    print("ok  region / stem rules swapped into msp only inside the context")
+    print("ok  region rule swapped into msp only inside the context")
 
 
 def main():
     check_merge()
     check_region_rule()
-    check_stem_rule()
     check_region_patch_scoped()
     check_two_state_degenerate()
     check_matches_msp()
     check_pooled_is_weighted_mean()
     check_power_and_calibration()
     check_tiny_strategy()
-    check_balanced_centre()
-    check_balanced_diagonals()
     print("all checks passed")
 
 

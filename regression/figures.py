@@ -24,7 +24,6 @@ OFFSET_COLOR = "#3b3b3b"
 INK, INK_2, GRID = "#1a1a1a", "#555555", "#e4e4e4"
 PRED_TITLES = {
     "occupied": "bin occupancy\n(visited vs not)",
-    "time": "time occupancy\n(per SD of total dwell)",
     "visits": "visit count\n(per SD)",
     "duration": "mean fixation duration\n(per SD)",
 }

@@ -1,15 +1,31 @@
-import os
 from pathlib import Path
 
-# Raw/derived data root. Defaults to `./data/`. On the cluster, Slurm jobs set
-# `STRATEGY_DATA_ROOT` to the scratch volume so mat/npz/processed do not live
-# under the code checkout (e.g.
-# `/home/byuille/orcd/scratch/strategy_selection_data/`).
-_DATA_ROOT = Path(os.environ["STRATEGY_DATA_ROOT"]) if os.environ.get("STRATEGY_DATA_ROOT") else Path("./data")
+# ---------------------------------------------------------------------------
+# SET THESE TWO PATHS. Nothing else needs configuring.
+#
+# MAT_ROOT       Folder holding the raw `.mat` files (required, no default):
+#                    <MAT_ROOT>/{Behavioral_Data,Eye_Data,Neural_Data,
+#                                Single_Trial_List}/{Faure,Nielsen}/*.mat
+#                The code only ever reads from it. It is never written to.
+# PROCESSED_ROOT Folder for everything the code computes (labels, eye
+#                tables, feature caches). Created if missing. Any folder
+#                outside MAT_ROOT will do.
+# ---------------------------------------------------------------------------
+MAT_ROOT = None  # e.g. Path("/Volumes/archive/mat")
+PROCESSED_ROOT = Path("./data/processed")
 
-MAT_ROOT = _DATA_ROOT / "mat"
-NPZ_ROOT = _DATA_ROOT / "npz"
-PROCESSED_ROOT = _DATA_ROOT / "processed"
+if MAT_ROOT is not None:
+    MAT_ROOT = Path(MAT_ROOT).expanduser().resolve()
+PROCESSED_ROOT = Path(PROCESSED_ROOT).expanduser().resolve()
+
+if MAT_ROOT is not None and (
+    PROCESSED_ROOT == MAT_ROOT or MAT_ROOT in PROCESSED_ROOT.parents
+):
+    raise RuntimeError(
+        f"PROCESSED_ROOT ({PROCESSED_ROOT}) is inside MAT_ROOT ({MAT_ROOT}). "
+        "Outputs must not be written into the raw data; pick another folder "
+        "in data/config.py."
+    )
 
 MONKEYS = ("Faure", "Nielsen")
 KINDS = {
@@ -46,43 +62,29 @@ def monkey_for_session(session):
 
 
 def mat_dir(kind, monkey):
+    if MAT_ROOT is None:
+        raise RuntimeError(
+            "MAT_ROOT is not set. Open data/config.py and set MAT_ROOT to the "
+            "folder that holds your Behavioral_Data/, Eye_Data/, Neural_Data/ "
+            "and Single_Trial_List/ folders."
+        )
     return MAT_ROOT / KINDS[kind] / monkey
-
-
-def npz_dir(kind, monkey):
-    return NPZ_ROOT / KINDS[kind] / monkey
 
 
 def behavioral_mat_path(monkey, session):
     return mat_dir("behavioral", monkey) / f"{session}_good_trials_concat.mat"
 
 
-def behavioral_npz_path(monkey, session):
-    return npz_dir("behavioral", monkey) / f"{session}_good_trials_concat.npz"
-
-
 def eye_mat_path(monkey, session):
     return mat_dir("eye", monkey) / f"Eye_Data_{session}.mat"
-
-
-def eye_npz_path(monkey, session):
-    return npz_dir("eye", monkey) / f"Eye_Data_{session}.npz"
 
 
 def neural_mat_path(monkey, session):
     return mat_dir("neural", monkey) / f"{session}_Whole_Trial_FR_Causal.mat"
 
 
-def neural_npz_path(monkey, session):
-    return npz_dir("neural", monkey) / f"{session}_Whole_Trial_FR_Causal.npz"
-
-
 def single_trial_mat_path(monkey, session):
     return mat_dir("single_trial", monkey) / f"single_trial_list_{session}.mat"
-
-
-def single_trial_npz_path(monkey, session):
-    return npz_dir("single_trial", monkey) / f"single_trial_list_{session}.npz"
 
 
 def processed_npz(stem):

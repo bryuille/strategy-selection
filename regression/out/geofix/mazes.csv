@@ -1,0 +1,13 @@
+maze,n_H,n_S,kept,monkey
+1,85,1,False,Faure
+2,69,22,True,Faure
+3,90,4,False,Faure
+4,13,96,True,Faure
+5,20,130,True,Faure
+6,11,111,True,Faure
+1,116,3,False,Nielsen
+2,127,15,True,Nielsen
+3,141,9,True,Nielsen
+4,66,71,True,Nielsen
+5,3,152,False,Nielsen
+6,0,162,False,Nielsen

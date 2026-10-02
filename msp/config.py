@@ -1,10 +1,8 @@
 """Package configuration: codebook, assignment, output paths, and figure style.
 
 Assignment is uniform circular balls around the five fixed prototypes
-(``--radius``; tags ``r0.5``, ``r0.75``, ``r1``). The analysis window is
-``geofix`` (maze onset to fixation onset) unless named: the legacy
-``pre1466`` window appends to the tag (``r0.5_pre1466``). Nothing here fits a
-codebook:
+(``--radius``; tags ``r0.5``, ``r1``). The analysis window is ``geofix``
+(maze onset to fixation onset). Nothing here fits a codebook:
 `data.builder.to_maze` warps gaze into unit H, so the five landmarks have
 known coordinates and K = 5 is a statement about the maze.
 
@@ -20,8 +18,6 @@ from pathlib import Path
 
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
-
-from data.config import PRE_FIX_START_MS
 
 # ---- codebook / assignment -------------------------------------------------
 
@@ -45,34 +41,23 @@ MAZE_SCREEN_LIM = 3.0  # unit-H plot box; warped samples outside are off-maze
 
 # ---- windows -----------------------------------------------------------------
 # Each maps a trial's fix_start (ms from geo_present) to (lo, hi). `geofix` is
-# the default (since 2026-10-02) and its tag omits the window: `r0.5`. The
-# legacy `pre1466` window appends: `r0.5_pre1466`. Fixation onset is ~1534 ms
-# after maze onset in nearly every trial (never below 1466 ms), so the two
-# differ by the first ~70 ms after maze onset; geofix re-detects fixations
-# inside its own window, pre1466 reuses the attractor / s1466 caches.
+# the only window and its tag omits it: `r0.5`. The retired fixed window
+# survives only in `msp.legacy.saccades`.
 
 
 def _geofix(fix_ms):
     return 0.0, float(fix_ms)
 
 
-def _pre1466(fix_ms):
-    return float(fix_ms) - float(PRE_FIX_START_MS), float(fix_ms)
-
-
 WINDOWS = {
     "geofix": _geofix,  # [geo_present, fix_start], variable length
-    "pre1466": _pre1466,  # [fix_start - 1466 ms, fix_start]
 }
 WINDOW_NAMES = tuple(WINDOWS)
 DEFAULT_WINDOW = "geofix"
-PRE1466 = "pre1466"  # the attractor-cache path in features / saccades
 
-ANALYSIS_TAGS = ("r0.5", "r0.75", "r1")
+ANALYSIS_TAGS = ("r0.5", "r1")
 
-_TAG_RE = re.compile(
-    r"^r([0-9]+(?:\.[0-9]+)?)(?:_(" + "|".join(WINDOW_NAMES) + r"))?$"
-)
+_TAG_RE = re.compile(r"^r([0-9]+(?:\.[0-9]+)?)$")
 
 
 @dataclass(frozen=True)
@@ -119,14 +104,11 @@ def resolve_assignment(*, radius=None, window=None) -> AssignmentSpec:
 
 
 def resolve_tag(tag: str) -> AssignmentSpec:
-    """Resolve an analysis tag (``r0.5``, ``r0.5_pre1466``, …) to an AssignmentSpec."""
+    """Resolve an analysis tag (``r0.5``, ``r1``, …) to an AssignmentSpec."""
     tag = str(tag)
     m = _TAG_RE.match(tag)
     if m:
-        return resolve_assignment(
-            radius=float(m.group(1)),
-            window=m.group(2) or DEFAULT_WINDOW,
-        )
+        return resolve_assignment(radius=float(m.group(1)))
     known = ", ".join(ANALYSIS_TAGS)
     raise KeyError(f"unknown analysis tag {tag!r}; known: {known}")
 

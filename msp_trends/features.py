@@ -2,18 +2,16 @@
 
 Extraction is msp's (`msp.features.extract_monkey_features` under the package
 window). It assigns each fixation centroid to one of five msp states (origin,
-LU, LD, RU, RD), or six with the stem; every codebook here is a relabelling of
-those (`Codebook.state_map`). Three caches per (monkey, radius):
+LU, LD, RU, RD); every codebook here is a relabelling of those
+(`Codebook.state_map`). Two caches per (monkey, radius):
 
 ``<Monkey>_msp_trends_r<radius>.npz``             msp's balls (``balls``)
 ``<Monkey>_msp_trends_r<radius>_region.npz``      origin ball + maze quadrants
                                                   (``quads``; ``halves`` merges it)
-``<Monkey>_msp_trends_r<radius>_regionstem.npz``  the same plus a stem state
-                                                  (``quadsstem``, ``halvesstem``)
 
-For the region caches msp's ball rule is swapped for `region_states` for the
-duration of the extraction, and for the stem cache msp's state count is raised
-to six (msp's code is not edited; `_rule_context` scopes and undoes both).
+For the region cache msp's ball rule is swapped for `region_states` for the
+duration of the extraction (msp's code is not edited; `_rule_context` scopes
+and undoes the swap).
 Every cache is verified on load with msp's codebook / radius / window / state
 count check, under the same context, plus the stored ``assignment_rule``. The
 merge is a relabelling, so
@@ -37,7 +35,7 @@ from unittest import mock
 import numpy as np
 
 from data.config import processed_npz
-from data.convert import load_npz
+from data.mat import load_npz
 from data.loader import savez_atomic
 from msp import build as msp_build
 from msp import config as msp_cfg
@@ -47,12 +45,7 @@ from msp_trends.config import (
     BLOCKS,
     EXIT_HALF_WIDTH,
     LABEL_SCOPES,
-    N_STATES,
-    N_STATES_STEM,
     PERIMETER_RADIUS,
-    STEM_HALF_WIDTH,
-    STEM_STATE,
-    STEM_TOP,
     WINDOW,
     parse_tag,
 )
@@ -60,7 +53,6 @@ from msp_trends.config import (
 _O, _LU, _LD, _RU, _RD = 0, 1, 2, 3, 4  # msp state indices
 BALLS_RULE = "balls"
 REGION_RULE = f"region_exit{EXIT_HALF_WIDTH:g}_perim{PERIMETER_RADIUS:g}"
-STEM_RULE = f"{REGION_RULE}_stem{STEM_HALF_WIDTH:g}x{STEM_TOP:g}"
 
 
 def assignment_for(tag):
@@ -76,19 +68,13 @@ def inside_maze(xy):
     return np.linalg.norm(excess, axis=-1) <= PERIMETER_RADIUS
 
 
-def in_stem(xy):
-    """The upper stem strip: |x| <= `STEM_HALF_WIDTH`, 0 <= y <= `STEM_TOP`."""
-    xy = np.asarray(xy, dtype=float)
-    return (np.abs(xy[..., 0]) <= STEM_HALF_WIDTH) & (xy[..., 1] >= 0) & (xy[..., 1] <= STEM_TOP)
-
-
-def region_states(xy, codebook_xy=None, radius=None, *, stem=False):
+def region_states(xy, codebook_xy=None, radius=None):
     """msp state per centroid under the region rule; drop-in for
     `msp.features.assign_states` (`codebook_xy` is ignored).
 
-    Origin ball of `radius` first; then, with `stem`, the stem strip
-    (`STEM_STATE`); else, inside the maze, the quadrant (x >= 0 is right,
-    y >= 0 is up, so the stem and the crossbar break ties toward RU); else -1.
+    Origin ball of `radius` first; then, inside the maze, the quadrant
+    (x >= 0 is right, y >= 0 is up, so the stem and the crossbar break ties
+    toward RU); else -1.
     """
     xy = np.asarray(xy, dtype=np.float32)
     state = np.full(xy.shape[0], -1, dtype=np.int16)
@@ -99,35 +85,26 @@ def region_states(xy, codebook_xy=None, radius=None, *, stem=False):
     right, up = xy[:, 0] >= 0, xy[:, 1] >= 0
     quad = np.where(right, np.where(up, _RU, _RD), np.where(up, _LU, _LD))
     state[inside] = quad[inside]
-    if stem:
-        state[inside & in_stem(xy)] = STEM_STATE
     state[origin] = _O
     return state
 
 
 def rule_for(codebook):
-    if not codebook.region:
-        return BALLS_RULE
-    return STEM_RULE if codebook.stem else REGION_RULE
+    return REGION_RULE if codebook.region else BALLS_RULE
 
 
 @contextmanager
 def _rule_context(rule):
     """Inside msp's extraction (and its cache check): swap the ball rule for
-    `region_states`, and for the stem rule raise msp's state count to six so
-    the stem's dwell is bincounted rather than dropped."""
+    `region_states`."""
     if rule == BALLS_RULE:
         yield
         return
-    stem = rule == STEM_RULE
-    assign = (lambda xy, codebook_xy=None, radius=None:
-              region_states(xy, codebook_xy, radius, stem=True)) if stem else region_states
-    with mock.patch.object(msp_features, "assign_states", assign), \
-            mock.patch.object(msp_features, "K", N_STATES_STEM if stem else N_STATES):
+    with mock.patch.object(msp_features, "assign_states", region_states):
         yield
 
 
-_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region", STEM_RULE: "_regionstem"}
+_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region"}
 
 
 def cache_path(monkey, tag):
@@ -164,7 +141,7 @@ def load(monkey, tag, *, refresh=False):
 
 
 def merge_columns(X5, how, codebook):
-    """``(n, 5 or 6) -> (n, k)`` through ``codebook.state_map``; `how` is ``"max"`` or ``"sum"``."""
+    """``(n, 5) -> (n, k)`` through ``codebook.state_map``; `how` is ``"max"`` or ``"sum"``."""
     X5 = np.asarray(X5, dtype=float)
     smap = codebook.map_array
     out = np.zeros((X5.shape[0], codebook.k))
@@ -228,42 +205,10 @@ def scope(monkey, tag):
 pool_maze = msp_build.pool_maze
 
 
-def balanced_centre(X, labels):
-    """Centre ``c = w_H·μ_H + w_S·μ_S`` with ``w_X ∝ sqrt(n_X)``.
-
-    Each strategy's expected residual is ``w_other · (μ_X − μ_other)`` and its
-    split-half noise falls as ``1/sqrt(n_X)``, so sqrt(n) weights give both
-    diagonals the same expected signal-to-noise. The grand mean (``w ∝ n``)
-    favours the minority by ``(n_maj/n_min)^1.5``; equal weights favour the
-    majority by ``sqrt(n_maj/n_min)``. Uses the labels, so it must be refit
-    under every shuffle (`variant_transform`).
-    """
-    X = np.asarray(X, dtype=float)
-    labels = np.asarray(labels, dtype=int)
-    means, roots = [], []
-    for strategy in (0, 1):
-        rows = X[labels == strategy]
-        means.append(rows.mean(axis=0))
-        roots.append(np.sqrt(rows.shape[0]))
-    w = np.asarray(roots) / sum(roots)
-    return w[0] * means[0] + w[1] * means[1]
-
-
-def balanced_mean_removed(X, labels):
-    return np.asarray(X, dtype=float) - balanced_centre(X, labels)
-
-
 def apply_variant(X, variant):
-    """The label-free part: ``full`` and ``mean_removed_balanced`` unmodified
-    (the latter centres in `variant_transform`); ``mean_removed`` minus the
-    maze grand mean."""
-    if variant in ("full", "mean_removed_balanced"):
+    """``full`` unmodified; ``mean_removed`` minus the maze grand mean."""
+    if variant == "full":
         return np.asarray(X, dtype=float)
     if variant == "mean_removed":
         return msp_features.apply_mean_removed(X, msp_features.fit_grand_mean(X))
     raise ValueError(f"unknown variant {variant!r}")
-
-
-def variant_transform(variant):
-    """Label-dependent preprocessing for `estimator.run_maze`, or None."""
-    return balanced_mean_removed if variant == "mean_removed_balanced" else None

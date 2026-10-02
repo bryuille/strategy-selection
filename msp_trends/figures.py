@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
+from matplotlib.patches import Circle, FancyBboxPatch
 
 from msp import figures as msp_fig
 from msp_trends.estimator import low_n
@@ -22,8 +22,6 @@ from msp_trends.config import (
     EXIT_HALF_WIDTH,
     PERIMETER_RADIUS,
     STATE_COLOUR,
-    STEM_HALF_WIDTH,
-    STEM_TOP,
     STRATEGY_COLOUR,
 )
 
@@ -162,14 +160,7 @@ def _draw_regions(ax, codebook, codebook5, radius):
     ax.add_patch(Circle((0, 0), float(radius), fill=False,
                         ec=STATE_COLOUR["origin"], lw=1.6, zorder=4))
     reach = half + pad
-    if codebook.stem:
-        ax.add_patch(Rectangle(
-            (-STEM_HALF_WIDTH, 0.0), 2 * STEM_HALF_WIDTH, STEM_TOP,
-            fill=False, ec=STATE_COLOUR["stem"], lw=1.6, zorder=4,
-        ))
-        ax.plot([0, 0], [STEM_TOP, reach], color="0.2", lw=1.0, zorder=3)
-    else:
-        ax.plot([0, 0], [radius, reach], color="0.2", lw=1.0, zorder=3)
+    ax.plot([0, 0], [radius, reach], color="0.2", lw=1.0, zorder=3)
     ax.plot([0, 0], [-reach, -radius], color="0.2", lw=1.0, zorder=3)
     if codebook.key.startswith("quads"):
         ax.plot([-reach, -radius], [0, 0], color="0.2", lw=1.0, zorder=3)

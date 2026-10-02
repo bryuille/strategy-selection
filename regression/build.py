@@ -1,10 +1,8 @@
 """Entry point: fixation caches -> one regression per monkey -> CSVs and one figure.
 
-    python -m regression.build                      # both monkeys, default window
+    python -m regression.build                      # both monkeys, geofix window
     python -m regression.build --dry-run            # counts and coverage, no fit
-    python -m regression.build --window geofix      # variable-length window instead
     python -m regression.build --monkey Faure --sessions june_24_g0
-    python -m regression.build --check-parity       # pre1466 vs msp's cache
 """
 
 from __future__ import annotations
@@ -78,40 +76,6 @@ def run_monkey(monkey, window, sessions, *, dry_run, refresh):
     return {"coef": coef, "mazes": maze_table, "summary": summary}
 
 
-def check_parity(monkey, sessions):
-    """pre1466 dwell per (trial, state) vs msp's cached ``occ_ms``."""
-    from data.config import processed_npz
-    from data.convert import load_npz
-
-    path = processed_npz(f"{monkey}_msp_fixed5_r1_unith_s1466_e0")
-    if not path.exists():
-        print(f"  parity: {path} not found; skipped")
-        return
-    ref = load_npz(path)
-    data = load_fixations(monkey, "pre1466", sessions=sessions)
-    meas = trial_measures(data)
-    ours = {(str(s), int(t)): i for i, (s, t) in enumerate(zip(data["session"], data["trial_indices_all"]))}
-    theirs = {
-        (str(s), int(t)): i
-        for i, (s, t) in enumerate(zip(ref["session"], ref["trial_indices_all"]))
-        if str(s) in set(sessions)
-    }
-    both = sorted(set(ours) & set(theirs))
-    diff = np.asarray([
-        np.max(np.abs(meas["dwell_ms"][ours[k]] - np.asarray(ref["occ_ms"][theirs[k]], float)))
-        for k in both
-    ]) if both else np.empty(0)
-    print(
-        f"  parity {monkey}: rows ours {len(ours)}, msp {len(theirs)}, shared {len(both)}; "
-        f"only ours {len(set(ours) - set(theirs))}, only msp {len(set(theirs) - set(ours))}"
-    )
-    if diff.size:
-        print(
-            f"  parity {monkey}: max |dwell - occ_ms| = {diff.max():.4f} ms; "
-            f"trials differing by > 1 ms: {int((diff > 1).sum())}"
-        )
-
-
 def main():
     parser = argparse.ArgumentParser(description="Per-maze-offset logistic regression on codebook gaze.")
     parser.add_argument("--monkey", nargs="*", default=list(SESSIONS), choices=list(SESSIONS))
@@ -119,7 +83,6 @@ def main():
     parser.add_argument("--sessions", nargs="*", default=None, help="subset of the publication sessions")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--refresh", action="store_true", help="rebuild the fixation caches")
-    parser.add_argument("--check-parity", action="store_true")
     args = parser.parse_args()
 
     results = {}
@@ -132,8 +95,6 @@ def main():
         res = run_monkey(monkey, args.window, sessions, dry_run=args.dry_run, refresh=args.refresh)
         if res is not None:
             results[monkey] = res
-        if args.check_parity:
-            check_parity(monkey, sessions)
 
     if results:
         import pandas as pd

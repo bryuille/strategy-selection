@@ -8,11 +8,6 @@ Three codebooks, all with msp's origin ball at the tag's radius:
             LD / RU / RD (5 states). Tag ``r0.5quads``.
 ``halves``  the same region split by side into ``left`` / ``right``
             (3 states). Tag ``r0.5halves``.
-``quadsstem`` / ``halvesstem``
-            the same with a ``stem`` state: the strip |x| <= `STEM_HALF_WIDTH`
-            from the origin ball up to `STEM_TOP`, taken before the side
-            split so stem gaze is no longer divided by the sign of x.
-            Tags ``r0.5quadsstem``, ``r0.5halvesstem``.
 
 "Inside the maze" is the outer edge of the four r1 exit balls joined by
 straight tangents: every point within `PERIMETER_RADIUS` of the square the
@@ -39,28 +34,21 @@ assert tuple(msp_cfg.STATE_NAMES) == ("origin", "LU", "LD", "RU", "RD")
 # Region codebooks: exits at (+-1, +-1), perimeter = the r1 exit balls' hull.
 EXIT_HALF_WIDTH = 1.0
 PERIMETER_RADIUS = 1.0
-STEM_HALF_WIDTH = 0.25
-STEM_TOP = EXIT_HALF_WIDTH + STEM_HALF_WIDTH  # stem top (0, 1) plus the half-width
 
-# Extracted state indices: msp's five, plus the stem for the stem rule.
-N_STATES = 5
-N_STATES_STEM = 6
-STEM_STATE = 5
+N_STATES = 5  # extracted state indices: msp's five
 
 
 @dataclass(frozen=True)
 class Codebook:
     """``names`` in display order; ``state_map[i]`` is the state that
-    extracted index ``i`` (origin, LU, LD, RU, RD[, stem]) maps to. ``region``
-    means the exit states are maze regions rather than balls; ``stem`` that the
-    extraction carries a sixth, stem state."""
+    extracted index ``i`` (origin, LU, LD, RU, RD) maps to. ``region`` means
+    the exit states are maze regions rather than balls."""
 
     key: str
     names: tuple
     state_map: tuple
     region: bool
     label: str
-    stem: bool = False
 
     @property
     def k(self):
@@ -78,15 +66,9 @@ CODEBOOKS = {
                       "origin ball + maze quadrants (LU, LD, RU, RD)"),
     "halves": Codebook("halves", ("left", "origin", "right"), (1, 0, 0, 2, 2), True,
                        "origin ball + maze halves (left, right)"),
-    "quadsstem": Codebook("quadsstem", ("LU", "LD", "origin", "stem", "RU", "RD"),
-                          (2, 0, 1, 4, 5, 3), True,
-                          "origin ball + stem + maze quadrants", stem=True),
-    "halvesstem": Codebook("halvesstem", ("left", "origin", "stem", "right"),
-                           (1, 0, 0, 3, 3, 2), True,
-                           "origin ball + stem + maze halves", stem=True),
 }
 for _cb in CODEBOOKS.values():
-    assert len(_cb.state_map) == (N_STATES_STEM if _cb.stem else N_STATES), _cb.key
+    assert len(_cb.state_map) == N_STATES, _cb.key
     assert sorted(set(_cb.state_map)) == list(range(_cb.k)), _cb.key
 DEFAULT_CODEBOOK = "balls"
 
@@ -109,11 +91,8 @@ BLOCK_YLABEL = {
 }
 
 # ``mean_removed`` centres on the label-free maze grand mean (msp's), which
-# weights strategies by n and so leaves the majority almost no shared residual;
-# ``mean_removed_balanced`` centres on the sqrt(n)-weighted mean of the two
-# strategy means, which equalises the expected diagonal SNR (see msp_trends.md).
-VARIANTS = ("full", "mean_removed", "mean_removed_balanced")
-LABEL_DEPENDENT_VARIANTS = ("mean_removed_balanced",)
+# weights strategies by n and so leaves the majority almost no shared residual.
+VARIANTS = ("full", "mean_removed")
 
 # Every maze is tested when the split-half is possible (>= 2 trials per
 # strategy, so each half holds one); msp's floor of 10 is not used. A score
@@ -144,20 +123,17 @@ DEFAULT_LABELS = "svm"
 
 # Analysis window, fixed for the whole package: msp's ``geofix``,
 # ``[geo_present, fix_start]`` (maze onset to fixation onset). Fixation onset is
-# ~1534 ms after maze onset in nearly every trial, so this differs from msp's
-# legacy ``pre1466`` window only by the first ~70 ms; z values agreed to within
-# ~1.5 when both were run (2026-10-02).
+# ~1534 ms after maze onset in nearly every trial.
 WINDOW = "geofix"
 WINDOW_LABEL = "maze onset → fixation"
 
 # The tags `--all-tags` runs. A tag is ``r<radius>[<codebook>][_<scope>]``:
 # the codebook suffix is omitted for ``balls``, the scope for ``svm``.
-TAGS = ("r1", "r0.5", "r0.5_dendro", "r0.5quads", "r0.5halves",
-        "r0.5quadsstem", "r0.5halvesstem")
+TAGS = ("r1", "r0.5", "r0.5_dendro", "r0.5quads", "r0.5halves")
 
 _TAG_RE = re.compile(
     r"^r(?P<radius>[0-9]+(?:\.[0-9]+)?)(?P<codebook>"
-    # longest first, so "quads" never shadows "quadsstem"
+    # longest first, so no codebook key shadows a longer one
     + "|".join(sorted((k for k in CODEBOOKS if k != DEFAULT_CODEBOOK), key=len, reverse=True))
     + r")?(?:_(?P<scope>" + "|".join(LABEL_SCOPES) + r"))?$"
 )
@@ -229,7 +205,6 @@ def results_csv(out_root, tag, monkey, block, variant):
 STATE_COLOUR = {
     "left": "#2a9d8f", "origin": "#7b4fb5", "right": "#c77700",
     "LU": "#1f8fbf", "LD": "#2a9d5a", "RU": "#c77700", "RD": "#d0457a",
-    "stem": "#1aa3b8",
 }
 STRATEGY_COLOUR = msp_cfg.STRATEGY_COLOUR
 CMAP = msp_cfg.CMAP

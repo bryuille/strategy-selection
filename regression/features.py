@@ -1,8 +1,7 @@
 """Per-fixation table against the fixed codebook, one cache per (monkey, window).
 
-The pipeline is msp's (see `msp/features.py`) with one structural change: the
-analysis window is a parameter, so the gaze is re-detected and re-warped here
-instead of being read from the s1466-specific caches.
+The pipeline is msp's (see `msp/features.py`): the gaze is re-detected and
+re-warped per trial inside the analysis window.
 
 1. **Trials**: unfaded (``trial_fade == 0``, checked explicitly), then
    `data.builder.trial_qc_ok` (photodiode QC, ``path_type != -99``), maze 1-6,
@@ -13,15 +12,9 @@ instead of being read from the s1466-specific caches.
 3. **Detect** saccades and I-DT fixations on the clipped segment with
    `data.builder.trial_events` -- the detector behind every events cache.
 4. **Warp + validity** with `data.builder.prepare_trial`, given those events:
-   unit-H position and a mask of on-screen, non-blink fixation samples. The
-   cached ``<Monkey>_attractor_eye_data.npz`` cannot be reused, because its
-   mask is tied to the s1466 events.
+   unit-H position and a mask of on-screen, non-blink fixation samples.
 5. **Assign** each fixation's mean valid warped position to the nearest
    prototype within ``ASSIGN_RADIUS`` (helpers copied from msp).
-
-Under ``pre1466`` steps 2-5 reproduce msp's cache exactly (same detector, same
-clip, same warp, same assignment); `build --check-parity` verifies that
-against ``<Monkey>_msp_fixed5_r1_unith_s1466_e0.npz``.
 
 Caches live in ``data/processed/`` (same convention as msp), as
 ``<Monkey>_reg_fixed5_r1_<window>.npz``. Session subsets are filtered on load;
@@ -236,8 +229,8 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
     import pymovements as pm
 
     from data.builder import EYE_SAMPLING_RATE_HZ, gaze_arrays, trial_qc_ok
-    from data.config import eye_npz_path
-    from data.convert import load_npz
+    from data.mat import load_eye
+    from data.config import eye_mat_path
     from data.loader import load_eye_behavioral_data
     from data.builder import behavioral_lookup, fix_start_ms
 
@@ -251,10 +244,10 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
     drops = {}
 
     for session in sessions:
-        path = eye_npz_path(monkey, session)
+        path = eye_mat_path(monkey, session)
         if not path.exists():
-            raise FileNotFoundError(f"missing eye npz for {session}: {path}")
-        raw = load_npz(path)
+            raise FileNotFoundError(f"missing eye mat for {session}: {path}")
+        raw = load_eye(monkey, session)
         gaze = raw["gaze"]
         pupils = list(raw["pupil_size"]) if "pupil_size" in raw else None
         tally = {"no_behavioral": 0, "faded": 0, "qc": 0, "maze": 0,
@@ -394,8 +387,8 @@ def load_fixations(monkey, window, *, sessions=None, radius=ASSIGN_RADIUS, refre
     filtered after load (no per-subset cache files).
     """
     from data.config import processed_npz
-    from data.convert import load_npz
     from data.loader import savez_atomic
+    from data.mat import load_npz
 
     if window not in WINDOWS:
         raise ValueError(f"unknown window {window!r}; choose from {WINDOW_NAMES}")

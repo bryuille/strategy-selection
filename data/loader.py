@@ -12,19 +12,17 @@ from data.builder import (
     clean_eye_data,
 )
 from data.config import (
-    behavioral_npz_path,
     monkey_for_session,
     processed_npz,
-    single_trial_npz_path,
 )
-from data.convert import load_npz, load_session_data
+from data.mat import load_behavioral, load_npz, load_session_data, load_single_trial
 from data.labels import build_strategy_choices, build_svm_choices
 
 
 def savez_atomic(path, **data):
     """`np.savez` to `path` via a hidden sibling and an atomic rename.
 
-    Same pattern as `data.convert.convert_mat`. Writing straight onto `path`
+    Writing straight onto `path`
     can leave a truncated-but-existing npz if the process dies mid-write
     (TIMEOUT, scancel, full disk); the next run then treats the cache as warm.
     Concurrent builders of the same path can also read a partial write.
@@ -71,7 +69,7 @@ def load_trial_timebins(session):
 
 def load_single_trial_range(session):
     """`min_value`, `max_value`: the session's published single-trial window."""
-    listed = load_npz(single_trial_npz_path(monkey_for_session(session), session))
+    listed = load_single_trial(monkey_for_session(session), session)
     return int(listed["min_value"]), int(listed["max_value"])
 
 
@@ -83,7 +81,7 @@ def load_strategy_choices(session):
         lambda: {
             "strategy_choices": build_strategy_choices(
                 load_trial_timebins(session),
-                load_npz(behavioral_npz_path(monkey, session)),
+                load_behavioral(monkey, session),
                 *load_single_trial_range(session),
             )
         },
@@ -105,7 +103,7 @@ def load_svm_choices(session):
         processed_npz(f"{session}_strategy_svm"),
         lambda: build_svm_choices(
             load_trial_timebins(session),
-            load_npz(behavioral_npz_path(monkey, session)),
+            load_behavioral(monkey, session),
             *load_single_trial_range(session),
         ),
     )
@@ -125,9 +123,8 @@ def load_eye_behavioral_data(monkey="Faure"):
     """Trial-level behavioral fields for every session with eye data.
 
     A cache written before `EYE_BEHAVIORAL_OPTIONAL_FIELDS` existed is rebuilt
-    in place. Optional fields are NaN for sessions whose behavioral npz predate
-    their addition to `data.convert.BEHAVIORAL_FIELDS` (fix by re-converting
-    behavioral data where `data/mat/` lives, then deleting this cache).
+    in place. Optional fields are NaN in a cache built before their addition to
+    `data.mat.BEHAVIORAL_FIELDS` (fix by deleting this cache).
     """
     path = processed_npz(f"{monkey}_eye_behavioral")
     wanted = set(EYE_BEHAVIORAL_FIELDS) | set(EYE_BEHAVIORAL_OPTIONAL_FIELDS)

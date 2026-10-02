@@ -2,21 +2,16 @@
 
 Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 
-1. **Clip** each trial to the analysis window (default ``geofix``,
-   ``[0, fix_start]`` from maze onset; legacy ``pre1466`` is
-   ``[fix_start - 1466 ms, fix_start]``).
+1. **Clip** each trial to the analysis window (``geofix``, ``[0, fix_start]``
+   from maze onset).
 2. **Warp** to unit H.
 3. **Fixations** by I-DT on the clipped, unwarped data.
 4. **Assign** each fixation's mean warped position to the nearest prototype
    within `ASSIGN_RADIUS`; every sample of that fixation inherits the state.
    Saccades, blinks and fixations outside every ball are omitted.
 
-Under ``geofix`` (and any window other than ``pre1466``) gaze is re-detected
-and re-warped per trial inside the window, the same path
-`regression.features` uses; this covers the svm/top_ten sessions only. Under
-the legacy ``pre1466`` window, warp and events come from the shared
-attractor / clean-eye caches, whose validity is tied to the s1466 detection
-segment, over every attractor session.
+Gaze is re-detected and re-warped per trial inside the window, the same path
+`regression.features` uses; this covers the svm/top_ten sessions only.
 
 Blocks (one row per usable trial, ``float32``):
 
@@ -34,9 +29,8 @@ stored (`fix_xy`), with its state (`fix_state`) and the index of the trial row
 it belongs to (`fix_row`), so the figures can split fixations by maze and by
 the trial's strategy label.
 
-Cache: ``$STRATEGY_DATA_ROOT/processed/<Monkey>_msp_fixed5_r<radius>.npz`` for
-the default ``geofix`` window; ``…_msp_fixed5_r<radius>_unith_s1466_e0.npz``
-(the historical name) for ``pre1466``. The codebook, radius and window are
+Cache: ``<PROCESSED_ROOT>/<Monkey>_msp_fixed5_r<radius>.npz`` (`data.config`).
+The codebook, radius and window are
 verified on load (stored ``assign_radius`` / ``window``, not the tag string)
 and the cache rebuilt if `config.py` has changed under it.
 """
@@ -48,32 +42,23 @@ import argparse
 import numpy as np
 
 from data.builder import FIXATION_MIN_DURATION_MS, trial_qc_ok
-from data.config import MONKEYS, PRE_FIX_END_MS, PRE_FIX_START_MS, processed_npz
-from data.convert import load_npz
-from data.loader import (
-    load_attractor_eye_data,
-    load_clean_eye_data,
-    load_eye_behavioral_data,
-    savez_atomic,
-)
+from data.config import MONKEYS, processed_npz
+from data.mat import load_npz
+from data.loader import load_eye_behavioral_data, savez_atomic
 from data.builder import behavioral_lookup, fix_start_ms
 from msp.config import (
     ASSIGN_RADIUS,
     CODEBOOK_XY,
     DEFAULT_WINDOW,
-    PRE1466,
     K,
     MAZE_SCREEN_LIM,
     ORIGIN_STATE,
     AssignmentSpec,
     STATE_NAMES,
-    WINDOW_NAMES,
     resolve_assignment,
     resolve_tag,
 )
 
-DEFAULT_START_MS = PRE_FIX_START_MS
-DEFAULT_END_MS = PRE_FIX_END_MS
 N_MAZES = 6
 MIN_WINDOW_SAMPLES = 6  # clean_eye_data's per-trial floor before detection
 FIXATION_EVENT = "fixation_idt"
@@ -82,23 +67,6 @@ VARIANTS = ("full", "no_origin", "mean_removed")
 
 
 # ---- helpers -----------------------------------------------------------------
-
-
-def _event_lookup(monkey, sessions, start_ms=DEFAULT_START_MS, end_ms=DEFAULT_END_MS):
-    """``(session, trial) -> [(name, onset, offset), ...]`` from the clean events."""
-    events = load_clean_eye_data(monkey, start_ms=start_ms, end_ms=end_ms)
-    names = np.asarray(events["name"]).astype(str)
-    sess = np.asarray(events["session"]).astype(str)
-    trials = np.asarray(events["trial_indices_all"]).astype(int)
-    onset = np.asarray(events["onset"], dtype=float)
-    offset = np.asarray(events["offset"], dtype=float)
-    keep = np.isin(sess, list(sessions))
-    lookup = {}
-    for i in np.flatnonzero(keep):
-        lookup.setdefault((sess[i], int(trials[i])), []).append(
-            (names[i].lower(), onset[i], offset[i])
-        )
-    return lookup
 
 
 def _sample_period_ms(t_ms):
@@ -127,23 +95,6 @@ def _sample_dt_seconds(t_ms, period_ms=None):
     dt[-1] = period_ms
     dt = np.clip(dt, 0.0, period_ms)
     return np.where(dt > 0, dt, 0.0) / 1000.0
-
-
-def _trial_arrays(attractor, i):
-    t_ms = np.asarray(attractor["time"][i], dtype=float) * 1000.0
-    valid = np.asarray(attractor["valid"][i], dtype=bool)
-    x = np.asarray(attractor["eye_x"][i], dtype=float)
-    y = np.asarray(attractor["eye_y"][i], dtype=float)
-    n = min(t_ms.size, valid.size, x.size, y.size)
-    return t_ms[:n], valid[:n], x[:n], y[:n]
-
-
-def _trial_window(behavioral, beh_i, start_ms, end_ms):
-    """``(lo, hi)`` in trial ms, or None if the trial has no usable fixation onset."""
-    fix_ms = fix_start_ms(behavioral, beh_i)
-    if not np.isfinite(fix_ms) or fix_ms <= 0:
-        return None
-    return fix_ms - start_ms, fix_ms - end_ms
 
 
 def clip_fixation_spans(
@@ -254,7 +205,7 @@ def _pack_feature_dict(
     *,
     assignment: AssignmentSpec,
 ):
-    """Assemble the on-disk / in-memory feature dict shared by both paths."""
+    """Assemble the on-disk / in-memory feature dict."""
     codebook = np.asarray(CODEBOOK_XY, dtype=np.float32)
     out = {
         name: (
@@ -285,109 +236,7 @@ def _pack_feature_dict(
     out["radius_tag"] = np.asarray(assignment.tag)
     out["assign_radius"] = np.float64(assignment.radius)
     out["window"] = np.asarray(assignment.window)
-    if assignment.window == PRE1466:
-        out["window_start_ms"] = np.int64(DEFAULT_START_MS)
-        out["window_end_ms"] = np.int64(DEFAULT_END_MS)
     return out
-
-
-def _extract_pre1466(monkey, assignment: AssignmentSpec):
-    """Default window: reuse attractor warp + s1466 clean-eye events."""
-    attractor = load_attractor_eye_data(monkey)
-    behavioral = load_eye_behavioral_data(monkey)
-    beh = behavioral_lookup(behavioral)
-    sessions = np.asarray(attractor["session"]).astype(str)
-    trials = np.asarray(attractor["trial_indices_all"]).astype(int)
-    events = _event_lookup(
-        monkey, set(sessions.tolist()), DEFAULT_START_MS, DEFAULT_END_MS
-    )
-    codebook = np.asarray(CODEBOOK_XY, dtype=np.float32)
-
-    usable = []
-    for i in range(sessions.size):
-        session, trial_id = sessions[i], int(trials[i])
-        beh_i = beh.get((session, trial_id))
-        if not trial_qc_ok(behavioral, beh_i):
-            continue
-        maze = int(behavioral["geo_type"][beh_i])
-        if not 1 <= maze <= N_MAZES:
-            continue
-        bounds = _trial_window(behavioral, beh_i, DEFAULT_START_MS, DEFAULT_END_MS)
-        if bounds is None:
-            continue
-        lo, hi = bounds
-
-        t_ms, valid, x, y = _trial_arrays(attractor, i)
-        if t_ms.size < 2:
-            continue
-
-        in_window = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
-        keep_u = in_window & valid & np.isfinite(x) & np.isfinite(y)
-        keep_u &= (np.abs(x) <= MAZE_SCREEN_LIM) & (np.abs(y) <= MAZE_SCREEN_LIM)
-        if keep_u.sum() < 2:
-            continue
-        usable.append((i, session, trial_id, maze, lo, hi))
-
-    print(
-        f"  {monkey}: {len(usable)} usable trials; fixed K={K} codebook, "
-        f"tag={assignment.tag}, {assignment.label()}"
-    )
-
-    blocks = {name: [] for name in BLOCK_NAMES}
-    rows_session, rows_trial, rows_maze = [], [], []
-    rows_n_fix, rows_n_fix_assigned = [], []
-    fix_xy, fix_state, fix_row = [], [], []
-
-    for i, session, trial_id, maze, lo, hi in usable:
-        t_ms, valid, x, y = _trial_arrays(attractor, i)
-        in_window = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
-        valid_win = valid & in_window & np.isfinite(x) & np.isfinite(y)
-        spans = clip_fixation_spans(events.get((session, trial_id), ()), lo, hi)
-        state, centroids, states_f = assign_trial(
-            np.stack([x, y], axis=1).astype(np.float32),
-            t_ms,
-            valid_win,
-            spans,
-            codebook,
-            assignment,
-        )
-        state = np.where(valid_win, state, -1).astype(int)
-
-        if valid_win.sum() < 2:
-            continue
-        assigned = valid_win & (state >= 0) & (state < K)
-
-        if assigned.any():
-            dt = _sample_dt_seconds(t_ms[assigned], _sample_period_ms(t_ms))
-            occ_ms = np.bincount(state[assigned], weights=dt, minlength=K) * 1000.0
-        else:
-            occ_ms = np.zeros(K)
-
-        row = len(rows_session)
-        blocks["occ_ms"].append(occ_ms)
-        blocks["occ_bin"].append((occ_ms > 0).astype(float))
-        rows_session.append(session)
-        rows_trial.append(trial_id)
-        rows_maze.append(maze)
-        rows_n_fix.append(int(states_f.size))
-        rows_n_fix_assigned.append(int((states_f >= 0).sum()))
-        if states_f.size:
-            fix_xy.append(centroids)
-            fix_state.append(states_f.astype(np.int16))
-            fix_row.append(np.full(states_f.size, row, dtype=np.int64))
-
-    return _pack_feature_dict(
-        blocks,
-        rows_session,
-        rows_trial,
-        rows_maze,
-        rows_n_fix,
-        rows_n_fix_assigned,
-        fix_xy,
-        fix_state,
-        fix_row,
-        assignment=assignment,
-    )
 
 
 def redetect_trace(t_s, x, y, h, pupil, lo, hi, *, experiment):
@@ -564,56 +413,23 @@ def _extract_redetect(monkey, assignment: AssignmentSpec):
     )
 
 
-def extract_monkey_features(
-    monkey,
-    *,
-    radius=ASSIGN_RADIUS,
-    assignment=None,
-    start_ms=DEFAULT_START_MS,
-    end_ms=DEFAULT_END_MS,
-):
+def extract_monkey_features(monkey, *, radius=ASSIGN_RADIUS, assignment=None):
     """Feature blocks for every usable trial of `monkey` against the fixed codebook.
 
     Pass a scalar ``radius`` or a full ``assignment``. ``resolve_assignment``
-    builds the default (uniform balls, ``geofix`` window). ``start_ms`` /
-    ``end_ms`` are only used by the legacy ``pre1466`` path and must match the
-    package defaults.
+    builds the default (uniform balls, ``geofix`` window).
     """
     if assignment is None:
         assignment = resolve_assignment(radius=radius)
-    if assignment.window != PRE1466:
-        if start_ms != DEFAULT_START_MS or end_ms != DEFAULT_END_MS:
-            raise ValueError(
-                f"start_ms/end_ms only apply to {PRE1466!r}; "
-                f"got window={assignment.window!r}"
-            )
-        return _extract_redetect(monkey, assignment)
-    if start_ms != DEFAULT_START_MS or end_ms != DEFAULT_END_MS:
-        # Historical callers could override; keep the attractor path but
-        # refuse combinations that would diverge from the assignment tag.
-        raise ValueError(
-            "non-default start_ms/end_ms are no longer supported; "
-            "pass assignment.window='geofix' (or another named window) instead"
-        )
-    return _extract_pre1466(monkey, assignment)
+    return _extract_redetect(monkey, assignment)
 
 
-def cache_stem(
-    monkey,
-    radius=ASSIGN_RADIUS,
-    *,
-    tag=None,
-    assignment=None,
-    start_ms=DEFAULT_START_MS,
-    end_ms=DEFAULT_END_MS,
-):
+def cache_stem(monkey, radius=ASSIGN_RADIUS, *, tag=None, assignment=None):
     """``geofix``: ``<M>_msp_fixed5_r<radius>``; other named windows append
-    ``_<window>``; ``pre1466`` keeps its historical ``…_unith_s1466_e0`` name."""
+    ``_<window>``."""
     if assignment is None:
         assignment = resolve_tag(tag) if tag is not None else resolve_assignment(radius=radius)
     base = f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}"
-    if assignment.window == PRE1466:
-        return f"{base}_unith_s{int(start_ms)}_e{int(end_ms)}"
     if assignment.window == DEFAULT_WINDOW:
         return base
     return f"{base}_{assignment.window}"
@@ -622,15 +438,13 @@ def cache_stem(
 def _cache_matches(data, assignment: AssignmentSpec):
     """False if the cache was built under a different codebook, radius or
     window, or predates the per-fixation arrays. Radius and window are read
-    from their own fields rather than the tag, whose spelling depends on which
-    window is the default (``r0.5`` meant pre1466 before 2026-10-02)."""
+    from their own fields rather than the tag, whose spelling depended on the
+    default window before 2026-10-02."""
     try:
         stored = np.asarray(data["assign_radius"], dtype=float).ravel()
         if stored.size != 1 or not np.isfinite(stored[0]):
             return False
         window_ok = (
-            "window" not in data and assignment.window == PRE1466  # predates the field
-        ) or (
             "window" in data
             and str(np.asarray(data["window"]).astype(str).reshape(-1)[0]) == assignment.window
         )
@@ -654,16 +468,12 @@ def load_features(
     *,
     radius=ASSIGN_RADIUS,
     assignment=None,
-    start_ms=DEFAULT_START_MS,
-    end_ms=DEFAULT_END_MS,
     refresh=False,
 ):
     """Cached fixed-codebook feature blocks for `monkey`, rebuilt on mismatch."""
     if assignment is None:
         assignment = resolve_assignment(radius=radius)
-    path = processed_npz(
-        cache_stem(monkey, assignment=assignment, start_ms=start_ms, end_ms=end_ms)
-    )
+    path = processed_npz(cache_stem(monkey, assignment=assignment))
     if path.exists() and not refresh:
         data = load_npz(path)
         if _cache_matches(data, assignment):
@@ -673,9 +483,7 @@ def load_features(
         f"Extracting {monkey} fixed-codebook features "
         f"(tag={assignment.tag}, {assignment.label()}) ..."
     )
-    data = extract_monkey_features(
-        monkey, assignment=assignment, start_ms=start_ms, end_ms=end_ms
-    )
+    data = extract_monkey_features(monkey, assignment=assignment)
     path.parent.mkdir(parents=True, exist_ok=True)
     savez_atomic(path, **data)
     print(f"Saved {path} ({len(data['session'])} trials)")
@@ -740,14 +548,9 @@ def main():
         "--radius", type=float, default=None,
         help="uniform assignment radius around each fixed prototype (unit H)",
     )
-    parser.add_argument(
-        "--window", default=DEFAULT_WINDOW, choices=list(WINDOW_NAMES),
-        help="analysis clip: geofix (default; re-detects from raw eye, top-ten "
-             "sessions) or pre1466 (attractor caches, every session)",
-    )
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
-    assignment = resolve_assignment(radius=args.radius, window=args.window)
+    assignment = resolve_assignment(radius=args.radius)
 
     for monkey in args.monkey:
         data = load_features(monkey, assignment=assignment, refresh=args.refresh)

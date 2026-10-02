@@ -57,9 +57,8 @@ PUBLICATION_SESSIONS = (
 # (61 sessions, all status=passed). Includes the four publication sessions and
 # widens the pool enough for per-maze tests beyond maze 1 vs 6.
 #
-# A label is ~5 KB but is derived from a neural npz of up to ~14 GB, so the
-# pipeline's `labels` stage converts, labels and (optionally) deletes one
-# session at a time rather than holding all of them on disk at once.
+# A label is ~5 KB but is derived from a large neural mat, so the sweep labels
+# one session at a time rather than holding all of them in memory at once.
 CLUSTERING_SESSIONS = (
     # Faure, 13
     "june_24_g0",
@@ -453,47 +452,38 @@ def build_svm_choices(
 
 
 
-def sweep_strategy_labels(sessions, *, reclaim_neural=False, overwrite=False, builders=None):
-    """Build strategy label(s) for each session, converting as it goes.
+def sweep_strategy_labels(sessions, *, reclaim_timebins=False, overwrite=False, builders=None):
+    """Build strategy label(s) for each session in turn.
 
-    A label is ~5 KB but is derived from a neural npz of up to ~14 GB -- `np.savez`
-    is uncompressed where the mat is compressed HDF5, so the npz runs 3-6x its
-    source -- plus a ~1.5 GB `trial_timebins` cache.
+    A label is ~5 KB but is derived from the session's neural `.mat` (read in
+    memory, never copied) via a ~1.5 GB `trial_timebins` cache in `PROCESSED_ROOT`.
 
-    ``reclaim_neural`` (default off) deletes both intermediates after each
-    session instead of leaving them cached, capping extra disk use at one
-    session (~170 GB if all 23 eligible sessions were kept). Leave intermediates
-    in place when ``STRATEGY_DATA_ROOT`` points at scratch; they are reused by
-    anything else that touches the session. Pass ``reclaim_neural=True`` to
-    reclaim after each label.
+    ``reclaim_timebins`` (default off) deletes that cache after each session
+    instead of leaving it, capping extra disk use at one session. Leave it in
+    place if anything else will touch the session; it is reused.
 
     `builders` (default: just the dendrogram label) is an iterable of
-    zero-argument loader callables to run against the same converted session
+    zero-argument loader callables to run against the same session
     -- e.g. ``(load_strategy_choices, load_svm_choices)`` runs both label
-    kinds off one conversion. Each builder is resumable independently: a label
+    kinds off one read. Each builder is resumable independently: a label
     whose npz already exists is skipped even if a sibling builder for the same
     session still needs to run.
 
     A session whose *every* builder's label already exists is skipped
     entirely, so the sweep resumes cleanly after an interruption. With
-    ``reclaim_neural=True`` its intermediates are still reclaimed even when
-    skipped, because a label built by an earlier run leaves its npz behind and
-    nothing downstream reads it again.
+    ``reclaim_timebins=True`` its cache is still reclaimed even when skipped,
+    because nothing downstream reads it once the labels exist.
     """
-    from data.config import neural_npz_path, processed_npz
-    from data.convert import convert_kinds
+    from data.config import processed_npz
     from data.loader import load_strategy_choices
 
     if builders is None:
         builders = (load_strategy_choices,)
 
     def reclaim(monkey, session, why):
-        """Delete a session's neural intermediates. Rebuildable from `data/mat/`."""
+        """Delete a session's trial_timebins cache. Rebuildable from the mat."""
         freed = 0.0
-        for path in (
-            neural_npz_path(monkey, session),
-            processed_npz(f"{session}_trial_timebins"),
-        ):
+        for path in (processed_npz(f"{session}_trial_timebins"),):
             if path.exists():
                 freed += path.stat().st_size / 1e9
                 path.unlink()
@@ -524,17 +514,16 @@ def sweep_strategy_labels(sessions, *, reclaim_neural=False, overwrite=False, bu
         if not pending:
             skipped.append(session)
             print(f"=== {monkey} {session}: label(s) already built ===")
-            if reclaim_neural:
+            if reclaim_timebins:
                 reclaimed += reclaim(monkey, session, "stale, labels already built")
             continue
 
         print(
-            f"=== {monkey} {session}: convert -> "
+            f"=== {monkey} {session}: "
             f"{'+'.join(b.__name__ for b in pending)} ===",
             flush=True,
         )
         try:
-            convert_kinds(["neural"], monkey=monkey, sessions=[session])
             for builder in pending:
                 builder(session)
             built.append(session)
@@ -542,8 +531,8 @@ def sweep_strategy_labels(sessions, *, reclaim_neural=False, overwrite=False, bu
             failed.append((session, repr(exc)))
             print(f"    FAILED {session}: {exc!r}", flush=True)
         finally:
-            if reclaim_neural:
-                reclaimed += reclaim(monkey, session, "converted and labelled")
+            if reclaim_timebins:
+                reclaimed += reclaim(monkey, session, "labelled")
 
     print(
         f"\nlabels: {len(built)} built, {len(skipped)} already present, "
@@ -564,20 +553,19 @@ def main():
     parser.add_argument(
         "--sweep",
         action="store_true",
-        help="strategy only: convert and label each session in turn",
+        help="strategy only: label each session in turn",
     )
     parser.add_argument(
         "--with-svm",
         action="store_true",
         help="strategy/--sweep only: also build the maze-1-vs-6 SVM label off "
-        "the same conversion, instead of a second cold sweep later",
+        "the same read, instead of a second cold sweep later",
     )
     parser.add_argument(
-        "--reclaim-neural",
+        "--reclaim-timebins",
         action="store_true",
-        help="with --sweep, delete the neural npz and trial_timebins cache "
-        "after labelling each session instead of leaving them under "
-        "STRATEGY_DATA_ROOT",
+        help="with --sweep, delete the trial_timebins cache after labelling "
+        "each session instead of leaving it in PROCESSED_ROOT",
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument(
@@ -600,7 +588,7 @@ def main():
             parser.error("--sweep only applies to --type strategy")
         builders = (load_strategy_choices, load_svm_choices) if args.with_svm else None
         sweep_strategy_labels(
-            jobs, reclaim_neural=args.reclaim_neural, overwrite=args.overwrite, builders=builders
+            jobs, reclaim_timebins=args.reclaim_timebins, overwrite=args.overwrite, builders=builders
         )
         return
 

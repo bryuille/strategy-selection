@@ -15,8 +15,8 @@ import pymovements as pm
 from pymovements.events import blink as blink_fn
 from pymovements.events.detection import out_of_screen
 
-from data.config import PRE_FIX_END_MS, PRE_FIX_START_MS, eye_npz_path, npz_dir
-from data.convert import load_npz
+from data.config import PRE_FIX_END_MS, PRE_FIX_START_MS, eye_mat_path, mat_dir
+from data.mat import load_behavioral, load_eye
 
 # Per path-type timing (ms from flash 1). Indices 0-23 map to path_type 1-24,
 # so blocks follow published geo_type: maze = ceil(path_type/4).
@@ -80,9 +80,8 @@ EYE_BEHAVIORAL_FIELDS = (
     "fixation_off",
 )
 
-# Post-flash event fields. Older behavioral npz predate their addition to
-# `data.convert.BEHAVIORAL_FIELDS`; sessions converted before then contribute
-# NaN, and the post-flash analyses tell the user to re-convert.
+# Post-flash event fields. A processed `<Monkey>_eye_behavioral` cache built
+# before their addition to `data.mat.BEHAVIORAL_FIELDS` holds NaN for them.
 # Per-trial optional fields. `feedback_time` and `reward` are deliberately
 # NOT here: in the raw struct they are (1, 1) scalars -- session-level protocol
 # parameters in ms, constant across all 61 sessions (feedback_time = 1500,
@@ -118,7 +117,7 @@ EYE_BEHAVIORAL_OPTIONAL_FIELDS = (
 # screened only `path_type` and so fitted their codebooks on faded and
 # photodiode-bad trials.
 #
-# Verified present and finite in all 61 converted behavioral npz. A non-finite
+# Verified present and finite in all 61 behavioral mats. A non-finite
 # flag rejects the trial: "unknown QC" is not "QC passed".
 QC_FIELDS = ("path_type", "trial_fade", "photodiode_qc_bad")
 
@@ -226,11 +225,11 @@ def collapse_to_trials(session_data, fields):
 
 
 def build_eye_data(monkey="Faure"):
-    """Concatenate all eye npz sessions for `monkey`."""
+    """Concatenate all eye sessions for `monkey`, read from the eye `.mat` files."""
     times, xs, ys, sessions, trial_ids = [], [], [], [], []
-    for path in sorted(npz_dir("eye", monkey).glob("Eye_Data_*.npz")):
-        raw = load_npz(path)
+    for path in sorted(mat_dir("eye", monkey).glob("Eye_Data_*.mat")):
         session = path.stem.removeprefix("Eye_Data_")
+        raw = load_eye(monkey, session)
         t_trials, x_trials, y_trials = [], [], []
         for trial in raw["gaze"]:
             t, x, y = gaze_arrays(trial)
@@ -258,14 +257,15 @@ def build_eye_behavioral_data(monkey="Faure"):
     chunks = {f: [] for f in fields}
     sessions = []
     trial_ids = []
-    for path in sorted(npz_dir("behavioral", monkey).glob("*_good_trials_concat.npz")):
-        raw = load_npz(path)
+    for path in sorted(mat_dir("behavioral", monkey).glob("*_good_trials_concat.mat")):
+        session = path.name.removesuffix("_good_trials_concat.mat")
+        raw = load_behavioral(monkey, session)
         collapsed, n_trials = collapse_to_trials(raw, [f for f in fields if f in raw])
         for field in fields:
             chunks[field].append(
                 collapsed.get(field, np.full(n_trials, np.nan))
             )
-        sessions.append(np.full(n_trials, path.name.removesuffix("_good_trials_concat.npz")))
+        sessions.append(np.full(n_trials, session))
         trial_ids.append(np.arange(1, n_trials + 1, dtype=int))
     return {
         "session": np.concatenate(sessions),
@@ -513,7 +513,7 @@ def clean_eye_data(eye_data, monkey="Faure", *, start_ms=None, end_ms=None):
             print(f"clean_eye_data: {i}/{n_trials} trials", flush=True)
         session = str(eye_data["session"][i])
         if session not in pupils_by_session:
-            raw = load_npz(eye_npz_path(monkey, session))
+            raw = load_eye(monkey, session)
             pupils_by_session[session] = (
                 list(raw["pupil_size"]) if "pupil_size" in raw else None
             )
@@ -776,9 +776,8 @@ def h_lookup(behavioral):
 
 def pupil_for_trial(pupils_by_session, monkey, session, trial_id):
     if session not in pupils_by_session:
-        path = eye_npz_path(monkey, session)
-        if path.exists():
-            raw = load_npz(path)
+        if eye_mat_path(monkey, session).exists():
+            raw = load_eye(monkey, session)
             pupils_by_session[session] = (
                 list(raw["pupil_size"]) if "pupil_size" in raw else None
             )

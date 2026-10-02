@@ -18,7 +18,7 @@ Membership does not depend on the labels themselves, so the ranking happens
 first and only the chosen sessions' label files are read.
 
 Label files are read directly, never through `data.loader.load_svm_choices`:
-that loader builds on miss, and a build means converting the session's neural
+that loader builds on miss, and a build means reading the session's neural
 recording, which must not start silently inside an analysis job. A missing
 label file raises and names the session.
 """

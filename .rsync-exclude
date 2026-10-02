@@ -6,16 +6,15 @@
 #   rsync -av engaging:strategy-selection/msp/out/ ./msp/out/
 #
 # --delete removes dest files that are gone locally. Do not add
-# --delete-excluded: that would wipe dest data/mat/.
+# --delete-excluded: that would wipe dest-side data/processed/.
 #
 # Figures are excluded from the push so a `--delete` push cannot destroy
 # cluster-side outputs that are not in this checkout.
 #
 # Leading '/' = repo root. Unanchored '*.mat' / '*.npz' catch strays.
 
-# Raw and derived data (cluster already has its own under STRATEGY_DATA_ROOT)
-/data/mat/
-/data/npz/
+# Derived data (the cluster has its own PROCESSED_ROOT). Note data/config.py is
+# pushed like any code: re-check MAT_ROOT / PROCESSED_ROOT there after a push.
 /data/processed/
 
 # Local env and caches (the cluster runs its own `uv sync`)
@@ -29,6 +28,15 @@
 *.mat
 *.npz
 
+# Figures and results come down from the cluster, never up (a `--delete` push
+# must not be able to destroy cluster-side outputs)
+*.png
+out/
+/logs/
+
+# Archive: stays local
+/zarchive/
+
 # Movies
 *.mp4
 
@@ -38,3 +46,6 @@
 
 # SSH control socket
 /.ssh-sockets/
+
+# Cluster-specific notes (personal)
+/cloud.md

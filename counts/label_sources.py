@@ -86,7 +86,7 @@ def snr_auc_table():
     0.95 gate -- verified identical to the file on all 23, so this is a strict
     superset and the ranking keeps working if the pool ever widens. Falls back
     to the transcribed dict if `zrefs` is not present (it is a repo file, not a
-    `STRATEGY_DATA_ROOT` file, and only `*.mat` under it is rsync-excluded).
+    `MAT_ROOT` file, and only `*.mat` under it is rsync-excluded).
     """
     try:
         with _SNR_CSV.open(newline="") as fh:
