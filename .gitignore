@@ -1,0 +1,37 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+
+# Mac
+.DS_Store
+
+# Data
+data/mat/
+data/npz/
+data/processed/
+
+# Configs and caches
+.matplotlib/
+.claude/
+.uv-cache/
+.mplconfig/
+.ruff_cache/
+.ssh-sockets/
+
+# Slurm logs
+logs/
+
+# Heavy figure formats under any package out/
+**/out/**/*.mp4
+**/out/**/*.pdf
+**/out/**/*.svg
+
+# Retired packages
+zarchive/

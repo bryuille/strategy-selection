@@ -1,0 +1,40 @@
+# Push code up (from the repo root):
+#   rsync -av --delete --exclude-from=.rsync-exclude ./ \
+#       byuille@orcd-login.mit.edu:/home/byuille/strategy-selection/
+#
+# Pull results back with an explicit path (this file is for pushes only):
+#   rsync -av engaging:strategy-selection/msp/out/ ./msp/out/
+#
+# --delete removes dest files that are gone locally. Do not add
+# --delete-excluded: that would wipe dest data/mat/.
+#
+# Figures are excluded from the push so a `--delete` push cannot destroy
+# cluster-side outputs that are not in this checkout.
+#
+# Leading '/' = repo root. Unanchored '*.mat' / '*.npz' catch strays.
+
+# Raw and derived data (cluster already has its own under STRATEGY_DATA_ROOT)
+/data/mat/
+/data/npz/
+/data/processed/
+
+# Local env and caches (the cluster runs its own `uv sync`)
+.venv/
+.git/
+.matplotlib/
+.ruff_cache/
+.DS_Store
+
+# Strays (also covers zrefs/Dendogram_all/)
+*.mat
+*.npz
+
+# Movies
+*.mp4
+
+# Sandbox-local tool caches
+/.uv-cache/
+/.mplconfig/
+
+# SSH control socket
+/.ssh-sockets/

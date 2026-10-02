@@ -1,0 +1,89 @@
+import os
+from pathlib import Path
+
+# Raw/derived data root. Defaults to `./data/`. On the cluster, Slurm jobs set
+# `STRATEGY_DATA_ROOT` to the scratch volume so mat/npz/processed do not live
+# under the code checkout (e.g.
+# `/home/byuille/orcd/scratch/strategy_selection_data/`).
+_DATA_ROOT = Path(os.environ["STRATEGY_DATA_ROOT"]) if os.environ.get("STRATEGY_DATA_ROOT") else Path("./data")
+
+MAT_ROOT = _DATA_ROOT / "mat"
+NPZ_ROOT = _DATA_ROOT / "npz"
+PROCESSED_ROOT = _DATA_ROOT / "processed"
+
+MONKEYS = ("Faure", "Nielsen")
+KINDS = {
+    "behavioral": "Behavioral_Data",
+    "eye": "Eye_Data",
+    "neural": "Neural_Data",
+    "single_trial": "Single_Trial_List",
+}
+
+# The analysis window: step 1 of the pipeline clips every trial to
+# [fix_start - PRE_FIX_START_MS, fix_start - PRE_FIX_END_MS] before anything
+# else happens, so these define what "in-window" means for detection, for the
+# k-means pool and for every feature block. Modules must import these rather
+# than define their own.
+#
+# 1466 is the measured minimum `geo_present -> fix_start` gap (Nielsen). A wider
+# window would reach back past `geo_present` on some trials and plot gaze from
+# before the maze was on screen.
+PRE_FIX_START_MS = 1466
+PRE_FIX_END_MS = 0
+PRE_FIX_WINDOW_MS = float(PRE_FIX_START_MS)
+
+SESSION_MONTH_MONKEY = {
+    "june": "Faure",
+    "April": "Faure",
+    "Dec": "Nielsen",
+    "Nov": "Nielsen",
+    "Oct": "Nielsen",
+}
+
+
+def monkey_for_session(session):
+    return SESSION_MONTH_MONKEY[session.split("_", 1)[0]]
+
+
+def mat_dir(kind, monkey):
+    return MAT_ROOT / KINDS[kind] / monkey
+
+
+def npz_dir(kind, monkey):
+    return NPZ_ROOT / KINDS[kind] / monkey
+
+
+def behavioral_mat_path(monkey, session):
+    return mat_dir("behavioral", monkey) / f"{session}_good_trials_concat.mat"
+
+
+def behavioral_npz_path(monkey, session):
+    return npz_dir("behavioral", monkey) / f"{session}_good_trials_concat.npz"
+
+
+def eye_mat_path(monkey, session):
+    return mat_dir("eye", monkey) / f"Eye_Data_{session}.mat"
+
+
+def eye_npz_path(monkey, session):
+    return npz_dir("eye", monkey) / f"Eye_Data_{session}.npz"
+
+
+def neural_mat_path(monkey, session):
+    return mat_dir("neural", monkey) / f"{session}_Whole_Trial_FR_Causal.mat"
+
+
+def neural_npz_path(monkey, session):
+    return npz_dir("neural", monkey) / f"{session}_Whole_Trial_FR_Causal.npz"
+
+
+def single_trial_mat_path(monkey, session):
+    return mat_dir("single_trial", monkey) / f"single_trial_list_{session}.mat"
+
+
+def single_trial_npz_path(monkey, session):
+    return npz_dir("single_trial", monkey) / f"single_trial_list_{session}.npz"
+
+
+def processed_npz(stem):
+    return PROCESSED_ROOT / f"{stem}.npz"
