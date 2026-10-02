@@ -6,7 +6,7 @@ explanatory lines to one, since the legend it re-derives (blue/orange/grey,
 red-bold meaning) belongs in speaker notes, not the slide.
 
 One addition here that `counts.census.run` doesn't make: for a scope wider
-than `publication` (`all`/`allplus`/`top_ten`), each of the four publication
+than `publication` (`all`/`top_ten`), each of the four publication
 sessions' rows gets a plain black box, so a slide reader can see which rows
 are the publication subset without cross-referencing session names.
 
@@ -20,7 +20,7 @@ is a different ten-vs-four question than "same sessions, different labels").
 Usage:
     uv run python -m counts.build
     uv run python -m counts.build --source dendro --monkey Nielsen
-    uv run python -m counts.build --scope allplus
+    uv run python -m counts.build --scope all
 
 Writes counts/out/<source>/hs_<monkey>_<scope>.png
 """
@@ -30,7 +30,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from zarchive.classifier.labels import PUBLICATION_SESSIONS
+from counts.labels import PUBLICATION_SESSIONS
 from counts.label_sources import SOURCES, source_scope_sessions
 from counts.census import census_counts, plot_census, source_sessions
 
@@ -67,7 +67,7 @@ def main():
     parser.add_argument("--source", nargs="*", default=list(SOURCES), choices=SOURCES)
     parser.add_argument("--monkey", nargs="*", default=["Faure", "Nielsen"], choices=("Faure", "Nielsen"))
     parser.add_argument(
-        "--scope", default="top_ten", choices=("publication", "all", "allplus", "top_ten")
+        "--scope", default="top_ten", choices=("publication", "all", "top_ten")
     )
     args = parser.parse_args()
 

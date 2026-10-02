@@ -142,7 +142,7 @@ def check_shuffle_preserves_session_counts():
 
     If it did, the shuffled pool would carry a different mix of same-session
     trial pairs than the data, and `z` would be measured against the wrong
-    floor -- see the first entry in msp.md.
+    floor.
     """
     rng = np.random.default_rng(3)
     _X, y, sessions = synth(rng, n_h=30, n_s=25, n_sessions=4)

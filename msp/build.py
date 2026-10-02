@@ -6,7 +6,7 @@ size `n_strategy // 2` (H and S may differ). Each half is averaged into one
 binary-occupancy profile over the five fixed states (origin + four exits)
 and the pairings are scored by the correlation of those means; the diagonal
 is within-strategy similarity, the off-diagonal cross-strategy, against a
-within-session label-shuffle null. See `msp.md`.
+within-session label-shuffle null.
 
 Fixed here, and so not a CLI axis: SVM labels at the top-ten scope, binary
 occupancy, K = 5 with the codebook in `config.py`, mazes 2-5 only.

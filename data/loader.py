@@ -180,3 +180,34 @@ def load_attractor_eye_data(monkey="Faure"):
     data = build_attractor_eye_data(load_eye_data(monkey), monkey=monkey)
     savez_atomic(path, **data)
     return data
+
+
+def main():
+    """Build the pooled per-monkey eye caches every gaze analysis reads first."""
+    import argparse
+
+    from data.config import MONKEYS
+
+    parser = argparse.ArgumentParser(
+        description="Build <Monkey>_eye_behavioral and <Monkey>_eye_data "
+        "(and, with --attractor, the legacy attractor warp) from the mats."
+    )
+    parser.add_argument("--monkey", nargs="*", default=list(MONKEYS), choices=MONKEYS)
+    parser.add_argument(
+        "--attractor", action="store_true",
+        help="also build <Monkey>_attractor_eye_data (read only by msp.legacy.saccades)",
+    )
+    args = parser.parse_args()
+    for monkey in args.monkey:
+        print(f"=== {monkey} ===", flush=True)
+        behavioral = load_eye_behavioral_data(monkey)
+        print(f"  eye_behavioral: {len(behavioral['session'])} trials", flush=True)
+        eye = load_eye_data(monkey)
+        print(f"  eye_data: {len(eye['session'])} trials", flush=True)
+        if args.attractor:
+            att = load_attractor_eye_data(monkey)
+            print(f"  attractor_eye_data: {len(att['session'])} trials", flush=True)
+
+
+if __name__ == "__main__":
+    main()

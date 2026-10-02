@@ -7,8 +7,8 @@ balanced one. A cell whose minority strategy falls below `MIN_MINORITY_SHARE`
 is printed red and bold: it has counts, but not on both sides, so it cannot
 support a within-cell H-vs-S contrast.
 
-The trial pool is the windowed feature table (k=6, unit-H) whose trials carry
-a finite label from the chosen source.
+The trial pool is every QC-passing trial in mazes 1-6 (`counts.labels.trial_pool`,
+behavioral only) that carries a finite label from the chosen source.
 
 Two label sources, taken from `counts.label_sources.SOURCE_STEM`:
 
@@ -42,22 +42,17 @@ from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import Rectangle
 
 from data.labels import CLUSTERING_SESSIONS
-from zarchive.classifier.features import load_features
-from zarchive.classifier.labels import (
+from counts.labels import (
     PUBLICATION_SESSIONS,
     labels_for_rows,
     scope_sessions,
     strategy_label_lookup,
+    trial_pool,
 )
 from counts.label_sources import SOURCE_STEM, SOURCES
 
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 N_MAZES = 6
-
-# The census cache. `decoding.run_monkey` reads the same one and says why: the
-# feature row set is identical across k, so the counts do not depend on this
-# choice. There is no space axis any more -- the pipeline is unit-H only.
-CENSUS_K = 6
 
 # A cell needs both strategies to support a within-cell contrast. Below this
 # minority share it is marked rather than dropped -- the count is still real
@@ -80,8 +75,7 @@ NO_DATA_COLOR = "#ffffff"
 def source_sessions(source, scope):
     """``monkey -> sessions`` carrying labels of `source` inside `scope`.
 
-    Vetting is `classifier.labels.scope_sessions`'s, with one exception copied
-    from `corr.labels.source_scope_sessions`: the SVM source is never
+    Vetting is `counts.labels.scope_sessions`'s, with one exception: the SVM source is never
     anchor-vetted, because grading a classifier trained on mazes 1 and 6
     against a map that calls mazes 1 and 6 hierarchical/sequential is circular.
     """
@@ -97,12 +91,12 @@ def source_sessions(source, scope):
 def census_counts(monkey, sessions, source):
     """``(sessions, counts)`` where counts is ``(n_sessions, N_MAZES, 2)``.
 
-    Same pool as `decoding.load_labelled`: feature rows for `sessions` whose
-    trial has a finite label from `source`. Last axis is (hierarchical,
+    `trial_pool` rows for `sessions` whose trial has a finite label from
+    `source`. Last axis is (hierarchical,
     sequential).
     """
     sessions = tuple(sorted(sessions))
-    data = load_features(monkey, k=CENSUS_K)
+    data = trial_pool(monkey)
     rows = np.asarray(data["session"]).astype(str)
     y = labels_for_rows(
         rows,
@@ -254,9 +248,9 @@ def main():
     parser.add_argument("--monkey", default="Faure", choices=("Faure", "Nielsen"))
     parser.add_argument(
         "--scope",
-        default="allplus",
-        choices=("publication", "all", "allplus"),
-        help="`classifier.labels` scope; allplus is unvetted (default)",
+        default="all",
+        choices=("publication", "all"),
+        help="`counts.labels` scope (default all; the svm source is never vetted)",
     )
     args = parser.parse_args()
     run(args.monkey, args.scope, args.source)

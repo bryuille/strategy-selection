@@ -1,8 +1,7 @@
 """The 2x2 panel figure, the codebook diagnostic figure, and `save_figure`.
 
 One 2x2 per (monkey, variant, maze). Each carries the four correlations and,
-above them, the three numbers worth reading: `delta`, `z`, `p`. How to
-interpret them lives in `msp.md`, not on the figure.
+above them, the three numbers worth reading: `delta`, `z`, `p`.
 """
 
 from __future__ import annotations
@@ -151,8 +150,8 @@ def codebook_figure(
     centroid, coloured by the state each was assigned to (grey =
     unassigned). One dot is one I-DT fixation, drawn at the mean warped
     position of its valid in-window samples -- the point the assignment
-    used. The legend gives each state's share of all fixations, which is the
-    coverage number `msp.md` warns about."""
+    used. The legend gives each state's share of all fixations: the codebook's
+    coverage."""
     fix_xy = np.asarray(fix_xy, dtype=float)
     fix_state = np.asarray(fix_state, dtype=int)
     n = max(fix_state.size, 1)

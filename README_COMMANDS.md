@@ -15,6 +15,14 @@ Contents: [Data](#data) · [msp](#msp) · [msp.per_session](#mspper_session) ·
 
 ## Data
 
+### `data.loader`: pooled eye caches
+
+```bash
+uv run python -m data.loader                    # eye_behavioral + eye_data, both monkeys
+uv run python -m data.loader --monkey Faure
+uv run python -m data.loader --attractor        # also the attractor warp (msp.legacy.saccades only)
+```
+
 ### `data.labels`: strategy labels
 
 ```bash
@@ -187,22 +195,39 @@ uv run python -m counts.build --source svm --monkey Faure --scope top_ten
 | ----------- | -------------------------------------------------------------------------------------------------------------- |
 | `--source`  | Label source (`census`: one; `build`: one or more)                                                             |
 | `--monkey`  | `Faure` or `Nielsen`                                                                                           |
-| `--scope`   | `census`: `publication`, `all`, `allplus` (default, unvetted). `build` also accepts `top_ten` (default)         |
+| `--scope`   | `census`: `publication`, `all` (default). `build` also accepts `top_ten` (default)                             |
 
 ## Slurm
 
-Batch scripts live in `slurm/`; anything after the script name is forwarded to
-the package's `build`. Submit from the repo root (logs go to `logs/`).
+Batch scripts live in `slurm/`. Submit from the repo root (logs go to
+`logs/`). All request one core; `MAT_ROOT` / `PROCESSED_ROOT` come from
+`data/config.py`, so set them to the cluster paths before pushing.
+
+| Script                 | Runs                                                                 |
+| ---------------------- | -------------------------------------------------------------------- |
+| `run_labels.sbatch`    | `data.labels --sweep --with-svm`, one array task per `CLUSTERING_SESSIONS` entry (64 GB) |
+| `run_module.sbatch`    | Any `python -m <module> [args]` (32 GB, 4 h; override with `--mem` / `-t`) |
+| `run_msp.sbatch`       | `msp.build`, after checking the eye and SVM-label caches exist       |
+| `run_regression.sbatch`| `regression.checks`, then `regression.build`                         |
 
 ```bash
 mkdir -p logs
-sbatch slurm/run_msp.sbatch --dry-run
+sbatch slurm/run_labels.sbatch                                   # all 23 sessions
+sbatch -J eyecaches --mem=64G slurm/run_module.sbatch data.loader
 sbatch slurm/run_msp.sbatch --radius 0.5
-sbatch slurm/run_regression.sbatch --dry-run
+sbatch -J persess slurm/run_module.sbatch msp.per_session --radius 0.5
+sbatch -J trends  slurm/run_module.sbatch msp_trends.build --radius 0.5 --codebook quads
 sbatch slurm/run_regression.sbatch
+sbatch -J scatter slurm/run_module.sbatch scatter.build
+sbatch -J counts  slurm/run_module.sbatch counts.build
 ```
 
-`run_regression.sbatch` runs `regression.checks` before the build.
+From an empty `PROCESSED_ROOT`: run labels and eye caches first (they are
+independent), then everything else with `--dependency=afterok:<jobid>`. Jobs
+that share a feature cache must not run at once on a cold cache:
+`msp.per_session` after `msp.build` at the same radius, and `msp_trends` runs
+at the same radius and codebook (e.g. `r0.5` and `r0.5_dendro`) one after
+the other.
 
 ## Clearing derived caches
 

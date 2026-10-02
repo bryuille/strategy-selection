@@ -5,7 +5,7 @@ labels, scope, seeds-per-maze aside), and writes its own figure and csv row.
 The pooled row reuses those mazes' null draws: pooled Δ is the trial-weighted
 mean of the per-maze Δs, and its null the same mean of the aligned draws. A
 separate paper figure per monkey puts mazes 2-5 and the pooled estimate side
-by side with the H vs S profile underneath. See `msp_trends.md`.
+by side with the H vs S profile underneath.
 
 Usage:
     uv run python -m msp_trends.build --dry-run --all-tags

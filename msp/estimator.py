@@ -17,8 +17,7 @@ correlating means, and matching on ``min(n_H, n_S)//2`` forced the majority
 strategy to subsample while the minority was fully partitioned. 100 rounds of
 fresh random partitions are averaged.
 
-`msp.md` records what this does and does not control for. The short
-version: read `z`, not `delta`.
+Read `z`, not `delta`.
 """
 
 from __future__ import annotations
@@ -129,7 +128,7 @@ def quadrant_block_means(X, y, rng, *, n_rounds=N_ROUNDS, m_H=None, m_S=None):
 
     Averaging suppresses independent trial noise, so these correlations sit
     high and rise with group size. That makes raw cells incomparable across
-    panels with different counts. Read `z`, and see `msp.md`.
+    panels with different counts. Read `z`.
     """
     a, b, sizes = _round_groups(y, n_rounds, rng, m_H=m_H, m_S=m_S)
     means_a = {s: (a[s] @ X) / sizes[s] for s in (H, S)}  # (n_rounds, d)
@@ -169,7 +168,7 @@ def permute_within_session(y, blocks, rng):
     makes the shuffled data carry that same-session enrichment in exactly the
     same proportion, so the null reproduces the artifact and `z` and `p` are
     calibrated against it. A shuffle across the whole pool would destroy it
-    in the null while leaving it in the data. See `msp.md`.
+    in the null while leaving it in the data.
     """
     out = np.asarray(y).copy()
     for block in blocks:

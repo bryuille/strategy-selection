@@ -19,6 +19,7 @@
 
 # Local env and caches (the cluster runs its own `uv sync`)
 .venv/
+__pycache__/
 .git/
 .matplotlib/
 .ruff_cache/

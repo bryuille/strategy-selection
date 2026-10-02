@@ -36,5 +36,5 @@ logs/
 # Retired packages
 zarchive/
 
-# Cluster-specific notes (personal)
+# Cluster-specific notes
 cloud.md

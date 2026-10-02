@@ -1,7 +1,7 @@
 """Label-source registry: which sessions and which cells, per label source.
 
 Two label sources, sharing one vetting path
-(`zarchive.classifier.labels.scope_sessions`) through a `stem` keyword:
+(`counts.labels.scope_sessions`) through a `stem` keyword:
 
 ``dendro``  Ward-clustering labels (`data.labels.build_strategy_choices`),
             anchor-agreement vetted against all five anchor mazes.
@@ -19,7 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from data.labels import CLUSTERING_SESSIONS, SNR_AUC
-from zarchive.classifier.labels import scope_sessions, strategy_label_lookup
+from counts.labels import scope_sessions, strategy_label_lookup
 
 SOURCES = ("dendro", "svm")
 SOURCE_STEM = {"dendro": "strategy_choices", "svm": "strategy_svm"}
@@ -61,10 +61,10 @@ SCOPES = ("publication", "top_four", "top_ten")
 WIDEST_SCOPE = {"dendro": "top_four", "svm": "top_ten"}
 
 _SCOPE_SPEC = {
-    # scope -> (pool scope in `classifier.labels.SCOPES`, top_n per monkey)
+    # scope -> (pool scope in `counts.labels.SCOPES`, top_n per monkey)
     "publication": ("publication", 0),
     "top_four": ("all", 4),
-    "top_ten": ("allplus", 10),
+    "top_ten": ("all", 10),  # svm only: unvetted over CLUSTERING_SESSIONS
 }
 
 _SNR_CSV = (
@@ -103,7 +103,7 @@ def _snr_key(session):
 def source_scope_sessions(source, scope):
     """``(by_monkey, dropped)`` for `source` in `scope`.
 
-    Reuses `classifier.labels.scope_sessions` for the pool and the vetting,
+    Reuses `counts.labels.scope_sessions` for the pool and the vetting,
     then truncates each monkey's survivors to the scope's `top_n`. `dendro`
     keeps its anchor-agreement gate; `svm` passes ``vet=False`` (no gate at
     all, for the circularity reason in the module docstring) over the full
