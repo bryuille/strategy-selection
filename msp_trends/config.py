@@ -110,7 +110,7 @@ POOLED = "pooled"
 # monkey). ``dendro``: the Ward-dendrogram labels (``*_strategy_choices.npz``)
 # on the publication sessions only -- as specified for the paper, Nov_6_g0
 # rather than msp.labels.PUBLICATION_SESSIONS' Oct_22_g0. All four are inside
-# both monkeys' top ten, which is all the geofix extraction covers.
+# both monkeys' top ten, which is all msp's extraction covers.
 LABEL_SCOPES = {
     "svm": dict(stem="strategy_svm", sessions=None, label="SVM labels, top-ten sessions"),
     "dendro": dict(
@@ -121,10 +121,8 @@ LABEL_SCOPES = {
 }
 DEFAULT_LABELS = "svm"
 
-# Analysis window, fixed for the whole package: msp's ``geofix``,
-# ``[geo_present, fix_start]`` (maze onset to fixation onset). Fixation onset is
-# ~1534 ms after maze onset in nearly every trial.
-WINDOW = "geofix"
+# msp's window, ``[geo_present, fix_start]``; fixation onset is ~1534 ms after
+# maze onset in nearly every trial.
 WINDOW_LABEL = "maze onset → fixation"
 
 # The tags `--all-tags` runs. A tag is ``r<radius>[<codebook>][_<scope>]``:

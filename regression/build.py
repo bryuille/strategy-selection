@@ -1,6 +1,6 @@
 """Entry point: fixation caches -> one regression per monkey -> CSVs and one figure.
 
-    python -m regression.build                      # both monkeys, geofix window
+    python -m regression.build                      # both monkeys
     python -m regression.build --dry-run            # counts and coverage, no fit
     python -m regression.build --monkey Faure --sessions june_24_g0
 """
@@ -13,11 +13,9 @@ import json
 import numpy as np
 
 from regression.config import (
-    DEFAULT_WINDOW,
     SESSIONS,
     STATE_NAMES,
-    WINDOW_NAMES,
-    out_dir,
+    OUT_DIR,
 )
 from regression.features import load_fixations, trial_measures
 from regression.labels import label_lookup, labels_for_rows
@@ -33,9 +31,9 @@ def analysed_rows(data, lookup):
     return idx, y[idx], np.asarray(data["maze_id"]).astype(int)[idx]
 
 
-def run_monkey(monkey, window, sessions, *, dry_run, refresh):
-    data = load_fixations(monkey, window, sessions=sessions, refresh=refresh)
-    print(f"  {monkey} [{window}] drops: {json.loads(str(data['drops_json']))}")
+def run_monkey(monkey, sessions, *, dry_run, refresh):
+    data = load_fixations(monkey, sessions=sessions, refresh=refresh)
+    print(f"  {monkey} drops: {json.loads(str(data['drops_json']))}")
     meas_all = trial_measures(data)
     idx, y, mazes = analysed_rows(data, label_lookup(sessions))
     kept, maze_table = select_mazes(mazes, y)
@@ -44,7 +42,7 @@ def run_monkey(monkey, window, sessions, *, dry_run, refresh):
     meas = {k: np.asarray(v)[idx] for k, v in meas_all.items()}
     states, rate = select_states(meas["occ"]) if idx.size else ([], np.zeros(len(STATE_NAMES)))
 
-    print(f"\n== {monkey} [{window}] ==")
+    print(f"\n== {monkey} ==")
     print(f"  analysed rows: {idx.size} (H {int((y == 0).sum())}, S {int((y == 1).sum())})")
     for r in maze_table:
         print(f"    maze {r['maze']}: H {r['n_H']} / S {r['n_S']}" + ("" if r["kept"] else "  (dropped)"))
@@ -57,7 +55,7 @@ def run_monkey(monkey, window, sessions, *, dry_run, refresh):
 
     coef, summary = analyse(meas, mazes, y, kept, states)
     summary.update(
-        monkey=monkey, window=window, n_mazes=len(kept),
+        monkey=monkey, n_mazes=len(kept),
         states_kept=";".join(STATE_NAMES[s] for s in states),
         states_dropped=";".join(
             f"{STATE_NAMES[s]}({rate[s]:.2f})" for s in range(len(STATE_NAMES)) if s not in states
@@ -79,7 +77,6 @@ def run_monkey(monkey, window, sessions, *, dry_run, refresh):
 def main():
     parser = argparse.ArgumentParser(description="Per-maze-offset logistic regression on codebook gaze.")
     parser.add_argument("--monkey", nargs="*", default=list(SESSIONS), choices=list(SESSIONS))
-    parser.add_argument("--window", default=DEFAULT_WINDOW, choices=list(WINDOW_NAMES))
     parser.add_argument("--sessions", nargs="*", default=None, help="subset of the publication sessions")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--refresh", action="store_true", help="rebuild the fixation caches")
@@ -92,7 +89,7 @@ def main():
             sessions = tuple(s for s in sessions if s in args.sessions)
             if not sessions:
                 continue
-        res = run_monkey(monkey, args.window, sessions, dry_run=args.dry_run, refresh=args.refresh)
+        res = run_monkey(monkey, sessions, dry_run=args.dry_run, refresh=args.refresh)
         if res is not None:
             results[monkey] = res
 
@@ -101,14 +98,13 @@ def main():
 
         from regression.figures import coefficient_figure
 
-        dest = out_dir(args.window)
+        dest = OUT_DIR
         dest.mkdir(parents=True, exist_ok=True)
         pd.DataFrame([r for v in results.values() for r in v["coef"]]).to_csv(dest / "coefficients.csv", index=False)
         pd.DataFrame([r for v in results.values() for r in v["mazes"]]).to_csv(dest / "mazes.csv", index=False)
         pd.DataFrame([v["summary"] for v in results.values()]).to_csv(dest / "summary.csv", index=False)
         coefficient_figure(
             {m: v["coef"] for m, v in results.items()}, dest / "coefficients.png",
-            window=args.window,
         )
         print(f"\nwrote {dest}")
 

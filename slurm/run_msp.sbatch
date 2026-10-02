@@ -9,8 +9,8 @@
 #
 # Anything after the script name is forwarded to `python -m msp.build`.
 #
-# PRECONDITIONS. Feature caches build on first run. The ``geofix`` window
-# re-detects from the pooled ``<Monkey>_eye_data.npz`` (pupil from
+# PRECONDITIONS. Feature caches build on first run. Each trial is
+# re-detected from the pooled ``<Monkey>_eye_data.npz`` (pupil from
 # the per-session eye mats under ``<MAT_ROOT>/Eye_Data/<Monkey>/``
 # when present) plus behavioral + svm labels.
 #

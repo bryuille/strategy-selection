@@ -110,7 +110,7 @@ def _panel(ax, rows, title):
         rt.spines[side].set_visible(False)
 
 
-def coefficient_figure(rows_by_monkey, path, *, window=""):
+def coefficient_figure(rows_by_monkey, path):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -120,7 +120,7 @@ def coefficient_figure(rows_by_monkey, path, *, window=""):
     fig, axes = plt.subplots(n, 1, figsize=(11.5, 4.9 * n), squeeze=False)
     for ax, (monkey, rows) in zip(axes[:, 0], rows_by_monkey.items()):
         n_tr = sum(1 for r in rows if r["kind"] == "offset")  # mazes kept
-        _panel(ax, rows, f"{monkey}: {n_tr} mazes, window {window}")
+        _panel(ax, rows, f"{monkey}: {n_tr} mazes")
     fig.text(
         0.01, 0.003,
         "Solid = 95% interval excludes 0; faded = it does not. ★ = survives Holm correction over all gaze "

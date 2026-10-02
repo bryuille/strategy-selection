@@ -189,7 +189,7 @@ def check_figure_renders(tmp="/tmp/regression_check.png"):
     rows, _ = analyse(meas, mazes, y, sorted(set(mazes)), list(range(K)))
     with tempfile.TemporaryDirectory() as d:
         out = Path(d) / "c.png"
-        coefficient_figure({"synthetic": rows}, out, window="synthetic")
+        coefficient_figure({"synthetic": rows}, out)
         assert out.stat().st_size > 10_000
     print("  figure renders: ok")
 

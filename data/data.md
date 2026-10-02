@@ -28,14 +28,14 @@ published ranges are read from `Single_Trial_List/`.
 | `<Monkey>_clean_eye_data` | `data.builder.clean_eye_data` (whole trial) | `load_clean_eye_data` |
 | `<Monkey>_clean_eye_data_s<S>_e<E>` | same, window `[fix−S, fix−E]` ms | `load_clean_eye_data(start_ms=…)` |
 | `<Monkey>_attractor_eye_data` | `data.builder.build_attractor_eye_data` | `load_attractor_eye_data` |
-| `<Monkey>_msp_fixed5_r<radius>` | `msp.features` (geofix window) | `msp.features.load_features` |
-| `<Monkey>_msp_trends_r<radius>[_region]` | `msp_trends.features` (geofix) | `msp_trends.features.load` |
-| `<Monkey>_reg_fixed5_<tag>_<window>` | `regression.features` | `regression.features.load_fixations` |
+| `<Monkey>_msp_fixed5_r<radius>` | `msp.features` | `msp.features.load_features` |
+| `<Monkey>_msp_trends_r<radius>[_region]` | `msp_trends.features` | `msp_trends.features.load` |
+| `<Monkey>_reg_fixed5_<tag>` | `regression.features` | `regression.features.load_fixations` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
-`<tag>` is a radius tag such as `r1` or `r0.5`. The MSP window is `geofix`,
-`[geo_present, fix_start]`, re-detected per trial over the svm/top_ten
-sessions (since 2026-10-02). The fixed `s1466_e0` window (`PRE_FIX_START_MS` /
+`<tag>` is a radius tag such as `r1` or `r0.5`. msp and regression analyse
+`[geo_present, fix_start]` (maze onset to fixation onset), re-detected per
+trial. The fixed `s1466_e0` window (`PRE_FIX_START_MS` /
 `PRE_FIX_END_MS` in `data.config`) is read only by `msp.legacy.saccades`,
 through the attractor and `clean_eye_data_s1466_e0` caches.
 
@@ -137,7 +137,8 @@ two are different analyses.
 | `session`, `trial_indices_all` | Trial join key |
 
 Trials that fail QC contribute no events. `msp.legacy.saccades` reads
-`s1466_e0`; msp and regression re-detect inside `geofix` instead.
+`s1466_e0`; msp and regression re-detect inside `[geo_present, fix_start]`
+instead.
 
 ### `<Monkey>_attractor_eye_data.npz`
 
@@ -152,9 +153,8 @@ the **whole-trial** (or default) events used at build time.
 | `session`, `trial_indices_all` | Trial join key |
 
 State assignment is **not** stored here — the consumer
-(`msp.legacy.saccades`) assigns against its own codebook. Regression **cannot** reuse this mask for
-`geofix` / alternate windows because validity is tied to the events window
-used when the attractor was built.
+(`msp.legacy.saccades`) assigns against its own codebook. Its validity mask
+is tied to the s1466 events, so msp and regression cannot reuse it.
 
 ---
 
@@ -164,9 +164,9 @@ used when the attractor was built.
 
 Fixed five-state occupancy for MSP (`msp.features`). Example:
 `Faure_msp_fixed5_r1.npz`. Validity is checked against the
-stored `assign_radius` / `window` / codebook, not the tag string.
+stored `assign_radius` / codebook, not the tag string.
 
-`<Monkey>_msp_trends_r<radius>.npz` is the same extraction (geofix) cached by
+`<Monkey>_msp_trends_r<radius>.npz` is the same extraction cached by
 `msp_trends`, which adds `assignment_rule`; `…_region` swaps the exit balls
 for maze regions.
 
@@ -188,15 +188,15 @@ for maze regions.
 | `fix_row` | `(F,)` int64 | Index into the per-trial tables |
 
 **Metadata:** `codebook_xy` `(5, 2)`, `state_names`, `codebook_k`,
-`radius_tag`, `assign_radius`, `window_start_ms`, `window_end_ms`.
+`radius_tag`, `assign_radius`.
 
 State order: `origin`, `LU`, `LD`, `RU`, `RD`
 (coordinates `(0,0)`, `(±1,±1)` in unit H).
 
-### `<Monkey>_reg_fixed5_<tag>_<window>.npz`
+### `<Monkey>_reg_fixed5_<tag>.npz`
 
-Regression fixation tables (`regression.features`). `<window>` is `geofix`.
-Example: `Faure_reg_fixed5_r1_geofix.npz`.
+Regression fixation tables (`regression.features`). Example:
+`Faure_reg_fixed5_r1.npz`.
 
 Always built for the publication session set; session subsets are filtered on
 load.
@@ -219,7 +219,7 @@ load.
 | `fix_onset_ms` | Onset within the window |
 | `fix_xy` | Centroid `(F, 2)` |
 
-**Metadata:** `codebook_xy`, `state_names`, `assign_radius`, `window`,
+**Metadata:** `codebook_xy`, `state_names`, `assign_radius`,
 `sessions`, `drops_json` (per-session drop tallies), `schema_version`.
 
 Measures (`occ`, `visits`, `dur_ms`, …) are **not** cached — derived on load
@@ -256,8 +256,8 @@ mat/Eye ──► <Monkey>_eye_data ──► <Monkey>_clean_eye_data[_s…_e…
                  │                              └─► msp.legacy.saccades (pre1466 plots)
 mat/Behavioral ──► <Monkey>_eye_behavioral ──┘
 
-mat/Eye + eye_behavioral ──► <Monkey>_msp_fixed5_r<radius> (geofix), <Monkey>_msp_trends_…
+mat/Eye + eye_behavioral ──► <Monkey>_msp_fixed5_r<radius>, <Monkey>_msp_trends_…
 
-mat/Eye + eye_behavioral ──► <Monkey>_reg_fixed5_…_<window>
-  (re-detects per window; does not reuse attractor validity)
+mat/Eye + eye_behavioral ──► <Monkey>_reg_fixed5_<tag>
+  (re-detects per trial; does not reuse attractor validity)
 ```

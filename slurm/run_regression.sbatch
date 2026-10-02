@@ -6,7 +6,7 @@
 #   sbatch slurm/run_regression.sbatch
 #
 # Anything after the script name is forwarded to `python -m regression.build`.
-# Fixation caches (<Monkey>_reg_fixed5_r1_geofix.npz) are built on first use.
+# Fixation caches (<Monkey>_reg_fixed5_r1.npz) are built on first use.
 # DO NOT run two instances concurrently on a cold cache.
 
 #SBATCH -J regression

@@ -5,7 +5,7 @@ shared caches rather than being re-detected per trial: the attractor warp
 (``<Monkey>_attractor_eye_data.npz``) and the s1466 clean events
 (``<Monkey>_clean_eye_data_s1466_e0.npz``). Fixation onset is ~1534 ms after
 maze onset in nearly every trial (never below 1466 ms), so this window misses
-the first ~70 ms that `msp.saccades` (``geofix``) covers.
+the first ~70 ms after maze onset that `msp.saccades` covers.
 
 This is the only surviving pre1466 code; the feature caches and 2x2 figures
 under that window were removed on 2026-10-02. Plotting is `msp.saccades`'s,

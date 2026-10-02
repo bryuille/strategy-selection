@@ -1,8 +1,8 @@
 """Package configuration: codebook, assignment, output paths, and figure style.
 
 Assignment is uniform circular balls around the five fixed prototypes
-(``--radius``; tags ``r0.5``, ``r1``). The analysis window is ``geofix``
-(maze onset to fixation onset). Nothing here fits a codebook:
+(``--radius``; tags ``r0.5``, ``r1``). Each trial is analysed from maze onset
+to fixation onset. Nothing here fits a codebook:
 `data.builder.to_maze` warps gaze into unit H, so the five landmarks have
 known coordinates and K = 5 is a statement about the maze.
 
@@ -39,21 +39,15 @@ LU_STATE, LD_STATE, RU_STATE, RD_STATE = 1, 2, 3, 4
 ASSIGN_RADIUS = 1.0
 MAZE_SCREEN_LIM = 3.0  # unit-H plot box; warped samples outside are off-maze
 
-# ---- windows -----------------------------------------------------------------
-# Each maps a trial's fix_start (ms from geo_present) to (lo, hi). `geofix` is
-# the only window and its tag omits it: `r0.5`. The retired fixed window
-# survives only in `msp.legacy.saccades`.
+# ---- window ------------------------------------------------------------------
 
 
-def _geofix(fix_ms):
+def window_bounds(fix_ms):
+    """``(lo, hi)`` in ms from geo_present: maze onset to fixation onset.
+
+    The retired fixed window survives only in `msp.legacy.saccades`, which
+    labels its `AssignmentSpec` with ``window="pre1466"``."""
     return 0.0, float(fix_ms)
-
-
-WINDOWS = {
-    "geofix": _geofix,  # [geo_present, fix_start], variable length
-}
-WINDOW_NAMES = tuple(WINDOWS)
-DEFAULT_WINDOW = "geofix"
 
 ANALYSIS_TAGS = ("r0.5", "r1")
 
@@ -62,21 +56,22 @@ _TAG_RE = re.compile(r"^r([0-9]+(?:\.[0-9]+)?)$")
 
 @dataclass(frozen=True)
 class AssignmentSpec:
-    """Uniform-ball assignment: out/cache tag, radius, and analysis window."""
+    """Uniform-ball assignment: out/cache tag and radius. ``window`` is None
+    for the standard window and names a retired one otherwise (legacy only)."""
 
     tag: str
     radius: float
-    window: str = DEFAULT_WINDOW
+    window: str | None = None
     lim: float = MAZE_SCREEN_LIM
 
     def label(self) -> str:
         base = f"{float(self.radius):g}"
-        if self.window == DEFAULT_WINDOW:
-            return base
-        return f"{base}/{self.window}"
+        return base if self.window is None else f"{base}/{self.window}"
 
     def window_bounds(self, fix_ms):
-        return WINDOWS[self.window](fix_ms)
+        if self.window is not None:
+            raise ValueError(f"no bounds for retired window {self.window!r}")
+        return window_bounds(fix_ms)
 
 
 assert CODEBOOK_XY.shape == (K, 2)
@@ -84,23 +79,13 @@ assert tuple(CODEBOOK_XY[ORIGIN_STATE]) == (0.0, 0.0), "origin must be state 0"
 assert len(STATE_NAMES) == K
 
 
-def resolve_assignment(*, radius=None, window=None) -> AssignmentSpec:
+def resolve_assignment(*, radius=None) -> AssignmentSpec:
     """Uniform balls for the cache stem, out dir, and state assignment.
 
     Omitting ``radius`` defaults to ``ASSIGN_RADIUS`` (tag ``r1``).
-    Omitting ``window`` defaults to ``geofix`` (tag has no window suffix).
     """
-    if radius is None:
-        radius = ASSIGN_RADIUS
-    if window is None:
-        window = DEFAULT_WINDOW
-    radius = float(radius)
-    window = str(window)
-    if window not in WINDOWS:
-        known = ", ".join(WINDOW_NAMES)
-        raise KeyError(f"unknown window {window!r}; known: {known}")
-    tag = f"r{radius:g}" if window == DEFAULT_WINDOW else f"r{radius:g}_{window}"
-    return AssignmentSpec(tag=tag, radius=radius, window=window)
+    radius = float(ASSIGN_RADIUS if radius is None else radius)
+    return AssignmentSpec(tag=f"r{radius:g}", radius=radius)
 
 
 def resolve_tag(tag: str) -> AssignmentSpec:

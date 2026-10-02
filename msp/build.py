@@ -11,8 +11,8 @@ within-session label-shuffle null.
 Fixed here, and so not a CLI axis: SVM labels at the top-ten scope, binary
 occupancy, K = 5 with the codebook in `config.py`, mazes 2-5 only.
 Assignment is uniform balls by default (`--radius`, e.g. ``r0.5`` / ``r1``).
-The analysis window is ``geofix`` (maze onset to fixation onset, re-detected
-per trial, top-ten sessions).
+Each trial runs from maze onset to fixation onset, re-detected per trial over
+the top-ten sessions.
 
 Usage:
     uv run python -m msp.build --dry-run

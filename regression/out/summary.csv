@@ -1,0 +1,3 @@
+n_rows,n_H,n_S,n_params,loglik,converged,cond,monkey,n_mazes,states_kept,states_dropped
+472,113,359,15,-179.9129648420763,True,23.983797916883574,Faure,4,origin;LU;LD;RU,RD(0.04)
+429,334,95,14,-168.04802158594978,True,32.3831167708189,Nielsen,3,origin;LU;RU;RD,LD(0.03)

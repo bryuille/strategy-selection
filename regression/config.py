@@ -1,4 +1,4 @@
-"""Package configuration: sessions, windows, codebook, model settings, paths.
+"""Package configuration: sessions, window, codebook, model settings, paths.
 
 Nothing here is fitted. The codebook is the fixed five-state one from
 `msp/config.py` (origin + the four unit-H exits), copied so this package
@@ -20,19 +20,14 @@ SESSIONS = {
 MONKEYS = tuple(SESSIONS)
 N_MAZES = 6
 
-# ---- windows -----------------------------------------------------------------
-# Each maps a trial's fix_start (ms from geo_present) to (lo, hi), also ms from
-# geo_present, and goes through the detect -> warp -> assign path.
+# ---- window ------------------------------------------------------------------
 
 
-def _geofix(fix_ms):
+def window_bounds(fix_ms):
+    """``(lo, hi)`` in ms from geo_present: maze onset to fixation onset.
+
+    Variable length, so the model fits a window-length term."""
     return 0.0, float(fix_ms)
-
-
-WINDOWS = {
-    "geofix": _geofix,  # [geo_present, fix_start], variable length
-}
-WINDOW_NAMES = tuple(WINDOWS)
 
 # ---- codebook / assignment (copied from msp/config.py) -----------------------
 
@@ -57,7 +52,6 @@ assert len(STATE_NAMES) == K
 
 # ---- model -------------------------------------------------------------------
 
-DEFAULT_WINDOW = "geofix"  # geo_present -> fix_start; variable length, so a window-length term is fit
 MIN_PER_LABEL = 5  # a maze needs this many of each label to keep its offset
 VISIT_RATE_RANGE = (0.05, 0.95)  # states outside are dropped from the model
 ZERO_SD = 1e-9  # columns with smaller SD are dropped
@@ -90,10 +84,6 @@ def radius_tag(radius=ASSIGN_RADIUS):
     return f"r{float(radius):g}"
 
 
-def cache_stem(monkey, window, radius=ASSIGN_RADIUS):
+def cache_stem(monkey, radius=ASSIGN_RADIUS):
     """Stem under ``data/processed/`` for the fixation table (msp-style)."""
-    return f"{monkey}_reg_fixed{K}_{radius_tag(radius)}_{window}"
-
-
-def out_dir(window):
-    return OUT_DIR / window
+    return f"{monkey}_reg_fixed{K}_{radius_tag(radius)}"

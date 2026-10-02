@@ -1,4 +1,4 @@
-"""Per-fixation table against the fixed codebook, one cache per (monkey, window).
+"""Per-fixation table against the fixed codebook, one cache per monkey.
 
 The pipeline is msp's (see `msp/features.py`): the gaze is re-detected and
 re-warped per trial inside the analysis window.
@@ -6,8 +6,8 @@ re-warped per trial inside the analysis window.
 1. **Trials**: unfaded (``trial_fade == 0``, checked explicitly), then
    `data.builder.trial_qc_ok` (photodiode QC, ``path_type != -99``), maze 1-6,
    ``fix_start > geo_present``.
-2. **Clip** samples and pupil to the window's ``[lo, hi]`` (ms from
-   geo_present), exactly as the windowed branch of
+2. **Clip** samples and pupil to ``[geo_present, fix_start]``
+   (`config.window_bounds`), exactly as the windowed branch of
    `data.builder.clean_eye_data` does, including its >= 6-sample floor.
 3. **Detect** saccades and I-DT fixations on the clipped segment with
    `data.builder.trial_events` -- the detector behind every events cache.
@@ -17,7 +17,7 @@ re-warped per trial inside the analysis window.
    prototype within ``ASSIGN_RADIUS`` (helpers copied from msp).
 
 Caches live in ``data/processed/`` (same convention as msp), as
-``<Monkey>_reg_fixed5_r1_<window>.npz``. Session subsets are filtered on load;
+``<Monkey>_reg_fixed5_r1.npz``. Session subsets are filtered on load;
 they do not get their own files. The three measures are derived on load by
 `trial_measures`, so changing how they are defined never needs a re-extraction.
 """
@@ -38,9 +38,8 @@ from regression.config import (
     N_MAZES,
     SESSIONS,
     STATE_NAMES,
-    WINDOW_NAMES,
-    WINDOWS,
     cache_stem,
+    window_bounds,
 )
 
 SCHEMA_VERSION = 1
@@ -224,8 +223,8 @@ def trial_fixations(t_s, x, y, h, pupil, lo, hi, *, experiment, radius=ASSIGN_RA
 # ---- extraction ------------------------------------------------------------------
 
 
-def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
-    """Per-trial and per-fixation tables for `monkey` under `window`."""
+def extract(monkey, sessions, *, radius=ASSIGN_RADIUS):
+    """Per-trial and per-fixation tables for `monkey`."""
     import pymovements as pm
 
     from data.builder import EYE_SAMPLING_RATE_HZ, gaze_arrays, trial_qc_ok
@@ -234,7 +233,6 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
     from data.loader import load_eye_behavioral_data
     from data.builder import behavioral_lookup, fix_start_ms
 
-    window_fn = WINDOWS[window]
     behavioral = load_eye_behavioral_data(monkey)
     beh = behavioral_lookup(behavioral)
     experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
@@ -272,7 +270,7 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
             if not np.isfinite(fix_ms) or fix_ms <= 0:
                 tally["no_fix_start"] += 1
                 continue
-            lo, hi = window_fn(fix_ms)
+            lo, hi = window_bounds(fix_ms)
 
             t_s, x, y = gaze_arrays(g)
             pupil = (
@@ -304,7 +302,7 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
             tally["kept"] += 1
 
         drops[session] = tally
-        print(f"  {monkey} {session} [{window}]: " + ", ".join(f"{k}={v}" for k, v in tally.items()))
+        print(f"  {monkey} {session}: " + ", ".join(f"{k}={v}" for k, v in tally.items()))
 
     def cat(parts, dtype, shape=(0,)):
         return np.concatenate(parts).astype(dtype) if parts else np.empty(shape, dtype=dtype)
@@ -324,18 +322,16 @@ def extract(monkey, window, sessions, *, radius=ASSIGN_RADIUS):
         "codebook_xy": np.asarray(CODEBOOK_XY, dtype=np.float32),
         "state_names": np.asarray(STATE_NAMES, dtype=str),
         "assign_radius": np.float64(radius),
-        "window": np.asarray(window),
         "sessions": np.asarray(tuple(sessions), dtype=str),
         "drops_json": np.asarray(json.dumps(drops)),
         "schema_version": np.int64(SCHEMA_VERSION),
     }
 
 
-def _cache_matches(data, window, sessions, radius):
+def _cache_matches(data, sessions, radius):
     try:
         return (
             int(data["schema_version"]) == SCHEMA_VERSION
-            and str(data["window"]) == window
             and tuple(np.asarray(data["sessions"]).astype(str)) == tuple(sessions)
             and np.isclose(float(data["assign_radius"]), float(radius))
             and np.array_equal(np.asarray(data["codebook_xy"], dtype=np.float32), CODEBOOK_XY)
@@ -372,7 +368,6 @@ def _subset_sessions(data, sessions):
         "codebook_xy": np.asarray(data["codebook_xy"]),
         "state_names": np.asarray(data["state_names"]),
         "assign_radius": data["assign_radius"],
-        "window": data["window"],
         "sessions": np.asarray(tuple(sessions), dtype=str),
         "drops_json": data["drops_json"],
         "schema_version": data["schema_version"],
@@ -380,8 +375,8 @@ def _subset_sessions(data, sessions):
     return out
 
 
-def load_fixations(monkey, window, *, sessions=None, radius=ASSIGN_RADIUS, refresh=False):
-    """Cached tables for (monkey, window) under ``data/processed/``.
+def load_fixations(monkey, *, sessions=None, radius=ASSIGN_RADIUS, refresh=False):
+    """Cached tables for `monkey` under ``data/processed/``.
 
     Always built for the publication session set; ``sessions`` subsets are
     filtered after load (no per-subset cache files).
@@ -390,18 +385,16 @@ def load_fixations(monkey, window, *, sessions=None, radius=ASSIGN_RADIUS, refre
     from data.loader import savez_atomic
     from data.mat import load_npz
 
-    if window not in WINDOWS:
-        raise ValueError(f"unknown window {window!r}; choose from {WINDOW_NAMES}")
     sessions = tuple(sessions) if sessions else SESSIONS[monkey]
     full = SESSIONS[monkey]
-    path = processed_npz(cache_stem(monkey, window, radius))
+    path = processed_npz(cache_stem(monkey, radius))
     if path.exists() and not refresh:
         data = load_npz(path)
-        if _cache_matches(data, window, full, radius):
+        if _cache_matches(data, full, radius):
             return _subset_sessions(data, sessions)
         print(f"  {path.name}: stale (schema/codebook/radius/sessions); rebuilding")
-    print(f"Extracting {monkey} [{window}] for {', '.join(full)} ...")
-    data = extract(monkey, window, full, radius=radius)
+    print(f"Extracting {monkey} for {', '.join(full)} ...")
+    data = extract(monkey, full, radius=radius)
     savez_atomic(path, **data)
     print(f"Saved {path} ({data['session'].size} trials, {data['fix_state'].size} fixations)")
     return _subset_sessions(data, sessions)
@@ -463,12 +456,10 @@ def trial_measures(data):
 def main():
     parser = argparse.ArgumentParser(description="Build the regression fixation caches.")
     parser.add_argument("--monkey", nargs="*", default=list(SESSIONS), choices=list(SESSIONS))
-    parser.add_argument("--window", nargs="*", default=list(WINDOW_NAMES), choices=list(WINDOW_NAMES))
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
     for monkey in args.monkey:
-        for window in args.window:
-            load_fixations(monkey, window, refresh=args.refresh)
+        load_fixations(monkey, refresh=args.refresh)
 
 
 if __name__ == "__main__":

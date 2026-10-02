@@ -82,7 +82,7 @@ sessions per monkey by `snr_auc`) or *dendrogram* (Ward clustering; the
 publication sessions, two per monkey). Gaze is warped to "unit H" (fixation point at the
 origin, exits at (±1, ±1)), and each fixation is assigned to the nearest of
 five states (origin, LU, LD, RU, RD) within `--radius`, giving tags such as
-`r0.5`. The window runs from maze onset to fixation onset (`geofix`).
+`r0.5`. Each trial is analysed from maze onset to fixation onset.
 
 ### `counts/`
 
@@ -139,7 +139,7 @@ Maze offsets absorb everything constant within a maze; mazes with fewer than
 all z-scored. Unestimable columns are dropped and marked × in the figure. In
 the figure, solid bars have a 95% CI excluding 0, and ★ survives Holm
 correction. The result is associational, and its intervals are optimistic.
-Output: `regression/out/geofix/`.
+Output: `regression/out/`.
 
 ### `scatter/`
 

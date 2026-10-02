@@ -21,10 +21,9 @@ merge is a relabelling, so
             total assigned ms; a trial with no assigned dwell stays all-zero
             and is kept (counted as degenerate by the estimator, as in msp)
 
-Row population is msp's under its ``geofix`` window. Under the default ``svm``
-label scope, labels and sessions are msp's too, so `n_H` / `n_S` per maze equal
-an msp run at the same radius (geofix is msp's default too); ``dendro`` swaps in the
-dendrogram labels on the publication sessions.
+Row population is msp's. Under the default ``svm`` label scope, labels and
+sessions are msp's too, so `n_H` / `n_S` per maze equal an msp run at the same
+radius; ``dendro`` swaps in the dendrogram labels on the publication sessions.
 """
 
 from __future__ import annotations
@@ -46,7 +45,6 @@ from msp_trends.config import (
     EXIT_HALF_WIDTH,
     LABEL_SCOPES,
     PERIMETER_RADIUS,
-    WINDOW,
     parse_tag,
 )
 
@@ -56,8 +54,8 @@ REGION_RULE = f"region_exit{EXIT_HALF_WIDTH:g}_perim{PERIMETER_RADIUS:g}"
 
 
 def assignment_for(tag):
-    """msp's `AssignmentSpec` for a tag: its radius under the package window."""
-    return msp_cfg.resolve_assignment(radius=parse_tag(tag).radius, window=WINDOW)
+    """msp's `AssignmentSpec` for a tag's radius."""
+    return msp_cfg.resolve_assignment(radius=parse_tag(tag).radius)
 
 
 def inside_maze(xy):
@@ -197,7 +195,7 @@ def scope(monkey, tag):
     in_cache = set(msp_labels.top_ten_sessions(monkey))
     outside = [s for s in sessions if s not in in_cache]
     if outside:
-        # The geofix extraction only re-detects the top-ten sessions.
+        # msp's extraction only re-detects the top-ten sessions.
         raise ValueError(f"{monkey}: {outside} are outside the top-ten feature scope")
     return sessions, label_lookup(sessions, spec["stem"])
 

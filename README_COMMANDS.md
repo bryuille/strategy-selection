@@ -78,8 +78,8 @@ uv run python -m msp.build --variant full no_origin --vmax 0.3    # subset of va
 
 `msp.features` takes `--monkey`, `--radius`, `--refresh`.
 
-Figures land in `msp/out/r<radius>/<Monkey>/`. The window is always `geofix`
-(maze onset → fixation onset, re-detected from raw eye).
+Figures land in `msp/out/r<radius>/<Monkey>/`. Each trial runs from maze
+onset to fixation onset, re-detected from raw eye.
 
 ### `msp.saccades`: pre-fixation gaze plots
 
@@ -165,7 +165,6 @@ uv run python -m regression.build --monkey Faure --sessions june_24_g0
 | Flag             | Meaning                                              |
 | ---------------- | ---------------------------------------------------- |
 | `--monkey`       | One or more monkeys (default: both)                  |
-| `--window`       | Analysis window (only `geofix`)                      |
 | `--sessions`     | Subset of the publication sessions                   |
 | `--dry-run`      | Report only; fit nothing                             |
 | `--refresh`      | Rebuild the fixation caches                          |

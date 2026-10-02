@@ -4,8 +4,8 @@ Session/maze gaze panels (raw vs snapped gaze, state spans, codebook)
 assigned against this package's fixed codebook and uniform balls
 (``AssignmentSpec``). Depends only on ``data.*`` and ``msp.*``.
 
-As in `msp.features`, each trial is re-detected and re-warped inside the
-``geofix`` window ``[geo_present, fix_start]`` with
+As in `msp.features`, each trial is re-detected and re-warped inside
+``[geo_present, fix_start]`` with
 `msp.features.redetect_trace`. The retired fixed-length window lives in
 `msp.legacy.saccades`, which reuses this module's plotting through the
 ``collect`` / ``out_root`` hooks.
@@ -42,7 +42,6 @@ from msp.config import (
     K,
     MAZE_SCREEN_LIM,
     STATE_NAMES,
-    DEFAULT_WINDOW,
     AssignmentSpec,
     resolve_tag,
 )
@@ -121,7 +120,7 @@ def _median_geometry(h_vals):
 
 
 def _time_window_label(trials):
-    if trials[0]["window"] != DEFAULT_WINDOW:  # fixed-length (msp.legacy)
+    if trials[0]["window"] is not None:  # retired fixed-length window (msp.legacy)
         return f"fix_start − {trials[0]['window_ms']:.0f} ms → fix_start"
     med = float(np.median([t["window_ms"] for t in trials]))
     return f"maze onset → fix_start (median {med:.0f} ms)"
@@ -134,7 +133,7 @@ def _trace_stats(trials):
         xs.append(np.interp(grid, trial["t_rel"], trial["x"], left=np.nan, right=np.nan))
         ys.append(np.interp(grid, trial["t_rel"], trial["y"], left=np.nan, right=np.nan))
     x_stack, y_stack = np.asarray(xs), np.asarray(ys)
-    # Variable-length (geofix) windows: keep only the times at least half the
+    # Variable-length windows: keep only the times at least half the
     # trials reach, so a few long trials cannot stretch the axis with
     # averages over a handful of traces. Fixed windows are unaffected.
     reach = np.array([-t["window_ms"] for t in trials], dtype=float)

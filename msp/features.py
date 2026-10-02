@@ -2,8 +2,7 @@
 
 Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 
-1. **Clip** each trial to the analysis window (``geofix``, ``[0, fix_start]``
-   from maze onset).
+1. **Clip** each trial to ``[0, fix_start]`` from maze onset.
 2. **Warp** to unit H.
 3. **Fixations** by I-DT on the clipped, unwarped data.
 4. **Assign** each fixation's mean warped position to the nearest prototype
@@ -49,7 +48,6 @@ from data.builder import behavioral_lookup, fix_start_ms
 from msp.config import (
     ASSIGN_RADIUS,
     CODEBOOK_XY,
-    DEFAULT_WINDOW,
     K,
     MAZE_SCREEN_LIM,
     ORIGIN_STATE,
@@ -235,7 +233,6 @@ def _pack_feature_dict(
     out["codebook_k"] = np.int64(K)
     out["radius_tag"] = np.asarray(assignment.tag)
     out["assign_radius"] = np.float64(assignment.radius)
-    out["window"] = np.asarray(assignment.window)
     return out
 
 
@@ -324,7 +321,7 @@ def _trial_redetect(t_s, x, y, h, pupil, lo, hi, *, experiment, assignment: Assi
 
 
 def _extract_redetect(monkey, assignment: AssignmentSpec):
-    """Non-default windows: re-detect and re-warp from pooled ``*_eye_data``.
+    """Re-detect and re-warp each trial from pooled ``*_eye_data``.
 
     Restricted to the svm/top_ten sessions (the estimator's label scope). A
     full-monkey re-detect would re-process every attractor session; those
@@ -393,7 +390,7 @@ def _extract_redetect(monkey, assignment: AssignmentSpec):
         kept_by_session[session] += 1
 
     for session, kept in kept_by_session.items():
-        print(f"  {monkey} {session} [{assignment.window}]: kept={kept}")
+        print(f"  {monkey} {session}: kept={kept}")
 
     print(
         f"  {monkey}: {len(rows_session)} usable trials; fixed K={K} codebook, "
@@ -417,7 +414,7 @@ def extract_monkey_features(monkey, *, radius=ASSIGN_RADIUS, assignment=None):
     """Feature blocks for every usable trial of `monkey` against the fixed codebook.
 
     Pass a scalar ``radius`` or a full ``assignment``. ``resolve_assignment``
-    builds the default (uniform balls, ``geofix`` window).
+    builds the default (uniform balls at ``ASSIGN_RADIUS``).
     """
     if assignment is None:
         assignment = resolve_assignment(radius=radius)
@@ -425,29 +422,20 @@ def extract_monkey_features(monkey, *, radius=ASSIGN_RADIUS, assignment=None):
 
 
 def cache_stem(monkey, radius=ASSIGN_RADIUS, *, tag=None, assignment=None):
-    """``geofix``: ``<M>_msp_fixed5_r<radius>``; other named windows append
-    ``_<window>``."""
+    """``<M>_msp_fixed5_r<radius>``."""
     if assignment is None:
         assignment = resolve_tag(tag) if tag is not None else resolve_assignment(radius=radius)
-    base = f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}"
-    if assignment.window == DEFAULT_WINDOW:
-        return base
-    return f"{base}_{assignment.window}"
+    return f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}"
 
 
 def _cache_matches(data, assignment: AssignmentSpec):
-    """False if the cache was built under a different codebook, radius or
-    window, or predates the per-fixation arrays. Radius and window are read
-    from their own fields rather than the tag, whose spelling depended on the
-    default window before 2026-10-02."""
+    """False if the cache was built under a different codebook or radius, or
+    predates the per-fixation arrays. The radius is read from its own field
+    rather than the tag string."""
     try:
         stored = np.asarray(data["assign_radius"], dtype=float).ravel()
         if stored.size != 1 or not np.isfinite(stored[0]):
             return False
-        window_ok = (
-            "window" in data
-            and str(np.asarray(data["window"]).astype(str).reshape(-1)[0]) == assignment.window
-        )
         return (
             "fix_row" in data
             and int(data["codebook_k"]) == K
@@ -455,7 +443,6 @@ def _cache_matches(data, assignment: AssignmentSpec):
                 np.asarray(data["codebook_xy"], dtype=np.float32),
                 np.asarray(CODEBOOK_XY, dtype=np.float32),
             )
-            and window_ok
             and tuple(np.asarray(data["state_names"]).astype(str)) == tuple(STATE_NAMES)
             and bool(np.isclose(float(stored[0]), float(assignment.radius)))
         )
