@@ -26,7 +26,7 @@ Set two paths at the top of `data/config.py` (there are no environment
 variables):
 
 ```python
-MAT_ROOT = None  # raw .mat files; required, read-only, keep a backup
+MAT_ROOT = None  # raw .mat files; required, only ever read
 PROCESSED_ROOT = Path("./data/processed")  # everything computed; rebuildable
 ```
 
@@ -38,8 +38,13 @@ PROCESSED_ROOT = Path("./data/processed")  # everything computed; rebuildable
 └── Single_Trial_List/{Faure,Nielsen}/...
 ```
 
-`PROCESSED_ROOT` may not sit inside `MAT_ROOT`. Sessions are
-`<month>_<day>_g<n>`; `june` / `April` are Faure, `Oct` / `Nov` / `Dec` Nielsen.
+`PROCESSED_ROOT` may not sit inside `MAT_ROOT`, and needs room for about
+50 GB to run every analysis. Most of that (~38 GB) is the per-session
+`trial_timebins` caches that `data.labels` leaves behind;
+`data.labels --sweep --reclaim-timebins` deletes each one once its labels are
+built.
+
+Sessions are `<month>_<day>_g<n>`; `june` / `April` are Faure, `Oct` / `Nov` / `Dec` Nielsen.
 
 To build from scratch:
 
@@ -69,19 +74,6 @@ after changing detector or QC constants, delete the derived caches
 
 Each package reads `data/` and writes only to its own `out/`. When a default
 changes, rename old outputs to an explicit tag rather than deleting them.
-
-## Vocabulary
-
-- **Labels.** *SVM*: a linear classifier of neural activity trained on mazes
-  1 vs 6, over the top-ten sessions per monkey by `snr_auc`. *Dendrogram*:
-  Ward clustering of neural activity, vetted against the anchor mazes down to
-  four sessions per monkey.
-- **Unit H.** Each maze is warped so the fixation point is at (0, 0), the exits
-  at (±1, ±1) and the top of the stem at (0, 1), putting all mazes in one frame.
-- **States.** The origin plus the four exits (LU, LD, RU, RD). Each fixation
-  goes to the nearest state within a radius (`--radius`, tag `r<radius>`), or
-  is dropped.
-- **Window.** `geofix`: maze onset to fixation onset, about 1.5 s.
 
 ## Analyses
 
