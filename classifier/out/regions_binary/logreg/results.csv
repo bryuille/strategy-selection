@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,regions_binary,logreg,1,0.6470588235294118,85,1,,,,,,,
+Faure,regions_binary,logreg,2,0.5391963109354414,69,22,,,,,,,
+Faure,regions_binary,logreg,3,0.6638888888888889,90,4,,,,,,,
+Faure,regions_binary,logreg,4,0.4879807692307692,13,96,,,,,,,
+Faure,regions_binary,logreg,5,0.5738461538461539,20,130,,,,,,,
+Faure,regions_binary,logreg,6,0.5855855855855856,11,111,,,,,,,
+Faure,regions_binary,logreg,held-out june_24_g0,0.5217594031706559,,,,,,,,,
+Faure,regions_binary,logreg,held-out june_8_g0,0.5467980295566502,,,,,,,,,
+Faure,regions_binary,logreg,leave-one-session-out pooled,0.5245652773944245,,,,,,,,,
+Faure,regions_binary,logreg,within-maze pooled,0.558660409556314,288,364,0.4892534129692832,0.04934183211572378,1.4066562511146168,0.08955223880597014,0.9163566468253969,9,200
+Nielsen,regions_binary,logreg,1,0.41379310344827586,116,3,,,,,,,
+Nielsen,regions_binary,logreg,2,0.5002624671916011,127,15,,,,,,,
+Nielsen,regions_binary,logreg,3,0.6178092986603625,141,9,,,,,,,
+Nielsen,regions_binary,logreg,4,0.5848271446862996,66,71,,,,,,,
+Nielsen,regions_binary,logreg,5,0.5307017543859649,3,152,,,,,,,
+Nielsen,regions_binary,logreg,held-out Nov_3_g0,0.5963187090267272,,,,,,,,,
+Nielsen,regions_binary,logreg,held-out Nov_6_g0,0.459716796875,,,,,,,,,
+Nielsen,regions_binary,logreg,leave-one-session-out pooled,0.5269163979161499,,,,,,,,,
+Nielsen,regions_binary,logreg,within-maze pooled,0.5613457987072945,453,412,0.49062038319482915,0.05352298319565474,1.321402718789546,0.0845771144278607,0.9560936796759467,9,200

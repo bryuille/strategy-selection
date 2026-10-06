@@ -15,6 +15,8 @@ from msp import figures as msp_fig
 from msp_trends.estimator import low_n
 from msp_trends.config import (
     BLOCK_LABEL,
+    BOTH,
+    feature_names,
     BLOCK_YLABEL,
     CMAP,
     LOW_N_MARK,
@@ -120,12 +122,13 @@ def draw_difference(ax, diff, se, *, names, block):
 # ---- per-maze figures --------------------------------------------------------
 
 
-def panel_figure(result, *, codebook, title, vmax=None):
+def panel_figure(result, *, codebook, title, vmax=None, block=None):
     """One 2x2, as in msp, titled with the codebook's states."""
+    names = feature_names(codebook, block)
     vmin, vmax_eff = _limits([result.q], vmax)
     fig, ax = plt.subplots(figsize=(msp_fig.FIG_W, msp_fig.FIG_H), layout="constrained")
     im = _matrix(ax, result, vmin, vmax_eff)
-    ax.set_title(f"K = {codebook.k}  ({', '.join(codebook.names)})\n{stats_line(result)}",
+    ax.set_title(f"K = {codebook.k}{' × 2' if block == BOTH else ''}  ({', '.join(names)})\n{stats_line(result)}",
                  fontsize=10, pad=8)
     cbar = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02, shrink=0.62)
     cbar.set_label(CBAR_LABEL, fontsize=9)
@@ -137,16 +140,38 @@ def panel_figure(result, *, codebook, title, vmax=None):
 
 
 def profile_figure(prof, *, codebook, block, title):
-    fig, ax = plt.subplots(figsize=(4.8 + 0.5 * (codebook.k - 3), 3.8), layout="constrained")
-    draw_profile(ax, prof, names=codebook.names, block=block)
+    names = feature_names(codebook, block)
+    fig, ax = plt.subplots(figsize=(4.8 + 0.5 * (len(names) - 3), 3.8), layout="constrained")
+    draw_profile(ax, prof, names=names, block=block)
     ax.set_title(title, fontsize=10)
     return fig
 
 
+def _capsule_outline(exit_xy, radius, n=64):
+    """Closed outline of the points within `radius` of the segment 0 -> `exit_xy`."""
+    ex = np.asarray(exit_xy, dtype=float)
+    ang = np.arctan2(ex[1], ex[0])
+    a_exit = np.linspace(ang - np.pi / 2, ang + np.pi / 2, n)
+    a_orig = np.linspace(ang + np.pi / 2, ang + 3 * np.pi / 2, n)
+    pts = np.vstack([ex + radius * np.c_[np.cos(a_exit), np.sin(a_exit)],
+                     radius * np.c_[np.cos(a_orig), np.sin(a_orig)]])
+    return np.vstack([pts, pts[:1]])
+
+
 def _draw_regions(ax, codebook, codebook5, radius):
-    """Balls for ``balls``; origin ball + maze perimeter + split lines otherwise."""
+    """Balls for ``balls``; capsules for ``capsules``; origin ball + maze
+    perimeter + split lines otherwise."""
     smap = codebook.map_array
-    if not codebook.region:
+    if codebook.rule == "capsule":
+        for b, xy in enumerate(np.asarray(codebook5, dtype=float)):
+            if smap[b] < 0:
+                continue
+            outline = _capsule_outline(xy, float(radius))
+            ax.plot(outline[:, 0], outline[:, 1], color=STATE_COLOUR[codebook.names[smap[b]]],
+                    lw=1.4, zorder=3)
+            ax.plot(*xy, "x", color="black", ms=6, mew=1.2, zorder=4)
+        return
+    if codebook.rule == "balls":
         for b, (x, y) in enumerate(np.asarray(codebook5, dtype=float)):
             colour = STATE_COLOUR[codebook.names[smap[b]]]
             ax.add_patch(Circle((x, y), float(radius), fill=False, ec=colour, lw=1.4, zorder=3))

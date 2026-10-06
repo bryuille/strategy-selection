@@ -1,4 +1,4 @@
-"""msp's 2x2 on the msp_trends codebooks (balls / quads / halves), per maze and pooled.
+"""msp's 2x2 on the msp_trends codebooks (balls / balls3 / quads / halves / capsules), per maze and pooled.
 
 Every maze runs individually, exactly as in `msp.build` (same estimator,
 labels, scope, seeds-per-maze aside), and writes its own figure and csv row.
@@ -13,8 +13,18 @@ Usage:
     uv run python -m msp_trends.build --radius 0.5
     uv run python -m msp_trends.build --radius 0.5 --labels dendro
     uv run python -m msp_trends.build --radius 0.5 --codebook quads   # r0.5quads
+    uv run python -m msp_trends.build --radius 0.5 --codebook capsules   # r0.5capsules
     uv run python -m msp_trends.build --all-tags
     uv run python -m msp_trends.build --monkey Faure --n-perm 200   # smoke test
+
+    uv run python -m msp_trends.build --radius 0.5 --codebook quads --labels dendro --across
+
+``--across`` (tag suffix ``_across``) pools the trials of every selected maze
+first, then runs one split-half 2x2 per (block, variant) on the pool. The
+``mean_removed`` grand mean is the pool's, and the null shuffles labels within
+each (session, maze), so the pool's maze-by-strategy imbalance is kept in the
+null. Writes ``<Monkey>/<block>/<variant>/across.png`` and ``results.csv``
+(one row) plus ``<Monkey>/<block>/strategy_across.png``; no paper figure.
 
 Writes under out/<tag>/:
     <Monkey>/codebook.png, <Monkey>/codebook_maze<M>.png
@@ -132,7 +142,7 @@ def build_monkey(monkey, tag, spec, args):
                 if np.isfinite(result.delta):
                     runs.append(run)  # an undefined observed score cannot be pooled
                 fig = figmod.panel_figure(
-                    result, codebook=cb, vmax=args.vmax,
+                    result, codebook=cb, vmax=args.vmax, block=block,
                     title=f"{monkey} — maze {maze} — {cfg.BLOCK_LABEL[block]}\n"
                           f"{variant} · {tag_label(spec)} · {labels_label(tag)}",
                 )
@@ -176,8 +186,70 @@ def build_monkey(monkey, tag, spec, args):
     return pooled_in
 
 
+def across_monkey(monkey, tag, spec, args):
+    """Pool the mazes, then one 2x2 per (block, variant)."""
+    keep, lookup = features.scope(monkey, tag)
+    cb = cfg.parse_tag(tag).codebook
+    print(f"\n=== {monkey} [{tag}] ({len(keep)} sessions in scope) ===")
+    data = features.load(monkey, tag, refresh=args.refresh)
+    codebook_figures(data, monkey=monkey, tag=tag, spec=spec, mazes=args.maze, args=args)
+
+    parts = [features.pool_maze(data, maze=m, keep_sessions=keep, lookup=lookup)
+             for m in args.maze]
+    for block in args.block:
+        X_all = features.merge_block(data, block, cb)
+        X = np.concatenate([X_all[mask] for mask, _, _ in parts])
+        y = np.concatenate([y for _, y, _ in parts])
+        # shuffle blocks are (session, maze), not session: see the module docstring
+        sess = np.concatenate([[f"{s}|maze{m}" for s in sess_m]
+                               for m, (_, _, sess_m) in zip(args.maze, parts)])
+        rows = strategy_rows(X, y)
+        fig = figmod.profile_figure(
+            {t: figmod.profile(rows[t]) for t in ("H", "S")}, codebook=cb, block=block,
+            title=f"{monkey} — mazes {', '.join(map(str, args.maze))} pooled — "
+                  f"{cfg.BLOCK_LABEL[block]}\nn_H = {len(rows['H'])}, "
+                  f"n_S = {len(rows['S'])} · mean ± SE",
+        )
+        figmod.save_figure(fig, "strategy_across", out_root=args.out_root,
+                           rel_dir=cfg.block_dir(tag, monkey, block), dpi=args.dpi)
+        plt.close(fig)
+        for variant in args.variant:
+            run, reason = estimator.run_maze(
+                features.apply_variant(X, variant), y, sess,
+                seed=estimator.maze_seed(args.seed, 0),
+                n_rounds=args.n_rounds, n_perm=args.n_perm, min_trials=args.min_trials,
+            )
+            result = None if run is None else run.result
+            row = msp_build.cell_row(result, reason, monkey=monkey, variant=variant,
+                                     maze="across", radius=tag)
+            row["low_n"] = int(estimator.low_n(result))
+            row["mazes_pooled"] = " ".join(map(str, args.maze))
+            if run is not None:
+                row["n_null_undefined"] = run.n_null_undefined
+            msp_build.write_csv(cfg.results_csv(args.out_root, tag, monkey, block, variant),
+                                [{"block": block, **row}])
+            if run is None:
+                print(f"  {block}/{variant}/across: {reason}")
+                continue
+            fig = figmod.panel_figure(
+                result, codebook=cb, vmax=args.vmax, block=block,
+                title=f"{monkey} — mazes {', '.join(map(str, args.maze))} pooled — "
+                      f"{cfg.BLOCK_LABEL[block]}\n{variant} · {tag_label(spec)} · "
+                      f"{labels_label(tag)}",
+            )
+            figmod.save_figure(fig, "across", out_root=args.out_root,
+                               rel_dir=cfg.variant_dir(tag, monkey, block, variant),
+                               dpi=args.dpi, bbox_inches="tight", pad_inches=0.08)
+            plt.close(fig)
+            print(f"    {block}/{variant}/across: Δ={result.delta:+.4f} z={result.z:+.2f} "
+                  f"p={result.p:.4f} n_H={result.n_H} n_S={result.n_S}"
+                  + (f" {cfg.LOW_N_MARK}" if estimator.low_n(result) else ""))
+
+
 def paper_figures(per_monkey, tag, spec, args):
     for block in args.block:
+        if block == cfg.BOTH:
+            continue  # the paper figure's profile rows are per state
         for variant in args.variant:
             for monkey, pin in per_monkey.items():
                 p = pin[(block, variant)]
@@ -223,7 +295,8 @@ def main():
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--monkey", nargs="*", default=list(cfg.MONKEYS), choices=cfg.MONKEYS)
-    parser.add_argument("--maze", type=int, nargs="*", default=list(cfg.MAZES), choices=cfg.MAZES)
+    parser.add_argument("--maze", type=int, nargs="*", default=None, choices=cfg.ALL_MAZES,
+                        help="default: 1-6 for dendro labels, else 2-5")
     parser.add_argument("--block", nargs="*", default=list(cfg.BLOCK_NAMES), choices=cfg.BLOCK_NAMES)
     parser.add_argument("--variant", nargs="*", default=list(cfg.VARIANTS), choices=cfg.VARIANTS)
     parser.add_argument("--radius", type=float, default=None)
@@ -234,9 +307,12 @@ def main():
     )
     parser.add_argument(
         "--codebook", default=cfg.DEFAULT_CODEBOOK, choices=list(cfg.CODEBOOKS),
-        help="balls: merged exit balls; quads / halves: origin ball + maze "
-             "quadrants / halves (tag suffix quads / halves)",
+        help="balls: origin + four exit balls (K=5); balls3: exit balls merged left / right; quads / halves: origin ball + maze "
+             "quadrants / halves (tag suffix quads / halves); capsules: origin-to-exit capsules, "
+             "no origin state (K=4)",
     )
+    parser.add_argument("--across", action="store_true",
+                        help="pool mazes first, then one 2x2 per (block, variant) (tag suffix _across)")
     parser.add_argument("--all-tags", action="store_true",
                         help=f"run every tag in config.TAGS: {', '.join(cfg.TAGS)}")
     parser.add_argument("--n-rounds", type=int, default=msp_est.N_ROUNDS)
@@ -250,18 +326,23 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
-    args.maze = sorted(set(args.maze))
+    maze_arg = None if args.maze is None else sorted(set(args.maze))
 
     if args.all_tags:
         tags = list(cfg.TAGS)
     else:
         radius = msp_cfg.ASSIGN_RADIUS if args.radius is None else args.radius
-        tags = [cfg.make_tag(radius, args.codebook, args.labels)]
+        tags = [cfg.make_tag(radius, args.codebook, args.labels, args.across)]
 
     for tag in tags:
+        args.maze = maze_arg or list(cfg.default_mazes(tag))
         spec = features.assignment_for(tag)
         if args.dry_run:
             dry_run(tag, args)
+            continue
+        if cfg.parse_tag(tag).across:
+            for monkey in args.monkey:
+                across_monkey(monkey, tag, spec, args)
             continue
         per_monkey = {m: build_monkey(m, tag, spec, args) for m in args.monkey}
         paper_figures(per_monkey, tag, spec, args)

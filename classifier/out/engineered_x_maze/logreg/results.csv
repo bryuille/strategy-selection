@@ -1,0 +1,18 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,engineered_x_maze,logreg,1,0.7764705882352941,85,1,,,,,,,
+Faure,engineered_x_maze,logreg,2,0.5,69,22,,,,,,,
+Faure,engineered_x_maze,logreg,3,0.9583333333333334,90,4,,,,,,,
+Faure,engineered_x_maze,logreg,4,0.6466346153846154,13,96,,,,,,,
+Faure,engineered_x_maze,logreg,5,0.6896153846153846,20,130,,,,,,,
+Faure,engineered_x_maze,logreg,6,0.828009828009828,11,111,,,,,,,
+Faure,engineered_x_maze,logreg,holdout june_24_g0->june_8_g0,0.5615763546798029,,,,,,,,,
+Faure,engineered_x_maze,logreg,holdout june_8_g0->june_24_g0,0.5819086105066833,,,,,,,,,
+Faure,engineered_x_maze,logreg,within-maze pooled,0.6798919226393629,288,364,0.5071032423208192,0.049263459296771235,3.507441068594801,0.004975124378109453,0.9328449328449329,26,200
+Nielsen,engineered_x_maze,logreg,1,0.3275862068965517,116,3,,,,,,,
+Nielsen,engineered_x_maze,logreg,2,0.6246719160104987,127,15,,,,,,,
+Nielsen,engineered_x_maze,logreg,3,0.4444444444444444,141,9,,,,,,,
+Nielsen,engineered_x_maze,logreg,4,0.6214255228339736,66,71,,,,,,,
+Nielsen,engineered_x_maze,logreg,5,0.2631578947368421,3,152,,,,,,,
+Nielsen,engineered_x_maze,logreg,holdout Nov_3_g0->Nov_6_g0,0.56396484375,,,,,,,,,
+Nielsen,engineered_x_maze,logreg,holdout Nov_6_g0->Nov_3_g0,0.583963691376702,,,,,,,,,
+Nielsen,engineered_x_maze,logreg,within-maze pooled,0.5655586334256695,453,412,0.4975715604801478,0.04773586573004447,1.424234627481184,0.0945273631840796,0.9512366317323561,26,200

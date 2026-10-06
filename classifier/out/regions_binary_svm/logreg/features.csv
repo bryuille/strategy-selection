@@ -1,0 +1,19 @@
+monkey,branch,model,feature,weight
+Faure,regions_binary,logreg,binary: origin LU,0.1988629096134951
+Faure,regions_binary,logreg,binary: origin LD,-0.03509370372031127
+Faure,regions_binary,logreg,binary: origin RU,0.08985357173018636
+Faure,regions_binary,logreg,binary: origin RD,0.021074359226026178
+Faure,regions_binary,logreg,binary: exit LU,-0.09303685754594007
+Faure,regions_binary,logreg,binary: exit LD,-0.03308781736045742
+Faure,regions_binary,logreg,binary: exit RU,0.010893012010939836
+Faure,regions_binary,logreg,binary: exit RD,0.062145095756130295
+Faure,regions_binary,logreg,binary: elsewhere,-0.09436867660599789
+Nielsen,regions_binary,logreg,binary: origin LU,0.03008660048233545
+Nielsen,regions_binary,logreg,binary: origin LD,0.07141745482994447
+Nielsen,regions_binary,logreg,binary: origin RU,0.07005126213346571
+Nielsen,regions_binary,logreg,binary: origin RD,0.05243225335647936
+Nielsen,regions_binary,logreg,binary: exit LU,-0.13417391232371165
+Nielsen,regions_binary,logreg,binary: exit LD,-0.00371095242314296
+Nielsen,regions_binary,logreg,binary: exit RU,0.13842761874291734
+Nielsen,regions_binary,logreg,binary: exit RD,0.17978547382295001
+Nielsen,regions_binary,logreg,binary: elsewhere,0.051425634602263424

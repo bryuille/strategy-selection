@@ -11,7 +11,7 @@ from pathlib import Path
 #                tables, feature caches). Created if missing. Any folder
 #                outside MAT_ROOT will do.
 # ---------------------------------------------------------------------------
-MAT_ROOT = None  # e.g. Path("/Volumes/archive/mat")
+MAT_ROOT = Path("./data/mat")  # laptop: the eye mats pulled from Engaging; the cluster line points at its scratch tree
 PROCESSED_ROOT = Path("./data/processed")
 
 if MAT_ROOT is not None:

@@ -1,0 +1,181 @@
+monkey,branch,model,feature,weight
+Faure,raw,gbm,"gaze x, 1475 ms before fixation",0.0007094458506436308
+Faure,raw,gbm,"gaze x, 1425 ms before fixation",0.001283014784130021
+Faure,raw,gbm,"gaze x, 1375 ms before fixation",0.0008092492499714554
+Faure,raw,gbm,"gaze x, 1325 ms before fixation",0.001097837392606138
+Faure,raw,gbm,"gaze x, 1275 ms before fixation",0.0
+Faure,raw,gbm,"gaze x, 1225 ms before fixation",0.016475978043252137
+Faure,raw,gbm,"gaze x, 1175 ms before fixation",0.0028413907543573423
+Faure,raw,gbm,"gaze x, 1125 ms before fixation",0.0008621570761211395
+Faure,raw,gbm,"gaze x, 1075 ms before fixation",0.0029387892524965764
+Faure,raw,gbm,"gaze x, 1025 ms before fixation",0.0016028666422168048
+Faure,raw,gbm,"gaze x, 975 ms before fixation",3.6073517829526835e-06
+Faure,raw,gbm,"gaze x, 925 ms before fixation",0.0032802852212809874
+Faure,raw,gbm,"gaze x, 875 ms before fixation",0.0020261292514143435
+Faure,raw,gbm,"gaze x, 825 ms before fixation",0.0013695912269204636
+Faure,raw,gbm,"gaze x, 775 ms before fixation",0.0065894292568254185
+Faure,raw,gbm,"gaze x, 725 ms before fixation",0.00021764355757030173
+Faure,raw,gbm,"gaze x, 675 ms before fixation",0.0015884372350851272
+Faure,raw,gbm,"gaze x, 625 ms before fixation",0.000696218894106182
+Faure,raw,gbm,"gaze x, 575 ms before fixation",-8.176664041317227e-05
+Faure,raw,gbm,"gaze x, 525 ms before fixation",0.0020610003186493976
+Faure,raw,gbm,"gaze x, 475 ms before fixation",0.004815814630216386
+Faure,raw,gbm,"gaze x, 425 ms before fixation",-0.0006348939137963194
+Faure,raw,gbm,"gaze x, 375 ms before fixation",-0.0007587463250103843
+Faure,raw,gbm,"gaze x, 325 ms before fixation",0.0004328822139520128
+Faure,raw,gbm,"gaze x, 275 ms before fixation",0.00920115194766935
+Faure,raw,gbm,"gaze x, 225 ms before fixation",0.001779626879580598
+Faure,raw,gbm,"gaze x, 175 ms before fixation",0.011295820882959462
+Faure,raw,gbm,"gaze x, 125 ms before fixation",-0.0004773728859415183
+Faure,raw,gbm,"gaze x, 75 ms before fixation",0.005325653682204346
+Faure,raw,gbm,"gaze x, 25 ms before fixation",0.0018205101997871508
+Faure,raw,gbm,"gaze y, 1475 ms before fixation",0.004688354867219369
+Faure,raw,gbm,"gaze y, 1425 ms before fixation",0.0019191111485206802
+Faure,raw,gbm,"gaze y, 1375 ms before fixation",0.015084742705634091
+Faure,raw,gbm,"gaze y, 1325 ms before fixation",0.007397476056202534
+Faure,raw,gbm,"gaze y, 1275 ms before fixation",0.00018157003974097474
+Faure,raw,gbm,"gaze y, 1225 ms before fixation",0.005816253524683268
+Faure,raw,gbm,"gaze y, 1175 ms before fixation",0.005312426725666919
+Faure,raw,gbm,"gaze y, 1125 ms before fixation",0.0005158513049595026
+Faure,raw,gbm,"gaze y, 1075 ms before fixation",0.0009968315426839736
+Faure,raw,gbm,"gaze y, 1025 ms before fixation",0.002899108382884297
+Faure,raw,gbm,"gaze y, 975 ms before fixation",0.0014369284602018916
+Faure,raw,gbm,"gaze y, 925 ms before fixation",0.0004112381032544299
+Faure,raw,gbm,"gaze y, 875 ms before fixation",5.531272733831916e-05
+Faure,raw,gbm,"gaze y, 825 ms before fixation",0.0
+Faure,raw,gbm,"gaze y, 775 ms before fixation",0.0007575438744160223
+Faure,raw,gbm,"gaze y, 725 ms before fixation",0.0
+Faure,raw,gbm,"gaze y, 675 ms before fixation",0.002727157947897818
+Faure,raw,gbm,"gaze y, 625 ms before fixation",0.0007731757321421062
+Faure,raw,gbm,"gaze y, 575 ms before fixation",0.011490617879237885
+Faure,raw,gbm,"gaze y, 525 ms before fixation",0.0020104973936883263
+Faure,raw,gbm,"gaze y, 475 ms before fixation",0.0040546634040173665
+Faure,raw,gbm,"gaze y, 425 ms before fixation",0.0013515544680057889
+Faure,raw,gbm,"gaze y, 375 ms before fixation",0.006712079217445166
+Faure,raw,gbm,"gaze y, 325 ms before fixation",0.002341171307123924
+Faure,raw,gbm,"gaze y, 275 ms before fixation",0.0016942528873844954
+Faure,raw,gbm,"gaze y, 225 ms before fixation",0.0017688048242317622
+Faure,raw,gbm,"gaze y, 175 ms before fixation",0.0037780997673258153
+Faure,raw,gbm,"gaze y, 125 ms before fixation",0.0017231117016479392
+Faure,raw,gbm,"gaze y, 75 ms before fixation",0.0008212737559145644
+Faure,raw,gbm,"gaze y, 25 ms before fixation",0.0009511384201001727
+Faure,raw,gbm,"pupil, 1475 ms before fixation",0.004060675656988933
+Faure,raw,gbm,"pupil, 1425 ms before fixation",0.00290632308645018
+Faure,raw,gbm,"pupil, 1375 ms before fixation",0.00039801114671700333
+Faure,raw,gbm,"pupil, 1325 ms before fixation",0.004744870045151983
+Faure,raw,gbm,"pupil, 1275 ms before fixation",0.0011735917800477225
+Faure,raw,gbm,"pupil, 1225 ms before fixation",0.0052270527334708165
+Faure,raw,gbm,"pupil, 1175 ms before fixation",0.0016834308320357039
+Faure,raw,gbm,"pupil, 1125 ms before fixation",-0.00028017098847452624
+Faure,raw,gbm,"pupil, 1075 ms before fixation",0.006849158585196635
+Faure,raw,gbm,"pupil, 1025 ms before fixation",7.455193684731131e-05
+Faure,raw,gbm,"pupil, 975 ms before fixation",0.000892218340978923
+Faure,raw,gbm,"pupil, 925 ms before fixation",0.0013395299620626798
+Faure,raw,gbm,"pupil, 875 ms before fixation",0.0016918479861959047
+Faure,raw,gbm,"pupil, 825 ms before fixation",0.0013046588948276705
+Faure,raw,gbm,"pupil, 775 ms before fixation",0.0030434024542016712
+Faure,raw,gbm,"pupil, 725 ms before fixation",0.0004268699609804694
+Faure,raw,gbm,"pupil, 675 ms before fixation",0.008936612816920885
+Faure,raw,gbm,"pupil, 625 ms before fixation",0.005418242377966287
+Faure,raw,gbm,"pupil, 575 ms before fixation",0.0003487106723502276
+Faure,raw,gbm,"pupil, 525 ms before fixation",0.0010401197640792059
+Faure,raw,gbm,"pupil, 475 ms before fixation",0.0010689785783426719
+Faure,raw,gbm,"pupil, 425 ms before fixation",0.011102226337275357
+Faure,raw,gbm,"pupil, 375 ms before fixation",0.0016822283814413642
+Faure,raw,gbm,"pupil, 325 ms before fixation",0.0012289045073860638
+Faure,raw,gbm,"pupil, 275 ms before fixation",0.00039440379493407287
+Faure,raw,gbm,"pupil, 225 ms before fixation",0.0003342812652184834
+Faure,raw,gbm,"pupil, 175 ms before fixation",0.00575011874199618
+Faure,raw,gbm,"pupil, 125 ms before fixation",0.003217757790376763
+Faure,raw,gbm,"pupil, 75 ms before fixation",0.003882712969030866
+Faure,raw,gbm,"pupil, 25 ms before fixation",0.0010990398432004333
+Nielsen,raw,gbm,"gaze x, 1475 ms before fixation",0.003795485122763531
+Nielsen,raw,gbm,"gaze x, 1425 ms before fixation",0.005132586041717802
+Nielsen,raw,gbm,"gaze x, 1375 ms before fixation",0.0011849218179868614
+Nielsen,raw,gbm,"gaze x, 1325 ms before fixation",0.00015840460964327007
+Nielsen,raw,gbm,"gaze x, 1275 ms before fixation",0.0028865608560765922
+Nielsen,raw,gbm,"gaze x, 1225 ms before fixation",0.0018289161043533396
+Nielsen,raw,gbm,"gaze x, 1175 ms before fixation",0.000538852362061748
+Nielsen,raw,gbm,"gaze x, 1125 ms before fixation",0.0040410468538700116
+Nielsen,raw,gbm,"gaze x, 1075 ms before fixation",0.003231039002811831
+Nielsen,raw,gbm,"gaze x, 1025 ms before fixation",0.0015854295428055164
+Nielsen,raw,gbm,"gaze x, 975 ms before fixation",0.0013806794796857869
+Nielsen,raw,gbm,"gaze x, 925 ms before fixation",0.0
+Nielsen,raw,gbm,"gaze x, 875 ms before fixation",0.0011973728353386948
+Nielsen,raw,gbm,"gaze x, 825 ms before fixation",0.001270003769891348
+Nielsen,raw,gbm,"gaze x, 775 ms before fixation",0.00019990800081621797
+Nielsen,raw,gbm,"gaze x, 725 ms before fixation",0.0060498109866393476
+Nielsen,raw,gbm,"gaze x, 675 ms before fixation",0.002465993158857671
+Nielsen,raw,gbm,"gaze x, 625 ms before fixation",0.0024770607298371106
+Nielsen,raw,gbm,"gaze x, 575 ms before fixation",0.0021367329222191423
+Nielsen,raw,gbm,"gaze x, 525 ms before fixation",0.007602037816506568
+Nielsen,raw,gbm,"gaze x, 475 ms before fixation",0.0027634341289302757
+Nielsen,raw,gbm,"gaze x, 425 ms before fixation",0.0003562374409008751
+Nielsen,raw,gbm,"gaze x, 375 ms before fixation",0.000842518840810258
+Nielsen,raw,gbm,"gaze x, 325 ms before fixation",0.014547630329294781
+Nielsen,raw,gbm,"gaze x, 275 ms before fixation",0.00012589361989117086
+Nielsen,raw,gbm,"gaze x, 225 ms before fixation",0.008345640241688046
+Nielsen,raw,gbm,"gaze x, 175 ms before fixation",0.007736923837818566
+Nielsen,raw,gbm,"gaze x, 125 ms before fixation",0.0010417351184402567
+Nielsen,raw,gbm,"gaze x, 75 ms before fixation",0.014331120972009392
+Nielsen,raw,gbm,"gaze x, 25 ms before fixation",0.0017528265538696575
+Nielsen,raw,gbm,"gaze y, 1475 ms before fixation",0.0008148499133616482
+Nielsen,raw,gbm,"gaze y, 1425 ms before fixation",0.001065253706771574
+Nielsen,raw,gbm,"gaze y, 1375 ms before fixation",-9.269090695287474e-05
+Nielsen,raw,gbm,"gaze y, 1325 ms before fixation",0.002124973628053506
+Nielsen,raw,gbm,"gaze y, 1275 ms before fixation",0.00030435820193472905
+Nielsen,raw,gbm,"gaze y, 1225 ms before fixation",0.0015466930443774674
+Nielsen,raw,gbm,"gaze y, 1175 ms before fixation",0.0027032542117295445
+Nielsen,raw,gbm,"gaze y, 1125 ms before fixation",-0.0019990800081623574
+Nielsen,raw,gbm,"gaze y, 1075 ms before fixation",-0.004223661775030885
+Nielsen,raw,gbm,"gaze y, 1025 ms before fixation",0.005448011814632015
+Nielsen,raw,gbm,"gaze y, 975 ms before fixation",0.004898091881590805
+Nielsen,raw,gbm,"gaze y, 925 ms before fixation",0.00024487000792017266
+Nielsen,raw,gbm,"gaze y, 875 ms before fixation",0.00011759294165658574
+Nielsen,raw,gbm,"gaze y, 825 ms before fixation",0.0007747299685611387
+Nielsen,raw,gbm,"gaze y, 775 ms before fixation",0.0038639657181988698
+Nielsen,raw,gbm,"gaze y, 725 ms before fixation",0.0
+Nielsen,raw,gbm,"gaze y, 675 ms before fixation",0.0018697277723400685
+Nielsen,raw,gbm,"gaze y, 625 ms before fixation",0.00025317068615478
+Nielsen,raw,gbm,"gaze y, 575 ms before fixation",0.006089239208253616
+Nielsen,raw,gbm,"gaze y, 525 ms before fixation",0.002580127484583206
+Nielsen,raw,gbm,"gaze y, 475 ms before fixation",0.0017383003669591446
+Nielsen,raw,gbm,"gaze y, 425 ms before fixation",0.003971874535248476
+Nielsen,raw,gbm,"gaze y, 375 ms before fixation",0.0
+Nielsen,raw,gbm,"gaze y, 325 ms before fixation",0.004029287559704331
+Nielsen,raw,gbm,"gaze y, 275 ms before fixation",0.0028789519010282037
+Nielsen,raw,gbm,"gaze y, 225 ms before fixation",0.003404661522551855
+Nielsen,raw,gbm,"gaze y, 175 ms before fixation",0.0012700037698913258
+Nielsen,raw,gbm,"gaze y, 125 ms before fixation",0.0017701196335250247
+Nielsen,raw,gbm,"gaze y, 75 ms before fixation",0.0009946979417776226
+Nielsen,raw,gbm,"gaze y, 25 ms before fixation",0.009231045920043712
+Nielsen,raw,gbm,"pupil, 1475 ms before fixation",0.004016144819166234
+Nielsen,raw,gbm,"pupil, 1425 ms before fixation",0.009699342517111464
+Nielsen,raw,gbm,"pupil, 1375 ms before fixation",0.0031411149886038546
+Nielsen,raw,gbm,"pupil, 1325 ms before fixation",0.009014536562758302
+Nielsen,raw,gbm,"pupil, 1275 ms before fixation",0.001626932933978442
+Nielsen,raw,gbm,"pupil, 1225 ms before fixation",0.0019817869285069013
+Nielsen,raw,gbm,"pupil, 1175 ms before fixation",0.006363853313181078
+Nielsen,raw,gbm,"pupil, 1125 ms before fixation",0.0032808430722193415
+Nielsen,raw,gbm,"pupil, 1075 ms before fixation",0.0031175964002725155
+Nielsen,raw,gbm,"pupil, 1025 ms before fixation",0.00032165128159009624
+Nielsen,raw,gbm,"pupil, 975 ms before fixation",0.005093157820103511
+Nielsen,raw,gbm,"pupil, 925 ms before fixation",0.004332954038452885
+Nielsen,raw,gbm,"pupil, 875 ms before fixation",-0.00029605752370021055
+Nielsen,raw,gbm,"pupil, 825 ms before fixation",0.010581289579536014
+Nielsen,raw,gbm,"pupil, 775 ms before fixation",0.01950728557445878
+Nielsen,raw,gbm,"pupil, 725 ms before fixation",0.001195989388966301
+Nielsen,raw,gbm,"pupil, 675 ms before fixation",0.0010922309110340089
+Nielsen,raw,gbm,"pupil, 625 ms before fixation",0.0
+Nielsen,raw,gbm,"pupil, 575 ms before fixation",0.0004115752957981167
+Nielsen,raw,gbm,"pupil, 525 ms before fixation",7.401438092500268e-05
+Nielsen,raw,gbm,"pupil, 475 ms before fixation",0.00578280583676023
+Nielsen,raw,gbm,"pupil, 425 ms before fixation",0.002257784479806846
+Nielsen,raw,gbm,"pupil, 375 ms before fixation",-5.118751577994907e-05
+Nielsen,raw,gbm,"pupil, 325 ms before fixation",0.006465536621554757
+Nielsen,raw,gbm,"pupil, 275 ms before fixation",0.00015010393140870714
+Nielsen,raw,gbm,"pupil, 225 ms before fixation",0.0015038062068321479
+Nielsen,raw,gbm,"pupil, 175 ms before fixation",0.003495277259946095
+Nielsen,raw,gbm,"pupil, 125 ms before fixation",0.009265632079354446
+Nielsen,raw,gbm,"pupil, 75 ms before fixation",0.000694490078960186
+Nielsen,raw,gbm,"pupil, 25 ms before fixation",0.011751685210612383

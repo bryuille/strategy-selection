@@ -106,7 +106,7 @@ def check_merge():
         "occ_ms": np.array([[100, 0, 50, 0, 0], [0, 20, 30, 50, 0], [0, 0, 0, 0, 0]], float),
         "fix_state": np.array([0, 1, 2, 3, 4, -1]),
     }
-    cb = CODEBOOKS["balls"]  # left, origin, right
+    cb = CODEBOOKS["balls3"]  # left, origin, right
     b = features.merge_block(data, "binary", cb)
     assert b.shape == (3, 3)
     assert np.array_equal(b[0], [1, 1, 0]) and np.array_equal(b[1], [1, 0, 1])
@@ -117,10 +117,19 @@ def check_merge():
     assert np.array_equal(features.merge_block(data, "binary", CODEBOOKS["halves"]), b)
 
     q = CODEBOOKS["quads"]  # LU, LD, origin, RU, RD
+    assert np.array_equal(features.merge_block(data, "binary", CODEBOOKS["balls"]),
+                          features.merge_block(data, "binary", q))
     bq = features.merge_block(data, "binary", q)
     assert np.array_equal(bq[0], [0, 1, 1, 0, 0]) and np.array_equal(bq[1], [1, 1, 0, 1, 0])
     assert list(features.merged_fix_state(data, q)) == [2, 0, 1, 3, 4, -1]
-    print("ok  5-state → codebook merges (balls / halves 3, quads 5; binary, dwell, fixations)")
+
+    c = CODEBOOKS["capsules"]  # LU, LD, RU, RD; origin column dropped
+    assert np.array_equal(features.merge_block(data, "binary", c), bq[:, [0, 1, 3, 4]])
+    dc = features.merge_block(data, "dwell", c)
+    assert np.allclose(dc[1], [0.2, 0.3, 0.5, 0]) and np.array_equal(dc[0], [0, 1, 0, 0])
+    assert list(features.merged_fix_state(data, c)) == [-1, 0, 1, 2, 3, -1]
+    print("ok  5-state → codebook merges (balls3 / halves 3, balls / quads 5, capsules 4; "
+          "binary, dwell, fixations)")
 
 
 def check_region_rule():
@@ -144,17 +153,40 @@ def check_region_rule():
     print("ok  region rule: origin ball, rounded-square perimeter, quadrant ties")
 
 
+def check_capsule_rule():
+    """Within r of the origin -> exit segment; overlaps by quadrant; never origin."""
+    LU, LD, RU, RD = 1, 2, 3, 4
+    pts = np.array([
+        [0.1, 0.1],     # near origin -> RU
+        [-0.05, -0.3],  # near origin -> LD
+        [0.0, 0.0],     # origin: ties right, up
+        [-1.0, 1.0],    # LU exit
+        [1.3, -1.3],    # past RD exit, dist 0.42
+        [0.5, -0.1],    # beside the RD segment, dist 0.42
+        [1.0, 0.0],     # between RU and RD, dist 0.71 from both
+        [0.0, 0.6],     # stem, dist 0.42 from LU and RU segments -> RU
+        [1.4, 1.4],     # beyond RU exit, dist 0.57
+    ])
+    got = features.capsule_states(pts, radius=0.5)
+    assert list(got) == [RU, LD, RU, LU, RD, RD, -1, RU, -1], got
+    print("ok  capsule rule: origin-to-exit capsules, quadrant ties, no origin state")
+
+
 def check_region_patch_scoped():
     original, k = msp_features.assign_states, msp_features.K
     with features._rule_context(features.REGION_RULE):
         assert msp_features.assign_states is features.region_states and msp_features.K == 5
     assert msp_features.assign_states is original and msp_features.K == k
+    with features._rule_context(features.CAPSULE_RULE):
+        assert msp_features.assign_states is features.capsule_states
+    assert msp_features.assign_states is original
     print("ok  region rule swapped into msp only inside the context")
 
 
 def main():
     check_merge()
     check_region_rule()
+    check_capsule_rule()
     check_region_patch_scoped()
     check_two_state_degenerate()
     check_matches_msp()

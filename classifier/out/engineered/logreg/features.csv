@@ -1,0 +1,53 @@
+monkey,branch,model,feature,weight
+Faure,engineered,logreg,origin dwell share,0.05575172594003749
+Faure,engineered,logreg,o-LU share,0.13745210504577457
+Faure,engineered,logreg,o-LD share,0.008104523747901604
+Faure,engineered,logreg,o-RU share,-0.19738721783446878
+Faure,engineered,logreg,o-RD share,0.23815973860382442
+Faure,engineered,logreg,LU visited,-0.009890834923643534
+Faure,engineered,logreg,LD visited,0.03735206224428289
+Faure,engineered,logreg,RU visited,-0.09832971880080996
+Faure,engineered,logreg,RD visited,0.07924380900689085
+Faure,engineered,logreg,LU dwell,0.004255625529921604
+Faure,engineered,logreg,LD dwell,-0.15915021282988231
+Faure,engineered,logreg,RU dwell,0.12452481990055465
+Faure,engineered,logreg,RD dwell,-0.19427437068429518
+Faure,engineered,logreg,ring 2-6 share,-0.008768042581337449
+Faure,engineered,logreg,ring 6-10 share,0.04575366662546265
+Faure,engineered,logreg,ring >10 share,-0.07736185458584843
+Faure,engineered,logreg,n fixations,0.11274054991724353
+Faure,engineered,logreg,first fix: origin,-0.15122124626762073
+Faure,engineered,logreg,first fix: left,0.008760651430919492
+Faure,engineered,logreg,first fix: right,0.2097952169466878
+Faure,engineered,logreg,last fix: origin,0.04545397581902166
+Faure,engineered,logreg,last fix: left,-0.0945097650292038
+Faure,engineered,logreg,last fix: right,0.13947253804050083
+Faure,engineered,logreg,first fix onset (s),0.2757642643776539
+Faure,engineered,logreg,pupil mean z,-0.24982385267446527
+Faure,engineered,logreg,pupil change z,0.0331431606068176
+Nielsen,engineered,logreg,origin dwell share,0.017161639812874323
+Nielsen,engineered,logreg,o-LU share,-0.033223574953503865
+Nielsen,engineered,logreg,o-LD share,0.059660912176050705
+Nielsen,engineered,logreg,o-RU share,-0.14087323749921887
+Nielsen,engineered,logreg,o-RD share,0.24454919807985637
+Nielsen,engineered,logreg,LU visited,-0.20630890330257018
+Nielsen,engineered,logreg,LD visited,0.04855360043862886
+Nielsen,engineered,logreg,RU visited,0.13271421845319636
+Nielsen,engineered,logreg,RD visited,-0.14232617690264318
+Nielsen,engineered,logreg,LU dwell,0.14172165760148095
+Nielsen,engineered,logreg,LD dwell,0.006354110286966901
+Nielsen,engineered,logreg,RU dwell,0.2739352425530712
+Nielsen,engineered,logreg,RD dwell,0.12385632633094303
+Nielsen,engineered,logreg,ring 2-6 share,0.054190833290909395
+Nielsen,engineered,logreg,ring 6-10 share,0.06176238476399201
+Nielsen,engineered,logreg,ring >10 share,0.03527409615466276
+Nielsen,engineered,logreg,n fixations,-0.07674295926780464
+Nielsen,engineered,logreg,first fix: origin,0.08603036358489509
+Nielsen,engineered,logreg,first fix: left,-0.004695182427007307
+Nielsen,engineered,logreg,first fix: right,-0.07205978739871129
+Nielsen,engineered,logreg,last fix: origin,-0.05399241702982007
+Nielsen,engineered,logreg,last fix: left,-0.18417234257241327
+Nielsen,engineered,logreg,last fix: right,0.13125374736003373
+Nielsen,engineered,logreg,first fix onset (s),-0.020745811221664606
+Nielsen,engineered,logreg,pupil mean z,0.15394517252293752
+Nielsen,engineered,logreg,pupil change z,0.15519880191603427

@@ -10,7 +10,7 @@ Every `build` takes `--dry-run` (counts and coverage, no statistics) and
 `--refresh` (rebuild the feature cache). Always dry-run first.
 
 Contents: [Data](#data) · [msp](#msp) · [msp.per_session](#mspper_session) ·
-[msp_trends](#msp_trends) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
+[msp_trends](#msp_trends) · [msp_revised](#msp_revised) · [classifier](#classifier) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
 [Slurm](#slurm) · [Clearing derived caches](#clearing-derived-caches)
 
 ## Data
@@ -139,7 +139,8 @@ uv run python -m msp_trends.build --dry-run --all-tags
 uv run python -m msp_trends.build                            # r1
 uv run python -m msp_trends.build --radius 0.5
 uv run python -m msp_trends.build --radius 0.5 --labels dendro
-uv run python -m msp_trends.build --radius 0.5 --codebook quads   # also: halves
+uv run python -m msp_trends.build --radius 0.5 --codebook quads   # also: halves, capsules
+uv run python -m msp_trends.build --radius 0.5 --codebook quads --labels dendro --across   # pool mazes first; r0.5quads_dendro_across
 uv run python -m msp_trends.build --all-tags                 # every tag in config.TAGS
 uv run python -m msp_trends.build --monkey Faure --n-perm 200     # smoke test
 ```
@@ -148,10 +149,80 @@ Flags as for `msp.build`, plus:
 
 | Flag         | Meaning                                                                                       |
 | ------------ | --------------------------------------------------------------------------------------------- |
-| `--block`    | Which blocks to run (default: all)                                                            |
+| `--block`    | `binary`, `dwell`, `both` (binary + dwell concatenated, 2K features); default: all             |
+| `--maze`     | Mazes to run; default 1–6 for `--labels dendro`, else 2–5                                      |
 | `--labels`   | `svm` (top-ten sessions) or `dendro` (dendrogram labels, publication sessions; tag suffix `_dendro`) |
-| `--codebook` | `balls` (merged exit balls), `quads`, `halves` (origin ball + quadrants / halves)             |
+| `--codebook` | `balls` (origin + four exit balls, K=5), `balls3` (exit balls merged left / right), `quads`, `halves` (origin ball + quadrants / halves)             |
+| `--across`   | Pool the mazes first, then one 2x2 per (block, variant); `mean_removed` uses the pool's grand mean, null shuffles within (session, maze); tag suffix `_across` |
 | `--all-tags` | Run every tag in `config.TAGS`                                                                |
+
+## msp_revised
+
+Isolated publication-session run with a codebook search. Scope is fixed
+(four publication sessions, dendrogram labels, mazes 1-6); the CLI chooses
+codebook, feature kind, pupil, and variant.
+
+```bash
+uv run python -m msp_revised.checks                                   # synthetic, no data
+uv run python -m msp_revised.build --list                             # the 41 codebooks
+uv run python -m msp_revised.features                                 # fixation-table caches (both monkeys)
+uv run python -m msp_revised.build                                    # balls_u0.5, binary + dwell, all variants
+uv run python -m msp_revised.build --codebook segments4_d --kind dwell --pupil
+uv run python -m msp_revised.build --codebook balls6_d3 --kind binary first --variant full
+uv run python -m msp_revised.search                                   # full grid at n_perm 250, then rank
+uv run python -m msp_revised.search --rank-only                       # re-rank out/search/grid.csv
+uv run python -m msp_revised.search --codebook balls_u0.5 rings_d --kind dwell --pupil 1
+```
+
+| Flag          | Meaning                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| `--codebook`  | A key from `msp_revised.codebooks.REGISTRY` (`build`: one; `search`: any number, default all)  |
+| `--kind`      | `binary`, `dwell`, `count`, `first`, `last`, `both`                                            |
+| `--pupil`     | `build`: flag, append the pupil features; `search`: `0`, `1` or both                            |
+| `--variant`   | `full`, `mean_removed` (each maze centred on its own grand mean)                                |
+| `--maze`      | `build` only; default 1-6                                                                      |
+| `--n-perm`    | Null size; `search` screens at 250, `build` defaults to 1000                                   |
+| `--replicate` | `search`: per-session pooled z for the top N configurations (default 15)                        |
+
+Pupil traces: `msp_revised.pupil_extract` runs where the eye mats are and
+writes `msp_revised/out/pupil/<session>_pupil.npz`; pull that folder down with
+the figures before `msp_revised.features` so blink masking and the pupil
+features match the cluster. Without it the extraction warns and runs
+without blink masking.
+
+## classifier
+
+Strategy-label classifier. The default `dendro` scope needs the msp_revised
+fixation caches (`python -m msp_revised.features`) and pupil tables; the
+`svm` scope (top-ten sessions, SVM labels, mazes 2–5) needs the
+`<session>_strategy_svm.npz` labels and builds its own fixation cache
+(`<Monkey>_msp_revised_fix_svm.npz`, through `msp_revised.features`, needs
+pymovements) on first use. The raw branch builds one 1 kHz trace cache per
+monkey and scope (`<Monkey>_clf_raw[_svm].npz`) on first use and derives
+every bin width from it. Pupil tables for the non-publication sessions come
+from `msp_revised.pupil_extract --session ...` on the cluster; without them
+those sessions' pupil features are NaN.
+
+```bash
+uv run python -m classifier.checks                            # synthetic, no data
+uv run python -m classifier.build                             # both branches, both models, dendro scope
+uv run python -m classifier.build --branch engineered --model logreg
+uv run python -m classifier.build --branch regions            # dwell share + visited, nine regions
+uv run python -m classifier.build --labels svm                # msp's scope: ten sessions, SVM labels
+uv run python -m classifier.build --n-perm 20                 # smoke test
+uv run python -m msp_revised.pupil_extract --session Oct_22_g0 Nov_18_g0   # cluster: pupil tables
+```
+
+| Flag        | Meaning                                                            |
+| ----------- | ------------------------------------------------------------------ |
+| `--labels`  | `dendro` (default): dendrogram labels, publication sessions, mazes 1–6; `svm`: SVM labels, top-ten sessions, mazes 2–5 → `out/<branch>_svm/` |
+| `--branch`  | `raw` (binned x/y/pupil traces), `engineered` (26 curated features), `regions` (dwell share + visited over nine regions; `regions_dwell` / `regions_binary` for one set) |
+| `--model`   | `logreg` (L2 logistic regression), `gbm` (shallow boosted trees)   |
+| `--bin-ms`  | Raw branch: trace bin width in ms (`1` = the whole 1 kHz trace; default 50; non-default → `out/raw_b<ms>/`) |
+| `--interactions` | Add gaze × maze interaction terms (per-maze weights shrunk toward the shared ones); output `out/<branch>[_svm]_x_maze/` |
+| `--replot`  | Redraw figures from the saved `eval_<Monkey>.npz` without refitting |
+| `--n-perm`  | Label shuffles for the within-maze AUC null (default 200)          |
+| `--refresh` | Rebuild the raw-trace cache (and the svm fixation cache)           |
 
 ## regression
 

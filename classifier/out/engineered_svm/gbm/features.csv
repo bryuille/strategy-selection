@@ -1,0 +1,53 @@
+monkey,branch,model,feature,weight
+Faure,engineered,gbm,origin dwell share,0.03460026887102778
+Faure,engineered,gbm,o-LU share,0.01627871056319905
+Faure,engineered,gbm,o-LD share,0.03039157918823836
+Faure,engineered,gbm,o-RU share,0.01042418695117422
+Faure,engineered,gbm,o-RD share,0.0
+Faure,engineered,gbm,LU visited,0.00152283973570555
+Faure,engineered,gbm,LD visited,0.00022997053860018823
+Faure,engineered,gbm,RU visited,0.004181230514001366
+Faure,engineered,gbm,RD visited,0.0
+Faure,engineered,gbm,LU dwell,0.015349103286519306
+Faure,engineered,gbm,LD dwell,0.02602271102085183
+Faure,engineered,gbm,RU dwell,0.0
+Faure,engineered,gbm,RD dwell,0.00022596607648528444
+Faure,engineered,gbm,ring 2-6 share,0.0066514115728955716
+Faure,engineered,gbm,ring 6-10 share,0.015096822173278856
+Faure,engineered,gbm,ring >10 share,0.034651182746489
+Faure,engineered,gbm,n fixations,0.003514201538857642
+Faure,engineered,gbm,first fix: origin,0.011928720574354323
+Faure,engineered,gbm,first fix: left,-0.00029003747032403383
+Faure,engineered,gbm,first fix: right,0.0
+Faure,engineered,gbm,last fix: origin,0.0
+Faure,engineered,gbm,last fix: left,0.0007511226795572812
+Faure,engineered,gbm,last fix: right,0.0
+Faure,engineered,gbm,first fix onset (s),0.04545693773061419
+Faure,engineered,gbm,pupil mean z,0.05095506421441039
+Faure,engineered,gbm,pupil change z,0.03367237779239727
+Nielsen,engineered,gbm,origin dwell share,0.028349306951100117
+Nielsen,engineered,gbm,o-LU share,0.037753774411294926
+Nielsen,engineered,gbm,o-LD share,0.006506350801257299
+Nielsen,engineered,gbm,o-RU share,0.006384616375534646
+Nielsen,engineered,gbm,o-RD share,0.014981385582521822
+Nielsen,engineered,gbm,LU visited,2.834028958627055e-05
+Nielsen,engineered,gbm,LD visited,0.0
+Nielsen,engineered,gbm,RU visited,0.00017970319987636874
+Nielsen,engineered,gbm,RD visited,0.0004689029731540284
+Nielsen,engineered,gbm,LU dwell,0.010782836090070646
+Nielsen,engineered,gbm,LD dwell,1.771268099142187e-05
+Nielsen,engineered,gbm,RU dwell,0.011444646261658198
+Nielsen,engineered,gbm,RD dwell,0.03862266192610917
+Nielsen,engineered,gbm,ring 2-6 share,0.012953766682125023
+Nielsen,engineered,gbm,ring 6-10 share,0.015809694955428454
+Nielsen,engineered,gbm,ring >10 share,0.007008102746431733
+Nielsen,engineered,gbm,n fixations,0.008418676250837342
+Nielsen,engineered,gbm,first fix: origin,0.0
+Nielsen,engineered,gbm,first fix: left,0.007044172205905097
+Nielsen,engineered,gbm,first fix: right,0.005748892152316198
+Nielsen,engineered,gbm,last fix: origin,0.0
+Nielsen,engineered,gbm,last fix: left,0.0
+Nielsen,engineered,gbm,last fix: right,-5.732467666301755e-05
+Nielsen,engineered,gbm,first fix onset (s),0.10000772916988718
+Nielsen,engineered,gbm,pupil mean z,0.012010485907146951
+Nielsen,engineered,gbm,pupil change z,0.01660676560004124

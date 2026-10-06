@@ -8,9 +8,11 @@ LU, LD, RU, RD); every codebook here is a relabelling of those
 ``<Monkey>_msp_trends_r<radius>.npz``             msp's balls (``balls``)
 ``<Monkey>_msp_trends_r<radius>_region.npz``      origin ball + maze quadrants
                                                   (``quads``; ``halves`` merges it)
+``<Monkey>_msp_trends_r<radius>_capsule.npz``     origin-to-exit capsules
+                                                  (``capsules``; never emits origin)
 
-For the region cache msp's ball rule is swapped for `region_states` for the
-duration of the extraction (msp's code is not edited; `_rule_context` scopes
+For the region and capsule caches msp's ball rule is swapped for
+`region_states` / `capsule_states` for the duration of the extraction (msp's code is not edited; `_rule_context` scopes
 and undoes the swap).
 Every cache is verified on load with msp's codebook / radius / window / state
 count check, under the same context, plus the stored ``assignment_rule``. The
@@ -42,6 +44,7 @@ from msp import features as msp_features
 from msp import labels as msp_labels
 from msp_trends.config import (
     BLOCKS,
+    BOTH,
     EXIT_HALF_WIDTH,
     LABEL_SCOPES,
     PERIMETER_RADIUS,
@@ -51,6 +54,7 @@ from msp_trends.config import (
 _O, _LU, _LD, _RU, _RD = 0, 1, 2, 3, 4  # msp state indices
 BALLS_RULE = "balls"
 REGION_RULE = f"region_exit{EXIT_HALF_WIDTH:g}_perim{PERIMETER_RADIUS:g}"
+CAPSULE_RULE = f"capsule_exit{EXIT_HALF_WIDTH:g}"
 
 
 def assignment_for(tag):
@@ -87,22 +91,51 @@ def region_states(xy, codebook_xy=None, radius=None):
     return state
 
 
+def capsule_states(xy, codebook_xy=None, radius=None):
+    """msp state per centroid under the capsule rule; drop-in for
+    `msp.features.assign_states` (`codebook_xy` is ignored).
+
+    Within `radius` of the segment from the origin to an exit at
+    (+-`EXIT_HALF_WIDTH`, +-`EXIT_HALF_WIDTH`), that exit; where capsules
+    overlap the nearest segment wins, which for exits on the diagonals is the
+    quadrant (x >= 0 is right, y >= 0 is up, as in `region_states`); else -1.
+    Never origin.
+    """
+    xy = np.asarray(xy, dtype=np.float32)
+    state = np.full(xy.shape[0], -1, dtype=np.int16)
+    if xy.size == 0:
+        return state
+    # the quadrant's own diagonal segment: |p| folded into the first quadrant
+    a = np.abs(xy.astype(float))
+    t = np.clip(a.sum(axis=1) / (2 * EXIT_HALF_WIDTH), 0.0, 1.0)
+    dist = np.linalg.norm(a - t[:, None] * EXIT_HALF_WIDTH, axis=1)
+    right, up = xy[:, 0] >= 0, xy[:, 1] >= 0
+    quad = np.where(right, np.where(up, _RU, _RD), np.where(up, _LU, _LD))
+    inside = dist <= float(radius)
+    state[inside] = quad[inside]
+    return state
+
+
+_RULE = {"balls": BALLS_RULE, "region": REGION_RULE, "capsule": CAPSULE_RULE}
+_STATES = {REGION_RULE: region_states, CAPSULE_RULE: capsule_states}
+
+
 def rule_for(codebook):
-    return REGION_RULE if codebook.region else BALLS_RULE
+    return _RULE[codebook.rule]
 
 
 @contextmanager
 def _rule_context(rule):
     """Inside msp's extraction (and its cache check): swap the ball rule for
-    `region_states`."""
+    `region_states` / `capsule_states`."""
     if rule == BALLS_RULE:
         yield
         return
-    with mock.patch.object(msp_features, "assign_states", region_states):
+    with mock.patch.object(msp_features, "assign_states", _STATES[rule]):
         yield
 
 
-_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region"}
+_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region", CAPSULE_RULE: "_capsule"}
 
 
 def cache_path(monkey, tag):
@@ -143,7 +176,7 @@ def merge_columns(X5, how, codebook):
     X5 = np.asarray(X5, dtype=float)
     smap = codebook.map_array
     out = np.zeros((X5.shape[0], codebook.k))
-    for s in range(codebook.k):
+    for s in range(codebook.k):  # a -1 column (never emitted) is dropped
         cols = X5[:, smap == s]
         out[:, s] = cols.max(axis=1) if how == "max" else cols.sum(axis=1)
     return out
@@ -155,7 +188,9 @@ def dwell_share(ms3):
 
 
 def merge_block(data, block, codebook):
-    """The ``(n, k)`` block for every cache row under `codebook`."""
+    """The ``(n, k)`` block for every cache row under `codebook` (``(n, 2k)`` for ``both``)."""
+    if block == BOTH:
+        return np.hstack([merge_block(data, b, codebook) for b in BLOCKS])
     raw = np.asarray(data[BLOCKS[block]], dtype=float)
     if block == "binary":
         return merge_columns(raw, "max", codebook)

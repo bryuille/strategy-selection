@@ -1,0 +1,53 @@
+monkey,branch,model,feature,weight
+Faure,engineered_x_maze,logreg,origin dwell share,0.10718016812220058
+Faure,engineered_x_maze,logreg,o-LU share,0.10963772432092608
+Faure,engineered_x_maze,logreg,o-LD share,0.06147887593684327
+Faure,engineered_x_maze,logreg,o-RU share,-0.15920887961021316
+Faure,engineered_x_maze,logreg,o-RD share,0.2816654921140314
+Faure,engineered_x_maze,logreg,LU visited,-0.046029362802353375
+Faure,engineered_x_maze,logreg,LD visited,-0.04598333183693198
+Faure,engineered_x_maze,logreg,RU visited,-0.08650915063621203
+Faure,engineered_x_maze,logreg,RD visited,0.08259464445451861
+Faure,engineered_x_maze,logreg,LU dwell,0.06357451271267936
+Faure,engineered_x_maze,logreg,LD dwell,-0.074250435969273
+Faure,engineered_x_maze,logreg,RU dwell,0.12221189386022013
+Faure,engineered_x_maze,logreg,RD dwell,-0.10875831426236987
+Faure,engineered_x_maze,logreg,ring 2-6 share,0.02832095411723596
+Faure,engineered_x_maze,logreg,ring 6-10 share,-0.04244640867225986
+Faure,engineered_x_maze,logreg,ring >10 share,0.037329223070653596
+Faure,engineered_x_maze,logreg,n fixations,0.03202556166495091
+Faure,engineered_x_maze,logreg,first fix: origin,-0.11525364284403093
+Faure,engineered_x_maze,logreg,first fix: left,-0.014139243425764806
+Faure,engineered_x_maze,logreg,first fix: right,0.1888407489363007
+Faure,engineered_x_maze,logreg,last fix: origin,0.04151893516170517
+Faure,engineered_x_maze,logreg,last fix: left,-0.07631135537482063
+Faure,engineered_x_maze,logreg,last fix: right,0.09817823941738223
+Faure,engineered_x_maze,logreg,first fix onset (s),0.17757978684518783
+Faure,engineered_x_maze,logreg,pupil mean z,-0.19126630037247863
+Faure,engineered_x_maze,logreg,pupil change z,-0.017780850614083545
+Nielsen,engineered_x_maze,logreg,origin dwell share,-0.007175205229195286
+Nielsen,engineered_x_maze,logreg,o-LU share,-0.06256419161241634
+Nielsen,engineered_x_maze,logreg,o-LD share,0.0747718877614034
+Nielsen,engineered_x_maze,logreg,o-RU share,-0.10137797317984382
+Nielsen,engineered_x_maze,logreg,o-RD share,0.1718048953569678
+Nielsen,engineered_x_maze,logreg,LU visited,-0.16816935682980177
+Nielsen,engineered_x_maze,logreg,LD visited,0.03817765169500368
+Nielsen,engineered_x_maze,logreg,RU visited,0.057659135202180016
+Nielsen,engineered_x_maze,logreg,RD visited,-0.10317749192152542
+Nielsen,engineered_x_maze,logreg,LU dwell,0.0761120945532419
+Nielsen,engineered_x_maze,logreg,LD dwell,0.0010281097658939673
+Nielsen,engineered_x_maze,logreg,RU dwell,0.17589964230282013
+Nielsen,engineered_x_maze,logreg,RD dwell,0.07112260456802448
+Nielsen,engineered_x_maze,logreg,ring 2-6 share,0.016318064256942027
+Nielsen,engineered_x_maze,logreg,ring 6-10 share,0.08651413051602579
+Nielsen,engineered_x_maze,logreg,ring >10 share,0.11058452087047071
+Nielsen,engineered_x_maze,logreg,n fixations,-0.09331035591264555
+Nielsen,engineered_x_maze,logreg,first fix: origin,0.041606522419632086
+Nielsen,engineered_x_maze,logreg,first fix: left,0.016676931973900692
+Nielsen,engineered_x_maze,logreg,first fix: right,-0.05034614923810827
+Nielsen,engineered_x_maze,logreg,last fix: origin,-0.008267986158258935
+Nielsen,engineered_x_maze,logreg,last fix: left,-0.11621388725175583
+Nielsen,engineered_x_maze,logreg,last fix: right,0.05545556572611059
+Nielsen,engineered_x_maze,logreg,first fix onset (s),0.050614497507025714
+Nielsen,engineered_x_maze,logreg,pupil mean z,0.04879756085119939
+Nielsen,engineered_x_maze,logreg,pupil change z,0.11238293349566915

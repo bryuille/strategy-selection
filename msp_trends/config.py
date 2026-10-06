@@ -1,13 +1,22 @@
 """Codebooks, blocks, variants, tags, and the `out/` layout.
 
-Three codebooks, all with msp's origin ball at the tag's radius:
+Five codebooks; all but ``capsules`` keep msp's origin ball at the tag's radius:
 
-``balls``   msp's four exit balls at the same radius; labels merge LU+LD ->
-            ``left``, RU+RD -> ``right`` (3 states). Tags ``r1``, ``r0.5``.
+``balls``   msp's origin ball plus its four exit balls at the same radius,
+            unmerged: LU / LD / origin / RU / RD (5 states). Tags ``r1``,
+            ``r0.5``.
+``balls3``  the retired merge of those balls: LU+LD -> ``left``, RU+RD ->
+            ``right`` (3 states). Tags ``r1balls3``, ``r0.5balls3``.
 ``quads``   every other point inside the maze, split by quadrant into LU /
             LD / RU / RD (5 states). Tag ``r0.5quads``.
 ``halves``  the same region split by side into ``left`` / ``right``
             (3 states). Tag ``r0.5halves``.
+``capsules`` one capsule per exit: every point within the tag's radius of the
+            segment from the origin to that exit (the origin and exit balls
+            joined by two straight tangents). No origin state: where the
+            capsules overlap, around the origin, the nearest segment wins,
+            which is the quadrant (ties as for ``quads``). LU / LD / RU / RD
+            (4 states). Tag ``r0.5capsules``.
 
 "Inside the maze" is the outer edge of the four r1 exit balls joined by
 straight tangents: every point within `PERIMETER_RADIUS` of the square the
@@ -41,13 +50,14 @@ N_STATES = 5  # extracted state indices: msp's five
 @dataclass(frozen=True)
 class Codebook:
     """``names`` in display order; ``state_map[i]`` is the state that
-    extracted index ``i`` (origin, LU, LD, RU, RD) maps to. ``region`` means
-    the exit states are maze regions rather than balls."""
+    extracted index ``i`` (origin, LU, LD, RU, RD) maps to (-1: the rule never
+    emits it). ``rule`` is the extraction rule: msp's ``balls``, maze
+    ``region``s, or exit ``capsule``s."""
 
     key: str
     names: tuple
     state_map: tuple
-    region: bool
+    rule: str
     label: str
 
     @property
@@ -60,16 +70,20 @@ class Codebook:
 
 
 CODEBOOKS = {
-    "balls": Codebook("balls", ("left", "origin", "right"), (1, 0, 0, 2, 2), False,
-                      "merged balls (left, origin, right)"),
-    "quads": Codebook("quads", ("LU", "LD", "origin", "RU", "RD"), (2, 0, 1, 3, 4), True,
+    "balls": Codebook("balls", ("LU", "LD", "origin", "RU", "RD"), (2, 0, 1, 3, 4), "balls",
+                      "origin ball + four exit balls (LU, LD, RU, RD)"),
+    "balls3": Codebook("balls3", ("left", "origin", "right"), (1, 0, 0, 2, 2), "balls",
+                       "merged balls (left, origin, right)"),
+    "quads": Codebook("quads", ("LU", "LD", "origin", "RU", "RD"), (2, 0, 1, 3, 4), "region",
                       "origin ball + maze quadrants (LU, LD, RU, RD)"),
-    "halves": Codebook("halves", ("left", "origin", "right"), (1, 0, 0, 2, 2), True,
+    "halves": Codebook("halves", ("left", "origin", "right"), (1, 0, 0, 2, 2), "region",
                        "origin ball + maze halves (left, right)"),
+    "capsules": Codebook("capsules", ("LU", "LD", "RU", "RD"), (-1, 0, 1, 2, 3), "capsule",
+                         "origin-to-exit capsules (LU, LD, RU, RD)"),
 }
 for _cb in CODEBOOKS.values():
     assert len(_cb.state_map) == N_STATES, _cb.key
-    assert sorted(set(_cb.state_map)) == list(range(_cb.k)), _cb.key
+    assert sorted(set(_cb.state_map) - {-1}) == list(range(_cb.k)), _cb.key
 DEFAULT_CODEBOOK = "balls"
 
 # Which merged state carries each monkey's hypothesised H / S preference.
@@ -79,16 +93,27 @@ TREND = {
 }
 
 # Directory name -> msp cache block.
+# ``both`` is not a cache block: binary then dwell, concatenated (2k features).
 BLOCKS = {"binary": "occ_bin", "dwell": "occ_ms"}
-BLOCK_NAMES = tuple(BLOCKS)
+BOTH = "both"
+BLOCK_NAMES = (*BLOCKS, BOTH)
 BLOCK_LABEL = {
     "binary": "binary occupancy",
     "dwell": "dwell share",
+    BOTH: "binary occupancy + dwell share",
 }
 BLOCK_YLABEL = {
     "binary": "fraction of trials visiting",
     "dwell": "mean share of assigned dwell",
+    BOTH: "binary (fraction) | dwell (share)",
 }
+
+
+def feature_names(codebook, block):
+    """Column names of `block`'s feature matrix under `codebook`."""
+    if block != BOTH:
+        return tuple(codebook.names)
+    return tuple(f"{n} bin" for n in codebook.names) + tuple(f"{n} dwell" for n in codebook.names)
 
 # ``mean_removed`` centres on the label-free maze grand mean (msp's), which
 # weights strategies by n and so leaves the majority almost no shared residual.
@@ -104,6 +129,7 @@ LOW_N_NOTE = f"{LOW_N_MARK} ≤ {LOW_N} trials of one strategy"
 
 MONKEYS = ("Faure", "Nielsen")
 MAZES = (2, 3, 4, 5)
+ALL_MAZES = (1, 2, 3, 4, 5, 6)
 POOLED = "pooled"
 
 # Label scopes. ``svm``: msp's svm/top_ten (SVM labels, ten sessions per
@@ -125,15 +151,17 @@ DEFAULT_LABELS = "svm"
 # maze onset in nearly every trial.
 WINDOW_LABEL = "maze onset → fixation"
 
-# The tags `--all-tags` runs. A tag is ``r<radius>[<codebook>][_<scope>]``:
-# the codebook suffix is omitted for ``balls``, the scope for ``svm``.
+# The tags `--all-tags` runs. A tag is ``r<radius>[<codebook>][_<scope>][_across]``:
+# the codebook suffix is omitted for ``balls``, the scope for ``svm``. ``_across``
+# pools mazes before the split-half (one 2x2 per feature and variant) instead of
+# scoring each maze and pooling the scores; `--all-tags` does not run it.
 TAGS = ("r1", "r0.5", "r0.5_dendro", "r0.5quads", "r0.5halves")
 
 _TAG_RE = re.compile(
     r"^r(?P<radius>[0-9]+(?:\.[0-9]+)?)(?P<codebook>"
     # longest first, so no codebook key shadows a longer one
     + "|".join(sorted((k for k in CODEBOOKS if k != DEFAULT_CODEBOOK), key=len, reverse=True))
-    + r")?(?:_(?P<scope>" + "|".join(LABEL_SCOPES) + r"))?$"
+    + r")?(?:_(?P<scope>" + "|".join(LABEL_SCOPES) + r"))?(?P<across>_across)?$"
 )
 
 
@@ -142,6 +170,7 @@ class Tag:
     radius: float
     codebook: Codebook
     scope: str
+    across: bool = False
 
 
 def parse_tag(tag):
@@ -152,17 +181,25 @@ def parse_tag(tag):
         radius=float(m["radius"]),
         codebook=CODEBOOKS[m["codebook"] or DEFAULT_CODEBOOK],
         scope=m["scope"] or DEFAULT_LABELS,
+        across=bool(m["across"]),
     )
 
 
-def make_tag(radius, codebook=DEFAULT_CODEBOOK, scope=DEFAULT_LABELS):
+def make_tag(radius, codebook=DEFAULT_CODEBOOK, scope=DEFAULT_LABELS, across=False):
     tag = f"r{float(radius):g}" + ("" if codebook == DEFAULT_CODEBOOK else codebook)
-    return tag if scope == DEFAULT_LABELS else f"{tag}_{scope}"
+    tag = tag if scope == DEFAULT_LABELS else f"{tag}_{scope}"
+    return tag + "_across" if across else tag
 
 
 for _t in TAGS:
     _p = parse_tag(_t)
     assert make_tag(_p.radius, _p.codebook.key, _p.scope) == _t, _t
+assert parse_tag("r0.5quads_dendro_across").across
+
+def default_mazes(tag):
+    """Mazes run when `--maze` is not given: all six for dendro labels, else 2-5."""
+    return ALL_MAZES if parse_tag(tag).scope == "dendro" else MAZES
+
 
 # ---- output paths ------------------------------------------------------------
 

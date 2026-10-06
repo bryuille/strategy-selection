@@ -1,0 +1,113 @@
+  20 configurations in 0.4 min (Faure balls_u0.5 first  mean_removed: across z=-0.51)
+  40 configurations in 0.7 min (Faure balls6_u0.5 binary pupil full: across z=+5.51)
+  60 configurations in 1.1 min (Faure balls6_u0.5 first pupil maze_centred: across z=+1.62)
+  80 configurations in 1.5 min (Faure balls_u0.75 dwell  mean_removed: across z=+1.22)
+  100 configurations in 1.8 min (Faure balls_u0.75 last pupil full: across z=+4.02)
+  120 configurations in 2.2 min (Faure balls6_u0.75 dwell pupil maze_centred: across z=+2.02)
+  140 configurations in 2.6 min (Faure balls6_u0.75 both  mean_removed: across z=+2.15)
+  160 configurations in 2.9 min (Faure balls_u1 count pupil full: across z=+4.87)
+  180 configurations in 3.3 min (Faure balls_u1 both pupil maze_centred: across z=+1.89)
+  200 configurations in 3.7 min (Faure balls6_u1 first  mean_removed: across z=+0.54)
+/Users/bradenyuille/Projects/strategy-selection/msp_revised/estimator.py:84: RuntimeWarning: Mean of empty slice
+  q[i, j] = np.nanmean(_rowwise_pearson(means_a[i], means_b[j]))
+  220 configurations in 4.0 min (Faure balls_d2 binary pupil full: across z=+5.19)
+  240 configurations in 4.4 min (Faure balls_d2 first pupil maze_centred: across z=+1.67)
+  260 configurations in 4.8 min (Faure balls6_d2 dwell  mean_removed: across z=+0.48)
+  280 configurations in 5.1 min (Faure balls6_d2 last pupil full: across z=+4.75)
+  300 configurations in 5.5 min (Faure balls_d3 dwell pupil maze_centred: across z=+1.76)
+  320 configurations in 5.9 min (Faure balls_d3 both  mean_removed: across z=+1.19)
+  340 configurations in 6.2 min (Faure balls6_d3 count pupil full: across z=+4.60)
+  360 configurations in 6.6 min (Faure balls6_d3 both pupil maze_centred: across z=+1.62)
+  380 configurations in 7.0 min (Faure quads_u0.5 first  mean_removed: across z=-0.20)
+  400 configurations in 7.3 min (Faure quads_out_u0.5 binary pupil full: across z=+5.38)
+  420 configurations in 7.7 min (Faure quads_out_u0.5 first pupil maze_centred: across z=+1.20)
+  440 configurations in 8.1 min (Faure halves_u0.5 dwell  mean_removed: across z=+0.30)
+  460 configurations in 8.4 min (Faure halves_u0.5 last pupil full: across z=+4.20)
+  480 configurations in 8.8 min (Faure halves_out_u0.5 dwell pupil maze_centred: across z=+1.61)
+  500 configurations in 9.2 min (Faure halves_out_u0.5 both  mean_removed: across z=+0.98)
+  520 configurations in 9.5 min (Faure inout_u0.5 count pupil full: across z=+4.62)
+  540 configurations in 9.9 min (Faure inout_u0.5 both pupil maze_centred: across z=+1.46)
+  560 configurations in 10.3 min (Faure capsules_u0.5 first  mean_removed: across z=-1.35)
+  580 configurations in 10.6 min (Faure segments_d binary pupil full: across z=+4.16)
+  600 configurations in 11.0 min (Faure segments_d first pupil maze_centred: across z=+1.37)
+  620 configurations in 11.4 min (Faure segments4_d dwell  mean_removed: across z=+0.61)
+  640 configurations in 11.7 min (Faure segments4_d last pupil full: across z=+4.51)
+  660 configurations in 12.1 min (Faure sectors4_d dwell pupil maze_centred: across z=+1.66)
+  680 configurations in 12.5 min (Faure sectors4_d both  mean_removed: across z=+1.11)
+  700 configurations in 12.8 min (Faure sectors8_d count pupil full: across z=+4.72)
+  720 configurations in 13.2 min (Faure sectors8_d both pupil maze_centred: across z=+0.72)
+  740 configurations in 13.6 min (Faure rings_d first  mean_removed: across z=+2.84)
+  760 configurations in 13.9 min (Faure rings_side_d binary pupil full: across z=+2.80)
+  780 configurations in 14.3 min (Faure rings_side_d first pupil maze_centred: across z=+1.80)
+  800 configurations in 14.7 min (Faure ybands_d dwell  mean_removed: across z=+0.07)
+  820 configurations in 15.0 min (Faure ybands_d last pupil full: across z=+4.23)
+  840 configurations in 15.5 min (Nielsen balls_u0.5 dwell pupil maze_centred: across z=+0.48)
+  860 configurations in 15.9 min (Nielsen balls_u0.5 both  mean_removed: across z=+1.50)
+  880 configurations in 16.4 min (Nielsen balls6_u0.5 count pupil full: across z=-0.82)
+  900 configurations in 16.9 min (Nielsen balls6_u0.5 both pupil maze_centred: across z=+0.95)
+  920 configurations in 17.4 min (Nielsen balls_u0.75 first  mean_removed: across z=-1.33)
+  940 configurations in 17.8 min (Nielsen balls6_u0.75 binary pupil full: across z=+0.51)
+  960 configurations in 18.3 min (Nielsen balls6_u0.75 first pupil maze_centred: across z=+0.13)
+  980 configurations in 18.8 min (Nielsen balls_u1 dwell  mean_removed: across z=-1.78)
+  1000 configurations in 19.3 min (Nielsen balls_u1 last pupil full: across z=-1.18)
+  1020 configurations in 19.8 min (Nielsen balls6_u1 dwell pupil maze_centred: across z=+0.16)
+  1040 configurations in 20.3 min (Nielsen balls6_u1 both  mean_removed: across z=+0.27)
+  1060 configurations in 20.8 min (Nielsen balls_d2 count pupil full: across z=-0.58)
+  1080 configurations in 21.3 min (Nielsen balls_d2 both pupil maze_centred: across z=-0.10)
+  1100 configurations in 21.7 min (Nielsen balls6_d2 first  mean_removed: across z=+1.35)
+  1120 configurations in 22.2 min (Nielsen balls_d3 binary pupil full: across z=+0.99)
+  1140 configurations in 22.7 min (Nielsen balls_d3 first pupil maze_centred: across z=+0.32)
+  1160 configurations in 23.2 min (Nielsen balls6_d3 dwell  mean_removed: across z=+1.43)
+  1180 configurations in 23.7 min (Nielsen balls6_d3 last pupil full: across z=-1.14)
+  1200 configurations in 24.2 min (Nielsen quads_u0.5 dwell pupil maze_centred: across z=+0.47)
+  1220 configurations in 24.7 min (Nielsen quads_u0.5 both  mean_removed: across z=+0.38)
+  1240 configurations in 25.2 min (Nielsen quads_out_u0.5 count pupil full: across z=-0.94)
+  1260 configurations in 25.7 min (Nielsen quads_out_u0.5 both pupil maze_centred: across z=+0.41)
+  1280 configurations in 26.1 min (Nielsen halves_u0.5 first  mean_removed: across z=-0.33)
+  1300 configurations in 26.6 min (Nielsen halves_out_u0.5 binary pupil full: across z=-0.11)
+  1320 configurations in 27.1 min (Nielsen halves_out_u0.5 first pupil maze_centred: across z=-0.35)
+  1340 configurations in 27.6 min (Nielsen inout_u0.5 dwell  mean_removed: across z=-4.72)
+  1360 configurations in 28.1 min (Nielsen inout_u0.5 last pupil full: across z=-1.02)
+  1380 configurations in 28.6 min (Nielsen capsules_u0.5 dwell pupil maze_centred: across z=+0.42)
+  1400 configurations in 29.2 min (Nielsen capsules_u0.5 both  mean_removed: across z=+1.23)
+  1420 configurations in 29.7 min (Nielsen segments_d count pupil full: across z=-0.27)
+  1440 configurations in 30.2 min (Nielsen segments_d both pupil maze_centred: across z=+0.50)
+  1460 configurations in 30.7 min (Nielsen segments4_d first  mean_removed: across z=+1.07)
+  1480 configurations in 31.2 min (Nielsen sectors4_d binary pupil full: across z=-1.06)
+  1500 configurations in 31.7 min (Nielsen sectors4_d first pupil maze_centred: across z=-0.26)
+  1520 configurations in 32.3 min (Nielsen sectors8_d dwell  mean_removed: across z=-1.51)
+  1540 configurations in 32.8 min (Nielsen sectors8_d last pupil full: across z=-1.22)
+  1560 configurations in 33.3 min (Nielsen rings_d dwell pupil maze_centred: across z=-0.17)
+  1580 configurations in 33.9 min (Nielsen rings_d both  mean_removed: across z=-1.26)
+  1600 configurations in 34.4 min (Nielsen rings_side_d count pupil full: across z=-0.75)
+  1620 configurations in 34.9 min (Nielsen rings_side_d both pupil maze_centred: across z=-0.31)
+  1640 configurations in 35.4 min (Nielsen ybands_d first  mean_removed: across z=+1.01)
+wrote /Users/bradenyuille/Projects/strategy-selection/msp_revised/out/search/grid.csv (13248 rows)
+
+828 configurations; top 25 by score (min across z over monkeys, minus |z| of any solid maze with Δ < 0):
+  +1.69   segments_d       binary       full         F across z=+2.01 N across z=+2.12 solid 5/6 [2:+0.8 4:--0.3 5:+3.2 6:+1.5 | 2:+0.9 4:+0.4]  sessions june_8:+2.4 june_24:+1.1 Nov_3:+2.2 Nov_6:+0.5
+  +1.58   balls6_u0.75     dwell        full         F across z=+2.07 N across z=+1.96 solid 4/6 [2:+0.3 4:--0.4 5:+2.2 6:--0.0 | 2:+3.7 4:+0.5]  sessions june_8:+0.8 june_24:+1.8 Nov_3:+1.9 Nov_6:+0.9
+  +1.54   segments_d       both         full         F across z=+1.96 N across z=+2.21 solid 5/6 [2:+0.4 4:--0.4 5:+3.2 6:+1.5 | 2:+1.6 4:+2.4]  sessions june_8:+2.2 june_24:+0.9 Nov_3:+2.5 Nov_6:+0.4
+  +1.39 C segments_d       binary pupil full         F across z=+4.16 N across z=+1.39 solid 6/6 [2:+2.1 4:+-0.4 5:+1.9 6:+1.8 | 2:+2.1 4:+0.4]  sessions june_8:+3.1 june_24:+0.9 Nov_3:+1.2 Nov_6:+0.2
+  +1.36   balls6_u0.75     count        full         F across z=+1.59 N across z=+1.92 solid 4/6 [2:-0.1 4:+0.4 5:+1.3 6:--0.2 | 2:+1.5 4:+0.5]  sessions june_8:+0.3 june_24:+1.3 Nov_3:+1.9 Nov_6:+0.6
+  +1.32 C segments_d       both   pupil full         F across z=+3.66 N across z=+1.32 solid 6/6 [2:+1.9 4:+-0.4 5:+2.0 6:+1.8 | 2:+2.2 4:+0.9]  sessions june_8:+3.0 june_24:+0.9 Nov_3:+1.3 Nov_6:+0.1
+  +1.32 C segments4_d      binary pupil full         F across z=+3.73 N across z=+1.32 solid 6/6 [2:+1.8 4:+-0.3 5:+0.4 6:+1.8 | 2:+3.0 4:+0.9]  sessions june_8:+2.7 june_24:+0.3 Nov_3:+0.8 Nov_6:+0.2
+  +1.22 C segments4_d      both   pupil full         F across z=+3.00 N across z=+1.22 solid 6/6 [2:+1.7 4:+-0.2 5:+0.3 6:+1.7 | 2:+3.0 4:+1.5]  sessions june_8:+2.9 june_24:+0.3 Nov_3:+0.9 Nov_6:-0.0
+  +1.21   balls6_u0.75     both         full         F across z=+3.11 N across z=+1.51 solid 5/6 [2:+0.0 4:+-0.1 5:+1.7 6:--0.3 | 2:+2.0 4:+0.9]  sessions june_8:+2.0 june_24:+2.2 Nov_3:+1.4 Nov_6:+0.6
+  +1.14   segments_d       count        full         F across z=+1.43 N across z=+1.51 solid 5/6 [2:--0.3 4:+-0.2 5:+3.1 6:+0.8 | 2:+1.7 4:+0.2]  sessions june_8:+1.4 june_24:+0.4 Nov_3:+2.3 Nov_6:-0.1
+  +1.11   balls6_u0.75     binary       full         F across z=+2.86 N across z=+1.58 solid 4/6 [2:--0.2 4:+0.0 5:+1.8 6:--0.3 | 2:+0.8 4:+0.8]  sessions june_8:+1.3 june_24:+1.9 Nov_3:+1.7 Nov_6:+0.6
+  +1.10   balls6_d2        binary       full         F across z=+2.56 N across z=+1.74 solid 5/6 [2:+0.4 4:--0.6 5:+1.5 6:+1.9 | 2:+3.3 4:+1.1]  sessions june_8:+2.3 june_24:+1.2 Nov_3:+1.8 Nov_6:-0.0
+  +1.04   segments_d       both         maze_centred F across z=+1.70 N across z=+1.31 solid 5/6 [2:+0.6 4:+0.5 5:+1.4 6:+1.4 | 2:--0.3 4:+2.5]  sessions june_8:-0.9 june_24:+1.4 Nov_3:+1.1 Nov_6:+0.4
+  +0.99   sectors4_d       first        mean_removed F across z=+3.44 N across z=+1.13 solid 5/6 [2:+0.8 4:+0.8 5:--0.1 6:+2.0 | 2:+0.9 4:+0.5]  sessions june_8:+0.1 june_24:+3.7 Nov_3:+1.0 Nov_6:+2.1
+  +0.98   balls6_u0.75     both         maze_centred F across z=+1.53 N across z=+1.78 solid 4/6 [2:+0.3 4:+0.7 5:+0.9 6:--0.4 | 2:--0.2 4:+1.6]  sessions june_8:-1.0 june_24:+1.1 Nov_3:+0.6 Nov_6:+1.0
+  +0.94   segments_d       dwell        full         F across z=+1.56 N across z=+1.75 solid 4/6 [2:--0.3 4:--0.4 5:+3.4 6:+0.8 | 2:+2.5 4:+0.1]
+  +0.93 C balls6_u0.75     dwell        maze_centred F across z=+0.93 N across z=+2.42 solid 6/6 [2:+0.7 4:+0.5 5:+0.9 6:+-0.2 | 2:+0.6 4:+0.7]
+  +0.92   balls6_d2        both         full         F across z=+1.79 N across z=+1.59 solid 5/6 [2:+0.0 4:--0.7 5:+1.2 6:+2.7 | 2:+3.3 4:+0.8]
+  +0.90   balls_d3         binary       full         F across z=+2.23 N across z=+2.27 solid 3/6 [2:--0.6 4:--0.4 5:+2.2 6:--0.3 | 2:+0.6 4:+1.6]
+  +0.88   balls6_d3        both         full         F across z=+1.99 N across z=+2.73 solid 4/6 [2:--0.6 4:--0.5 5:+1.4 6:+-0.3 | 2:+1.7 4:+1.5]
+  +0.87   segments_d       dwell        maze_centred F across z=+0.95 N across z=+1.13 solid 5/6 [2:+0.0 4:+0.4 5:+1.1 6:+1.0 | 2:--0.1 4:+2.6]
+  +0.86   balls_d3         both         full         F across z=+1.90 N across z=+2.21 solid 4/6 [2:--0.5 4:--0.5 5:+1.9 6:+0.4 | 2:+1.7 4:+2.1]
+  +0.84   segments_d       binary       mean_removed F across z=+1.38 N across z=+2.04 solid 5/6 [2:+0.7 4:--0.5 5:+2.3 6:+1.3 | 2:+1.3 4:+1.0]
+  +0.83   balls6_u0.5      binary       full         F across z=+3.11 N across z=+2.07 solid 4/6 [2:--0.5 4:--0.7 5:+1.9 6:+0.0 | 2:+0.4 4:+2.3]
+  +0.82   segments_d       binary       maze_centred F across z=+2.01 N across z=+1.11 solid 5/6 [2:+0.8 4:+0.8 5:+1.6 6:+1.5 | 2:--0.3 4:+1.4]
+exit 0
