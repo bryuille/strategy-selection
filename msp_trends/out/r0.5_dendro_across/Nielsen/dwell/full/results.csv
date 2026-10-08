@@ -1,2 +1,0 @@
-block,monkey,variant,maze,radius,r_HH,r_SS,r_HS,r_SH,delta,z,p,p_at_floor,null_mean,null_sd,n_H,n_S,m_H,m_S,d,n_sessions,n_degenerate,n_rounds,n_perm,reason_skipped,low_n,mazes_pooled,n_null_undefined
-dwell,Nielsen,full,across,r0.5_dendro_across,0.99849261553587,0.9983719955432067,0.988420654701591,0.9884266710954439,0.01000864264102086,1.0325487622131615,0.3046953046953047,0,0.007694991830059114,0.002240718206859959,453,412,226,206,5,12,34,100,1000,,0,1 2 3 4 5 6,0

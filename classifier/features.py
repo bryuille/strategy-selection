@@ -1,9 +1,8 @@
 """Feature matrices for both branches, one cache per monkey, branch and scope.
 
 Raw: `<Monkey>_clf_raw[_svm].npz`, built from the pooled eye cache and the
-pupil tables. Engineered: computed on the fly from msp_revised's fixation
-cache (`<Monkey>_msp_revised_fix[_svm].npz`, read as an npz) and the same
-pupil tables. Both return ``(X, names, meta)`` with `meta` holding session,
+pupil tables. Engineered / regions: computed on the fly from the fixation
+table of `classifier.fixations` (which also folds in the pupil tables). Both return ``(X, names, meta)`` with `meta` holding session,
 trial, maze and label per row; rows are the labelled, QC-passing trials of
 the scope's mazes. Sessions without a pupil table get NaN pupil features
 (logistic imputes to the session mean, the tree takes NaN).
@@ -67,8 +66,8 @@ def pupil_tables(sessions):
     for s in sessions:
         path = PUPIL_DIR / f"{s}_pupil.npz"
         if not path.exists():
-            warnings.warn(f"{path} missing (msp_revised.pupil_extract --session {s} on the cluster, "
-                          f"then pull out/pupil/); pupil is NaN for {s}", stacklevel=2)
+            warnings.warn(f"{path} missing (classifier.pupil_extract --session {s} on the cluster, "
+                          f"then pull classifier/out/pupil/); pupil is NaN for {s}", stacklevel=2)
             out[s] = None
             continue
         with np.load(path, allow_pickle=True) as f:
@@ -263,20 +262,11 @@ def rebin(d, bin_ms):
 
 
 def load_fix(monkey, *, labels="dendro", refresh=False):
-    """msp_revised's fixation cache over the scope's sessions. The dendro
-    cache is msp_revised's own and is only read; the svm one
-    (``<Monkey>_msp_revised_fix_svm``) is built through
-    `msp_revised.features.load` on first use (needs pymovements)."""
-    sessions = tuple(LABEL_SCOPES[labels]["sessions"][monkey])
-    path = processed_npz(_scoped(f"{monkey}_msp_revised_fix", labels))
-    if path.exists() and not refresh:
-        d = load_npz(path)
-        if tuple(np.asarray(d["sessions"]).astype(str)) == sessions:
-            return d
-    if labels == "dendro":
-        raise FileNotFoundError(f"{path} missing or stale; run `python -m msp_revised.features` first")
-    from msp_revised.features import load as build_fix
-    return build_fix(monkey, sessions=sessions, cache_name=path.stem, refresh=refresh)
+    """The fixation table over the scope's sessions (`classifier.fixations`):
+    read from its cache when schema / window / sessions match, else built
+    (needs pymovements)."""
+    from classifier.fixations import load as load_fixations
+    return load_fixations(monkey, labels=labels, refresh=refresh)
 
 
 def _exit_landmarks(h):
@@ -415,6 +405,9 @@ def dataset(monkey, branch, *, labels="dendro", bin_ms=RAW_BIN_MS, refresh=False
     elif branch in REGIONS_KINDS:
         d = load_fix(monkey, labels=labels, refresh=refresh)
         X, names = regions_matrix(d, REGIONS_KINDS[branch])
+    elif branch == "order":
+        d = load_fix(monkey, labels=labels, refresh=refresh)
+        X, names = np.empty((len(d["session"]), 0)), []  # filled below, from the kept rows
     else:
         raise ValueError(branch)
     sess = d["session"].astype(str)
@@ -424,4 +417,8 @@ def dataset(monkey, branch, *, labels="dendro", bin_ms=RAW_BIN_MS, refresh=False
     keep = np.isfinite(y) & np.isin(np.asarray(d["maze_id"], dtype=int), scope["mazes"])
     meta = dict(session=sess[keep], trial=trials[keep], maze=np.asarray(d["maze_id"], dtype=int)[keep],
                 y=y[keep].astype(int))
+    if branch == "order":
+        # trial order alone: how much of the label a drift-only "classifier" reads
+        from classifier.model import order_terms
+        return order_terms(meta), ["trial order", "trial order squared"], meta
     return X[keep], names, meta

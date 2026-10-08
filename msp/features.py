@@ -5,9 +5,15 @@ Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 1. **Clip** each trial to ``[0, fix_start]`` from maze onset.
 2. **Warp** to unit H.
 3. **Fixations** by I-DT on the clipped, unwarped data.
-4. **Assign** each fixation's mean warped position to the nearest prototype
-   within `ASSIGN_RADIUS`; every sample of that fixation inherits the state.
-   Saccades, blinks and fixations outside every ball are omitted.
+4. **Assign** each fixation's mean warped position to one of the five
+   states under the codebook's rule (`assign_by_rule`): the nearest prototype
+   within the radius (``balls``), the origin ball else the maze quadrant
+   (``region``), or the origin-to-exit capsule (``capsule``). Every sample of
+   that fixation inherits the state. Saccades, blinks and fixations outside
+   every region are omitted.
+5. **Relabel** to the codebook's states at analysis time (`codebook_block`,
+   `codebook_fix_state`): ``halves`` merges the quadrants, ``capsules`` has
+   no origin column.
 
 Gaze is re-detected and re-warped per trial inside the window, the same path
 `regression.features` uses; this covers the svm/top_ten sessions only.
@@ -28,10 +34,11 @@ stored (`fix_xy`), with its state (`fix_state`) and the index of the trial row
 it belongs to (`fix_row`), so the figures can split fixations by maze and by
 the trial's strategy label.
 
-Cache: ``<PROCESSED_ROOT>/<Monkey>_msp_fixed5_r<radius>.npz`` (`data.config`).
-The codebook, radius and window are
-verified on load (stored ``assign_radius`` / ``window``, not the tag string)
-and the cache rebuilt if `config.py` has changed under it.
+Cache: ``<PROCESSED_ROOT>/<Monkey>_msp_fixed5_r<radius>[_region|_capsule].npz``
+(`data.config`): one per (radius, rule), so ``quads`` and ``halves`` share
+one. The codebook, radius and rule are verified on load (stored
+``assign_radius`` / ``assignment_rule``, not the tag string) and the cache
+rebuilt if `config.py` has changed under it.
 """
 
 from __future__ import annotations
@@ -47,8 +54,19 @@ from data.loader import load_eye_behavioral_data, savez_atomic
 from data.builder import behavioral_lookup, fix_start_ms
 from msp.config import (
     ASSIGN_RADIUS,
+    BALLS_RULE,
+    CAPSULE_RULE,
     CODEBOOK_XY,
+    CODEBOOKS,
+    DEFAULT_CODEBOOK,
+    EXIT_HALF_WIDTH,
     K,
+    LD_STATE,
+    LU_STATE,
+    PERIMETER_RADIUS,
+    RD_STATE,
+    REGION_RULE,
+    RU_STATE,
     MAZE_SCREEN_LIM,
     ORIGIN_STATE,
     AssignmentSpec,
@@ -139,6 +157,63 @@ def assign_states(xy, codebook_xy, radius=ASSIGN_RADIUS):
     return state
 
 
+def inside_maze(xy):
+    """Within `PERIMETER_RADIUS` of the square the exits span: the outer edge
+    of the four r1 exit balls, joined by straight tangents."""
+    xy = np.asarray(xy, dtype=float)
+    excess = np.clip(np.abs(xy) - EXIT_HALF_WIDTH, 0.0, None)
+    return np.linalg.norm(excess, axis=-1) <= PERIMETER_RADIUS
+
+
+def _quadrant(xy):
+    """Exit state of each point's quadrant; x >= 0 is right, y >= 0 is up."""
+    right, up = xy[:, 0] >= 0, xy[:, 1] >= 0
+    return np.where(right, np.where(up, RU_STATE, RD_STATE), np.where(up, LU_STATE, LD_STATE))
+
+
+def region_states(xy, radius):
+    """Origin ball of `radius` first; then, inside the maze, the quadrant; else -1."""
+    xy = np.asarray(xy, dtype=np.float32)
+    state = np.full(xy.shape[0], -1, dtype=np.int16)
+    if xy.size == 0:
+        return state
+    origin = np.linalg.norm(xy, axis=1) <= float(radius)
+    inside = inside_maze(xy) & ~origin
+    state[inside] = _quadrant(xy)[inside]
+    state[origin] = ORIGIN_STATE
+    return state
+
+
+def capsule_states(xy, radius):
+    """Within `radius` of the segment origin -> exit, that exit; else -1.
+
+    Where capsules overlap the nearest segment wins, which for exits on the
+    diagonals is the quadrant. Never origin.
+    """
+    xy = np.asarray(xy, dtype=np.float32)
+    state = np.full(xy.shape[0], -1, dtype=np.int16)
+    if xy.size == 0:
+        return state
+    # distance to the quadrant's own diagonal segment, folded into quadrant I
+    a = np.abs(xy.astype(float))
+    t = np.clip(a.sum(axis=1) / (2 * EXIT_HALF_WIDTH), 0.0, 1.0)
+    dist = np.linalg.norm(a - t[:, None] * EXIT_HALF_WIDTH, axis=1)
+    inside = dist <= float(radius)
+    state[inside] = _quadrant(xy)[inside]
+    return state
+
+
+def assign_by_rule(xy, assignment: AssignmentSpec, codebook_xy=CODEBOOK_XY):
+    """Extracted state (0..4 or -1) per centroid under the assignment's rule."""
+    if assignment.rule == BALLS_RULE:
+        return assign_states(xy, codebook_xy, radius=assignment.radius)
+    if assignment.rule == REGION_RULE:
+        return region_states(xy, assignment.radius)
+    if assignment.rule == CAPSULE_RULE:
+        return capsule_states(xy, assignment.radius)
+    raise ValueError(f"unknown assignment rule {assignment.rule!r}")
+
+
 def fixation_event_spans(event_rows):
     """I-DT fixation `(onset, offset)` spans, earliest first."""
     spans = []
@@ -180,7 +255,7 @@ def assign_trial(xy, t_ms, valid, event_rows, codebook_xy, assignment: Assignmen
     centroids, hits = fixation_centroids(xy, t_ms, valid, event_rows)
     if not hits:
         return state, centroids, np.empty(0, dtype=np.int16)
-    fix_state = assign_states(centroids, codebook_xy, radius=assignment.radius)
+    fix_state = assign_by_rule(centroids, assignment, codebook_xy)
     for hit, sid in zip(hits, fix_state):
         if sid >= 0:
             state[hit] = sid
@@ -233,6 +308,7 @@ def _pack_feature_dict(
     out["codebook_k"] = np.int64(K)
     out["radius_tag"] = np.asarray(assignment.tag)
     out["assign_radius"] = np.float64(assignment.radius)
+    out["assignment_rule"] = np.asarray(assignment.rule)
     return out
 
 
@@ -421,11 +497,21 @@ def extract_monkey_features(monkey, *, radius=ASSIGN_RADIUS, assignment=None):
     return _extract_redetect(monkey, assignment)
 
 
+_RULE_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region", CAPSULE_RULE: "_capsule"}
+
+
 def cache_stem(monkey, radius=ASSIGN_RADIUS, *, tag=None, assignment=None):
-    """``<M>_msp_fixed5_r<radius>``."""
+    """``<M>_msp_fixed5_r<radius>[_region|_capsule]``: codebooks sharing a rule share it."""
     if assignment is None:
         assignment = resolve_tag(tag) if tag is not None else resolve_assignment(radius=radius)
-    return f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}"
+    return f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}{_RULE_SUFFIX[assignment.rule]}"
+
+
+def _stored_rule(data):
+    """Caches from before the region codebooks carry no rule: they are balls."""
+    if "assignment_rule" not in data:
+        return BALLS_RULE
+    return str(np.asarray(data["assignment_rule"]).reshape(-1)[0])
 
 
 def _cache_matches(data, assignment: AssignmentSpec):
@@ -445,6 +531,7 @@ def _cache_matches(data, assignment: AssignmentSpec):
             )
             and tuple(np.asarray(data["state_names"]).astype(str)) == tuple(STATE_NAMES)
             and bool(np.isclose(float(stored[0]), float(assignment.radius)))
+            and _stored_rule(data) == assignment.rule
         )
     except KeyError:
         return False
@@ -475,6 +562,37 @@ def load_features(
     savez_atomic(path, **data)
     print(f"Saved {path} ({len(data['session'])} trials)")
     return data
+
+
+# ---- codebook relabelling ------------------------------------------------------
+
+
+def codebook_block(data, codebook, block="occ_bin"):
+    """``(n, 5) -> (n, k)`` through ``codebook.state_map``: column max for
+    ``occ_bin`` (visited any merged state), sum for ``occ_ms``. A state the
+    rule never emits (``-1``) is dropped."""
+    X5 = np.asarray(data[block], dtype=float)
+    smap = codebook.map_array
+    out = np.zeros((X5.shape[0], codebook.k))
+    for s in range(codebook.k):
+        cols = X5[:, smap == s]
+        out[:, s] = cols.max(axis=1) if block == "occ_bin" else cols.sum(axis=1)
+    return out
+
+
+def codebook_fix_state(data, codebook):
+    """Codebook state per fixation centroid (-1 stays unassigned)."""
+    fs = np.asarray(data["fix_state"], dtype=int)
+    out = np.full(fs.shape, -1, dtype=np.int16)
+    ok = fs >= 0
+    out[ok] = codebook.map_array[fs[ok]]
+    return out
+
+
+def variants_for(codebook, variants=VARIANTS):
+    """`no_origin` needs an origin state and leaves >= 3 others: balls, quads."""
+    ok = codebook.has_origin and codebook.k - 1 >= 3
+    return tuple(v for v in variants if v != "no_origin" or ok)
 
 
 # ---- analysis variants on the occupancy block ------------------------------
@@ -535,9 +653,10 @@ def main():
         "--radius", type=float, default=None,
         help="uniform assignment radius around each fixed prototype (unit H)",
     )
+    parser.add_argument("--codebook", default=DEFAULT_CODEBOOK, choices=list(CODEBOOKS))
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
-    assignment = resolve_assignment(radius=args.radius)
+    assignment = resolve_assignment(radius=args.radius, codebook=args.codebook)
 
     for monkey in args.monkey:
         data = load_features(monkey, assignment=assignment, refresh=args.refresh)

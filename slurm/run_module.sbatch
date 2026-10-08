@@ -5,7 +5,7 @@
 #   sbatch -J eyecaches slurm/run_module.sbatch data.loader
 #   sbatch -J counts    slurm/run_module.sbatch counts.build
 #   sbatch -J persess   slurm/run_module.sbatch msp.per_session --radius 0.5
-#   sbatch -J trends    slurm/run_module.sbatch msp_trends.build --radius 0.5 --labels dendro
+#   sbatch -J fixtab    slurm/run_module.sbatch classifier.fixations
 #   sbatch -J scatter   slurm/run_module.sbatch scatter.build
 #
 # For packages with their own script (msp.build, regression.build) prefer

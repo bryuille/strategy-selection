@@ -1,8 +1,9 @@
 """Package configuration: codebook, assignment, output paths, and figure style.
 
 Assignment is uniform circular balls around the five fixed prototypes
-(``--radius``; tags ``r0.5``, ``r1``). Each trial is analysed from maze onset
-to fixation onset. Nothing here fits a codebook:
+(``--radius``; tags ``r0.5``, ``r1``) unless ``--codebook`` picks a region
+codebook (`CODEBOOKS`). Each trial is analysed from maze onset to fixation
+onset. Nothing here fits a codebook:
 `data.builder.to_maze` warps gaze into unit H, so the five landmarks have
 known coordinates and K = 5 is a statement about the maze.
 
@@ -39,6 +40,72 @@ LU_STATE, LD_STATE, RU_STATE, RD_STATE = 1, 2, 3, 4
 ASSIGN_RADIUS = 1.0
 MAZE_SCREEN_LIM = 3.0  # unit-H plot box; warped samples outside are off-maze
 
+# Region geometry: exits at (+-EXIT_HALF_WIDTH, +-EXIT_HALF_WIDTH); "inside the
+# maze" is every point within PERIMETER_RADIUS of the square they span (the
+# outer edge of the four r1 exit balls joined by straight tangents).
+EXIT_HALF_WIDTH = 1.0
+PERIMETER_RADIUS = 1.0
+
+# Extraction rules. Each assigns a fixation centroid to one of the five
+# `STATE_NAMES` (or -1); a codebook then relabels those five states.
+BALLS_RULE = "balls"
+REGION_RULE = "region"
+CAPSULE_RULE = "capsule"
+
+
+@dataclass(frozen=True)
+class Codebook:
+    """``names`` in feature order; ``state_map[i]`` is the codebook state that
+    extracted state ``i`` (origin, LU, LD, RU, RD) becomes (-1: never emitted
+    by ``rule``).
+
+    ``balls``     origin ball + four exit balls, all at the tag's radius (5)
+    ``quads``     origin ball + the rest of the maze split by quadrant (5)
+    ``halves``    origin ball + the rest of the maze split left / right (3)
+    ``capsules``  four capsules, every point within the radius of the segment
+                  origin -> exit; no origin state, the overlap around the
+                  origin goes to the nearest segment, i.e. the quadrant (4)
+
+    Region ties: x >= 0 is right, y >= 0 is up. Every codebook has >= 3
+    states, since two 2-vectors always correlate at +-1.
+    """
+
+    key: str
+    names: tuple
+    state_map: tuple
+    rule: str
+    label: str
+
+    @property
+    def k(self):
+        return len(self.names)
+
+    @property
+    def map_array(self):
+        return np.asarray(self.state_map, dtype=np.int16)
+
+    @property
+    def has_origin(self):
+        return self.names[0] == "origin"
+
+
+CODEBOOKS = {
+    "balls": Codebook("balls", STATE_NAMES, (0, 1, 2, 3, 4), BALLS_RULE,
+                      "origin ball + four exit balls"),
+    "quads": Codebook("quads", STATE_NAMES, (0, 1, 2, 3, 4), REGION_RULE,
+                      "origin ball + maze quadrants"),
+    "halves": Codebook("halves", ("origin", "left", "right"), (0, 1, 1, 2, 2), REGION_RULE,
+                       "origin ball + maze halves"),
+    "capsules": Codebook("capsules", ("LU", "LD", "RU", "RD"), (-1, 0, 1, 2, 3), CAPSULE_RULE,
+                         "origin-to-exit capsules, no origin state"),
+}
+DEFAULT_CODEBOOK = "balls"
+for _cb in CODEBOOKS.values():
+    assert len(_cb.state_map) == K, _cb.key
+    assert sorted(set(_cb.state_map) - {-1}) == list(range(_cb.k)), _cb.key
+    assert _cb.k >= 3, _cb.key
+    assert not _cb.has_origin or _cb.state_map[ORIGIN_STATE] == 0, _cb.key
+
 # ---- window ------------------------------------------------------------------
 
 
@@ -49,20 +116,34 @@ def window_bounds(fix_ms):
     labels its `AssignmentSpec` with ``window="pre1466"``."""
     return 0.0, float(fix_ms)
 
-ANALYSIS_TAGS = ("r0.5", "r1")
+ANALYSIS_TAGS = ("r0.5", "r1", "r0.5quads", "r0.5halves", "r0.5capsules")
 
-_TAG_RE = re.compile(r"^r([0-9]+(?:\.[0-9]+)?)$")
+# ``r<radius>[<codebook>]``; the suffix is omitted for ``balls``.
+_TAG_RE = re.compile(
+    r"^r([0-9]+(?:\.[0-9]+)?)("
+    + "|".join(k for k in CODEBOOKS if k != DEFAULT_CODEBOOK)
+    + r")?$"
+)
 
 
 @dataclass(frozen=True)
 class AssignmentSpec:
-    """Uniform-ball assignment: out/cache tag and radius. ``window`` is None
+    """Assignment: out/cache tag, radius and codebook key. ``window`` is None
     for the standard window and names a retired one otherwise (legacy only)."""
 
     tag: str
     radius: float
     window: str | None = None
     lim: float = MAZE_SCREEN_LIM
+    codebook_key: str = DEFAULT_CODEBOOK
+
+    @property
+    def codebook(self) -> Codebook:
+        return CODEBOOKS[self.codebook_key]
+
+    @property
+    def rule(self) -> str:
+        return self.codebook.rule
 
     def label(self) -> str:
         base = f"{float(self.radius):g}"
@@ -79,23 +160,32 @@ assert tuple(CODEBOOK_XY[ORIGIN_STATE]) == (0.0, 0.0), "origin must be state 0"
 assert len(STATE_NAMES) == K
 
 
-def resolve_assignment(*, radius=None) -> AssignmentSpec:
-    """Uniform balls for the cache stem, out dir, and state assignment.
+def resolve_assignment(*, radius=None, codebook=DEFAULT_CODEBOOK) -> AssignmentSpec:
+    """Assignment for the cache stem, out dir, and state assignment.
 
-    Omitting ``radius`` defaults to ``ASSIGN_RADIUS`` (tag ``r1``).
+    Omitting ``radius`` defaults to ``ASSIGN_RADIUS`` (tag ``r1``); the tag
+    carries the codebook key unless it is ``balls`` (``r0.5capsules``).
     """
     radius = float(ASSIGN_RADIUS if radius is None else radius)
-    return AssignmentSpec(tag=f"r{radius:g}", radius=radius)
+    if codebook not in CODEBOOKS:
+        raise KeyError(f"unknown codebook {codebook!r}; known: {', '.join(CODEBOOKS)}")
+    suffix = "" if codebook == DEFAULT_CODEBOOK else codebook
+    return AssignmentSpec(tag=f"r{radius:g}{suffix}", radius=radius, codebook_key=codebook)
 
 
 def resolve_tag(tag: str) -> AssignmentSpec:
-    """Resolve an analysis tag (``r0.5``, ``r1``, …) to an AssignmentSpec."""
+    """Resolve an analysis tag (``r0.5``, ``r1``, ``r0.5quads``, …) to an AssignmentSpec."""
     tag = str(tag)
     m = _TAG_RE.match(tag)
     if m:
-        return resolve_assignment(radius=float(m.group(1)))
+        return resolve_assignment(radius=float(m.group(1)),
+                                  codebook=m.group(2) or DEFAULT_CODEBOOK)
     known = ", ".join(ANALYSIS_TAGS)
     raise KeyError(f"unknown analysis tag {tag!r}; known: {known}")
+
+
+for _t in ANALYSIS_TAGS:
+    assert resolve_tag(_t).tag == _t, _t
 
 
 # ---- output paths ----------------------------------------------------------

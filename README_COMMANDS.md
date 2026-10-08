@@ -10,7 +10,7 @@ Every `build` takes `--dry-run` (counts and coverage, no statistics) and
 `--refresh` (rebuild the feature cache). Always dry-run first.
 
 Contents: [Data](#data) · [msp](#msp) · [msp.per_session](#mspper_session) ·
-[msp_trends](#msp_trends) · [msp_revised](#msp_revised) · [classifier](#classifier) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
+[classifier](#classifier) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
 [Slurm](#slurm) · [Clearing derived caches](#clearing-derived-caches)
 
 ## Data
@@ -55,6 +55,7 @@ uv run python -m msp.build --dry-run         # pooled counts + codebook coverage
 uv run python -m msp.build                   # full: 2 monkeys × 3 variants × 4 mazes
 uv run python -m msp.build --monkey Faure --maze 4 --n-perm 200   # smoke test
 uv run python -m msp.build --radius 0.5                           # tighter assignment balls
+uv run python -m msp.build --radius 0.5 --codebook capsules       # also: quads, halves (tag r0.5capsules)
 uv run python -m msp.build --variant full no_origin --vmax 0.3    # subset of variants, fixed colour scale
 ```
 
@@ -66,6 +67,7 @@ uv run python -m msp.build --variant full no_origin --vmax 0.3    # subset of va
 | `--maze`            | 2–5                | Mazes to run                                                           |
 | `--variant`         | all                | `full`, `no_origin`, `mean_removed`                                    |
 | `--radius`          | config default     | Assignment radius around each fixed prototype (unit H); part of the cache stem, so a new value triggers one extraction pass |
+| `--codebook`        | `balls`            | `balls` (origin + four exit balls), `quads` / `halves` (origin ball + maze quadrants / halves), `capsules` (origin-to-exit capsules, no origin state); tag suffix, and one cache per (radius, rule) |
 | `--n-rounds`        | estimator default  | Split-half rounds                                                      |
 | `--n-perm`          | estimator default  | Label-shuffle permutations                                             |
 | `--min-trials`      | estimator default  | Per strategy, pooled; below this the maze is skipped                   |
@@ -76,7 +78,7 @@ uv run python -m msp.build --variant full no_origin --vmax 0.3    # subset of va
 | `--refresh`         | off                | Rebuild the feature cache                                              |
 | `--dry-run`         | off                | Counts and coverage only                                               |
 
-`msp.features` takes `--monkey`, `--radius`, `--refresh`.
+`msp.features` takes `--monkey`, `--radius`, `--codebook`, `--refresh`.
 
 Figures land in `msp/out/r<radius>/<Monkey>/`. Each trial runs from maze
 onset to fixation onset, re-detected from raw eye.
@@ -126,82 +128,20 @@ uv run python -m msp.per_session --radius 0.5
 uv run python -m msp.per_session --monkey Faure --session june_24_g0 --maze 4
 ```
 
-Flags as for `msp.build`, plus `--session` (one or more ids; default is the
-monkey's top-ten SVM scope).
-
-## msp_trends
-
-msp on merged codebooks.
-
-```bash
-uv run python -m msp_trends.checks                           # synthetic, no data
-uv run python -m msp_trends.build --dry-run --all-tags
-uv run python -m msp_trends.build                            # r1
-uv run python -m msp_trends.build --radius 0.5
-uv run python -m msp_trends.build --radius 0.5 --labels dendro
-uv run python -m msp_trends.build --radius 0.5 --codebook quads   # also: halves, capsules
-uv run python -m msp_trends.build --radius 0.5 --codebook quads --labels dendro --across   # pool mazes first; r0.5quads_dendro_across
-uv run python -m msp_trends.build --all-tags                 # every tag in config.TAGS
-uv run python -m msp_trends.build --monkey Faure --n-perm 200     # smoke test
-```
-
-Flags as for `msp.build`, plus:
-
-| Flag         | Meaning                                                                                       |
-| ------------ | --------------------------------------------------------------------------------------------- |
-| `--block`    | `binary`, `dwell`, `both` (binary + dwell concatenated, 2K features); default: all             |
-| `--maze`     | Mazes to run; default 1–6 for `--labels dendro`, else 2–5                                      |
-| `--labels`   | `svm` (top-ten sessions) or `dendro` (dendrogram labels, publication sessions; tag suffix `_dendro`) |
-| `--codebook` | `balls` (origin + four exit balls, K=5), `balls3` (exit balls merged left / right), `quads`, `halves` (origin ball + quadrants / halves)             |
-| `--across`   | Pool the mazes first, then one 2x2 per (block, variant); `mean_removed` uses the pool's grand mean, null shuffles within (session, maze); tag suffix `_across` |
-| `--all-tags` | Run every tag in `config.TAGS`                                                                |
-
-## msp_revised
-
-Isolated publication-session run with a codebook search. Scope is fixed
-(four publication sessions, dendrogram labels, mazes 1-6); the CLI chooses
-codebook, feature kind, pupil, and variant.
-
-```bash
-uv run python -m msp_revised.checks                                   # synthetic, no data
-uv run python -m msp_revised.build --list                             # the 41 codebooks
-uv run python -m msp_revised.features                                 # fixation-table caches (both monkeys)
-uv run python -m msp_revised.build                                    # balls_u0.5, binary + dwell, all variants
-uv run python -m msp_revised.build --codebook segments4_d --kind dwell --pupil
-uv run python -m msp_revised.build --codebook balls6_d3 --kind binary first --variant full
-uv run python -m msp_revised.search                                   # full grid at n_perm 250, then rank
-uv run python -m msp_revised.search --rank-only                       # re-rank out/search/grid.csv
-uv run python -m msp_revised.search --codebook balls_u0.5 rings_d --kind dwell --pupil 1
-```
-
-| Flag          | Meaning                                                                                        |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `--codebook`  | A key from `msp_revised.codebooks.REGISTRY` (`build`: one; `search`: any number, default all)  |
-| `--kind`      | `binary`, `dwell`, `count`, `first`, `last`, `both`                                            |
-| `--pupil`     | `build`: flag, append the pupil features; `search`: `0`, `1` or both                            |
-| `--variant`   | `full`, `mean_removed` (each maze centred on its own grand mean)                                |
-| `--maze`      | `build` only; default 1-6                                                                      |
-| `--n-perm`    | Null size; `search` screens at 250, `build` defaults to 1000                                   |
-| `--replicate` | `search`: per-session pooled z for the top N configurations (default 15)                        |
-
-Pupil traces: `msp_revised.pupil_extract` runs where the eye mats are and
-writes `msp_revised/out/pupil/<session>_pupil.npz`; pull that folder down with
-the figures before `msp_revised.features` so blink masking and the pupil
-features match the cluster. Without it the extraction warns and runs
-without blink masking.
+Flags as for `msp.build` (balls only, no `--codebook`), plus `--session` (one
+or more ids; default is the monkey's top-ten SVM scope).
 
 ## classifier
 
-Strategy-label classifier. The default `dendro` scope needs the msp_revised
-fixation caches (`python -m msp_revised.features`) and pupil tables; the
-`svm` scope (top-ten sessions, SVM labels, mazes 2–5) needs the
-`<session>_strategy_svm.npz` labels and builds its own fixation cache
-(`<Monkey>_msp_revised_fix_svm.npz`, through `msp_revised.features`, needs
-pymovements) on first use. The raw branch builds one 1 kHz trace cache per
+Strategy-label classifier. Both scopes build their fixation table on first
+use (`classifier.fixations`, needs pymovements; caches keep the legacy name
+`<Monkey>_msp_revised_fix[_svm].npz`). The `svm` scope (top-ten sessions,
+SVM labels, mazes 2–5) also needs the `<session>_strategy_svm.npz` labels. The raw branch builds one 1 kHz trace cache per
 monkey and scope (`<Monkey>_clf_raw[_svm].npz`) on first use and derives
 every bin width from it. Pupil tables for the non-publication sessions come
-from `msp_revised.pupil_extract --session ...` on the cluster; without them
-those sessions' pupil features are NaN.
+from `classifier.pupil_extract --session ...` on the cluster
+(`classifier/out/pupil/`, pull it down before building fixation tables
+locally); without them those sessions' pupil features are NaN.
 
 ```bash
 uv run python -m classifier.checks                            # synthetic, no data
@@ -210,7 +150,8 @@ uv run python -m classifier.build --branch engineered --model logreg
 uv run python -m classifier.build --branch regions            # dwell share + visited, nine regions
 uv run python -m classifier.build --labels svm                # msp's scope: ten sessions, SVM labels
 uv run python -m classifier.build --n-perm 20                 # smoke test
-uv run python -m msp_revised.pupil_extract --session Oct_22_g0 Nov_18_g0   # cluster: pupil tables
+uv run python -m classifier.fixations                         # fixation tables (both scopes)
+uv run python -m classifier.pupil_extract --session Oct_22_g0 Nov_18_g0   # cluster: pupil tables
 ```
 
 | Flag        | Meaning                                                            |
@@ -286,7 +227,7 @@ sbatch slurm/run_labels.sbatch                                   # all 23 sessio
 sbatch -J eyecaches --mem=64G slurm/run_module.sbatch data.loader
 sbatch slurm/run_msp.sbatch --radius 0.5
 sbatch -J persess slurm/run_module.sbatch msp.per_session --radius 0.5
-sbatch -J trends  slurm/run_module.sbatch msp_trends.build --radius 0.5 --codebook quads
+sbatch slurm/run_msp.sbatch --radius 0.5 --codebook capsules
 sbatch slurm/run_regression.sbatch
 sbatch -J scatter slurm/run_module.sbatch scatter.build
 sbatch -J counts  slurm/run_module.sbatch counts.build
@@ -295,9 +236,9 @@ sbatch -J counts  slurm/run_module.sbatch counts.build
 From an empty `PROCESSED_ROOT`: run labels and eye caches first (they are
 independent), then everything else with `--dependency=afterok:<jobid>`. Jobs
 that share a feature cache must not run at once on a cold cache:
-`msp.per_session` after `msp.build` at the same radius, and `msp_trends` runs
-at the same radius and codebook (e.g. `r0.5` and `r0.5_dendro`) one after
-the other.
+`msp.per_session` after `msp.build` at the same radius, and `msp.build`
+`quads` after `halves` (or vice versa) at the same radius, since they share
+the `_region` cache.
 
 ## Clearing derived caches
 
@@ -307,7 +248,7 @@ detector or QC constants, delete the derived eye and feature caches and rebuild:
 ```bash
 cd /path/to/your/PROCESSED_ROOT         # as set in data/config.py (default ./data/processed)
 rm -f *_clean_eye_data_s*.npz *_attractor_eye_data.npz \
-      *_msp_fixed5_*.npz *_msp_trends_*.npz *_reg_fixed5_*.npz
+      *_msp_fixed5_*.npz *_msp_revised_fix*.npz *_reg_fixed5_*.npz
 ```
 
 Never delete anything under `MAT_ROOT`; it is the only copy of the raw data.

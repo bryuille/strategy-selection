@@ -3,22 +3,22 @@
 Window: maze onset -> fixation onset. Two label scopes (``--labels``):
 
 ``dendro`` (default)  the four publication sessions, Ward dendrogram labels
-                      (0 = H, 1 = S), mazes 1-6. The msp_revised scope.
+                      (0 = H, 1 = S), mazes 1-6.
 ``svm``               the ten best sessions per monkey by `snr_auc`, with the
                       maze-1-vs-6 SVM labels projected onto every trial,
                       mazes 2-5. The msp scope; mazes 1 and 6 are the SVM's
                       own anchors and are left out, as in msp.
 
-Imports only `data/` and the scientific stack; what it needs from
-msp_revised's fixation cache it reads as an npz (and asks
-`msp_revised.features` to build it for the svm sessions on first use).
+Imports only `data/` and the scientific stack. The fixation table behind the
+engineered / regions branches is built by `classifier.fixations` and the
+pupil tables by `classifier.pupil_extract`.
 
 Two feature branches, one evaluation:
 
 ``raw``         the eye trace itself: gaze x, y (degrees) and pupil, averaged
                 in `RAW_BIN_MS` bins over the last `RAW_WINDOW_MS` before
                 fixation onset, each bin session-z-scored. Nothing hand-picked.
-``engineered``  the handful of quantities the msp_revised search pointed at:
+``engineered``  the handful of quantities an earlier codebook search pointed at:
                 origin-disc quadrant dwell, exit-ball occupancy and dwell in
                 degrees, origin share, fixation count, eccentricity rings,
                 first / last fixation state, pupil mean and change.
@@ -82,8 +82,8 @@ ORIGIN_DISC_DEG = 5.0
 EXIT_BALL_DEG = 3.0
 RING_EDGES_DEG = (2.0, 6.0, 10.0)
 
-# ---- pupil tables (msp_revised.pupil_extract) --------------------------------
-PUPIL_DIR = Path(__file__).resolve().parent.parent / "msp_revised" / "out" / "pupil"
+# ---- pupil tables (classifier.pupil_extract) ---------------------------------
+PUPIL_DIR = Path(__file__).resolve().parent / "out" / "pupil"
 PUPIL_EARLY_MS = 300.0
 PUPIL_LATE_MS = 300.0
 PUPIL_MIN_VALID = 0.5

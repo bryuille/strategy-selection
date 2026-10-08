@@ -5,6 +5,8 @@
     uv run python -m classifier.build --branch regions     # dwell share + visited over nine regions
     uv run python -m classifier.build --labels svm         # top-ten sessions, SVM labels, mazes 2-5
     uv run python -m classifier.build --n-perm 20          # smoke test
+    uv run python -m classifier.build --order-control      # trial-order covariates, conditional permutation null
+    uv run python -m classifier.build --branch order       # trial order alone (the confound's size)
 
 Writes out/<branch>[_svm]/<model>/<Monkey>.png (within-maze AUC per maze and
 pooled against the shuffle null; feature weights), results.csv (per monkey
@@ -83,8 +85,9 @@ def figure(monkey, branch, kind, ev, weights, names, signs=None, *, scope_label=
                    else "permutation importance (drop in within-maze AUC; red where the fitted sign is + → S)")
     ax2.tick_params(labelsize=7)
     ax2.set_title(f"top features of {len(names)}", fontsize=9)
+    order = ", trial order in the design, null = gaze residuals shuffled given order" if M.ORDER_CONTROL else ""
     fig.suptitle(f"{monkey} — {branch} features{' + gaze x maze interactions' if M.INTERACTIONS else ''} — {kind}\n"
-                 f"{scope_label}, maze one-hot in every model, "
+                 f"{scope_label}, maze one-hot in every model{order}, "
                  f"{cfg.N_REPEATS}x{cfg.N_FOLDS}-fold CV stratified on (session, maze, label)", fontsize=10)
     return fig
 
@@ -154,9 +157,9 @@ def replot(monkey, branch, kind, out, names, *, scope_label=""):
                   scope_label=scope_label)
 
 
-def out_branch_name(branch, bin_ms, *, labels=cfg.DEFAULT_LABELS, interactions=False):
+def out_branch_name(branch, bin_ms, *, labels=cfg.DEFAULT_LABELS, interactions=False, order_control=False):
     """``raw`` / ``raw_b<ms>`` / ``engineered``, then ``_svm`` for that scope,
-    then ``_x_maze`` with interactions."""
+    then ``_x_maze`` with interactions, then ``_order`` with order control."""
     name = branch
     if branch == "raw" and bin_ms != cfg.RAW_BIN_MS:
         name = f"raw_b{bin_ms:g}"
@@ -165,16 +168,18 @@ def out_branch_name(branch, bin_ms, *, labels=cfg.DEFAULT_LABELS, interactions=F
         name += f"_{tag}"
     if interactions:
         name += "_x_maze"
+    if order_control:
+        name += "_order"
     return name
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--branch", nargs="*", default=["raw", "engineered", "regions"],
-                    choices=["raw", "engineered", *F.REGIONS_KINDS],
+                    choices=["raw", "engineered", *F.REGIONS_KINDS, "order"],
                     help="raw traces; 26 engineered features; `regions` = per-region dwell share + visited "
                          "over origin-disc quadrants, exit balls and elsewhere (`regions_dwell` / "
-                         "`regions_binary` for one set)")
+                         "`regions_binary` for one set); `order` = trial order alone")
     ap.add_argument("--model", nargs="*", default=list(cfg.MODELS), choices=cfg.MODELS)
     ap.add_argument("--monkey", nargs="*", default=list(cfg.MONKEYS), choices=cfg.MONKEYS)
     ap.add_argument("--n-perm", type=int, default=cfg.N_PERM)
@@ -190,11 +195,16 @@ def main():
     ap.add_argument("--interactions", action="store_true",
                     help="add gaze x maze interaction terms (per-maze weights shrunk toward shared ones); "
                          "output goes to out/<branch>_x_maze/")
+    ap.add_argument("--order-control", action="store_true",
+                    help="control trial order: order covariates in the design, and a null that keeps labels "
+                         "and each feature's order trend and shuffles only its residual within (session, maze); "
+                         "output out/<branch>[_svm]_order/")
     ap.add_argument("--replot", action="store_true",
                     help="redraw figures from the saved eval_<Monkey>.npz without refitting")
     args = ap.parse_args()
 
     M.INTERACTIONS = bool(args.interactions)
+    M.ORDER_CONTROL = bool(args.order_control)
     scope_label = cfg.LABEL_SCOPES[args.labels]["label"]
     refreshed = set()  # (cache, monkey) already rebuilt under --refresh: once, not once per branch
     for branch in args.branch:
@@ -203,7 +213,7 @@ def main():
                              refresh=args.refresh and (cache, m) not in refreshed) for m in args.monkey}
         refreshed.update((cache, m) for m in args.monkey)
         out_branch = out_branch_name(branch, args.bin_ms, labels=args.labels,
-                                     interactions=args.interactions)
+                                     interactions=args.interactions, order_control=args.order_control)
         for kind in args.model:
             rows, frows = [], []
             for monkey in args.monkey:

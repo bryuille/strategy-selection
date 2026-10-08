@@ -67,8 +67,6 @@ after changing detector or QC constants, delete the derived caches
 | `data/`       | Shared layer: paths, `.mat` readers, cache builders, strategy labels     |
 | `counts/`     | H/S trial census per session and maze                                    |
 | `msp/`        | **Main analysis**, maze-strategy pairs; also `msp.per_session`, `msp.saccades`, and `msp/legacy/` |
-| `msp_trends/` | msp on coarser merged codebooks, with a pooled-over-mazes estimate       |
-| `msp_revised/`| Isolated re-run on the publication sessions: codebook search, all six mazes, pupil |
 | `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs engineered features, within-maze AUC; dendrogram or SVM scope |
 | `regression/` | Logistic regression of strategy on gaze, maze held fixed                 |
 | `scatter/`    | Mean gaze per maze between fixation and the flash                        |
@@ -103,10 +101,24 @@ is split into random halves (100 times), the half-means are correlated, and
 `Δ = ½(r_HH + r_SS) − ½(r_HS + r_SH)` is tested against 1000 within-session
 label shuffles. Variants: `full`, `no_origin`, `mean_removed`.
 
+`--codebook` swaps the five balls for a region codebook over the same
+extraction (tag suffix, e.g. `r0.5capsules`):
+
+- `balls` (default): the origin ball plus the four exit balls (LU, LD, RU, RD).
+- `quads` / `halves`: the origin ball plus the rest of the maze (the r1 exit
+  balls' hull) split into quadrants (5 states) or left / right (3).
+- `capsules`: one capsule per exit, every point within the radius of the
+  origin-to-exit segment; 4 states, no origin state. The overlap around the
+  origin goes to the nearest segment, i.e. by quadrant, so central gaze
+  before maze onset is spread over all four.
+
+`no_origin` runs only for `balls` and `quads` (the others would have no
+origin to drop, or leave two states, which always correlate at ±1).
+
 Read `z`, not raw `r`, which rises with group size. Under `mean_removed`, a
 diagonal can be pulled toward −1 when centring removes most of that strategy's
 signal; on imbalanced mazes this hits the majority. Output:
-`msp/out/r<radius>/<Monkey>/`.
+`msp/out/<tag>/<Monkey>/`.
 
 - `msp.per_session`: the same estimator one session at a time
   (`msp/out/per_session/`).
@@ -114,71 +126,22 @@ signal; on imbalanced mazes this hits the majority. Output:
 - `msp.legacy.saccades`: those plots under the retired
   `[fix_start − 1466 ms, fix_start]` window (`msp/legacy/out/`).
 
-### `msp_trends/`
-
-msp on merged codebooks, testing each monkey's apparent direction (H looks
-left; S looks at the origin for Faure, right for Nielsen):
-
-- `balls` (default): the origin ball plus the four exit balls (LU, LD, RU, RD),
-  five states.
-- `balls3`: the retired merge, `left` (LU+LD), `origin`, `right` (RU+RD). Three
-  states, since two 2-vectors always correlate at ±1.
-- `quads` / `halves`: the origin ball plus maze quadrants or halves.
-- `capsules`: one capsule per exit (all points within the radius of the
-  origin-to-exit segment), four states and no origin state; the overlap
-  around the origin goes to the nearest segment, i.e. by quadrant.
-
-Adds a pooled-over-mazes Δ (trial-weighted), `binary` and `dwell` blocks, and
-`--labels svm | dendro`. Output: `msp_trends/out/<tag>/`.
-
-### `msp_revised/`
-
-msp's split-half 2x2, re-implemented in isolation (copies of the msp /
-msp_trends logic; imports only `data/`), on a fixed scope: the four
-publication sessions, dendrogram labels, all six mazes. Every in-window
-fixation is cached once with its centroid in **unit H and in degrees**, so a
-codebook is a cheap relabelling (`msp_revised/codebooks.py`, 41 of them: exit
-balls in either frame, with or without the point above the origin, quadrants,
-halves, capsules with and without an origin ball, origin-ball quadrants and
-halves, nearest H segment, direction sectors, eccentricity rings, vertical
-bands, inside/outside). Feature kinds: `binary`, `dwell`, `count`, `first`,
-`last`, `both`; `--pupil` appends within-session z of the window's mean pupil
-size and its early-to-late change (pupil traces for the four sessions come
-from the cluster, `msp_revised.pupil_extract`). Variants: `full`,
-`mean_removed` (maze grand mean).
-
-Strategy is almost a function of maze here (maze 1 is all H, maze 6 all S),
-and only the right crossbar arm differs between mazes (h4 = 10, 7.5, 5 deg),
-so unit H stretches right-side x by up to 2x exactly where the H/S mix flips.
-Every maze is therefore tested on its own, and the pooled estimate is the
-trial-weighted mean of the per-maze Δs with aligned nulls: no block mean ever
-mixes mazes, so a unit-H scale difference between mazes cannot enter it. The
-degree-frame codebooks are the second check. `msp_revised.search` screens
-every configuration and ranks by the smaller of the two monkeys' pooled z,
-penalised by any solid maze (≥ 10 of each strategy) with Δ < 0; after ~900
-comparisons the ranking is a shortlist, so finalists are rebuilt at the full
-null and checked session by session. Output:
-`msp_revised/out/<codebook>__<kind>[+pupil]/` (one codebook map per monkey,
-`paper/<variant>/<Monkey>.png`, `results.csv`) and `msp_revised/out/search/`.
-
-**Findings (2026-10-05; 936 configurations screened at n_perm 250, finalists
-at 1000).** No configuration reaches pooled p < 0.05 in both monkeys with the
-same sign; the best min pooled z is ≈ 1.7, all with pupil features. Within
-the mazes that have both strategies, no region of gaze separates H from S
-consistently across mazes and monkeys. The only recurring lead is binary
-occupancy of origin + exits + the point above the origin (`balls6_*`, `full`),
-which reaches z ≈ 2 in both monkeys when all trials are pooled into one 2x2,
-in both frames, but not under the per-maze pooled estimate. Pupil features
-raise Faure's scores broadly and do nothing for Nielsen. The right-of-origin
-trend visible across mazes is maze geometry: the right-side share within the
-origin ball rises monotonically with maze number in degrees too, and flips
-direction within maze.
+**Earlier codebook search (2026-10-05; the `msp_revised` package, removed
+2026-10-06, is in git history).** 41 codebooks in unit H and degrees on the
+publication sessions, mazes 1–6, 936 configurations at n_perm 250 with
+finalists at 1000, pooled as the trial-weighted mean of per-maze Δ. None
+reached pooled p < 0.05 in both monkeys with the same sign (best min pooled
+z ≈ 1.7, all with pupil features). The only recurring lead was binary
+occupancy of origin + exits + the point above the origin, z ≈ 2 in both
+monkeys with all mazes in one 2x2 but not per maze. The right-of-origin trend
+across mazes is maze geometry: it rises with maze number in degrees too and
+flips within maze.
 
 ### `classifier/`
 
 Can gaze predict the strategy label beyond what the maze already tells you?
 Two label scopes (`--labels`): `dendro` (default), the dendrogram labels on
-the publication sessions, mazes 1–6, the msp_revised scope; and `svm`, the
+the publication sessions, mazes 1–6; and `svm`, the
 SVM labels on the ten best sessions per monkey, mazes 2–5, the msp scope
 (mazes 1 and 6 are the SVM's anchors). Two feature branches, one evaluation:
 
@@ -189,7 +152,7 @@ SVM labels on the ten best sessions per monkey, mazes 2–5, the msp scope
   off-screen) stays NaN, never interpolated: the tree model takes NaN
   natively and the logistic pipeline imputes it to the column mean. Trials
   with under half the window covered are dropped. Nothing hand-picked.
-- `engineered`: 26 quantities the msp_revised search pointed at: origin-disc
+- `engineered`: 26 quantities the earlier codebook search pointed at: origin-disc
   (5°) dwell and its four quadrants, exit-ball (3°) occupancy and dwell,
   eccentricity rings, fixation count, first / last fixation region, first
   fixation onset, pupil mean and change.
@@ -205,8 +168,9 @@ SVM labels on the ten best sessions per monkey, mazes 2–5, the msp scope
   `regions_dwell` identical fits; for the logistic model the pair adds a
   little or nothing over dwell alone.
 
-Pupil comes from the per-session tables `msp_revised.pupil_extract` writes
-on the cluster; a session without one gets NaN pupil features (only the
+Pupil comes from the per-session tables `classifier.pupil_extract` writes
+on the cluster (`classifier/out/pupil/`); the fixation table is
+`classifier.fixations`; a session without one gets NaN pupil features (only the
 four publication sessions have tables so far).
 
 Models: L2 logistic regression and a shallow gradient-boosted tree. Every
@@ -259,7 +223,7 @@ confound, not gaze.
 Nielsen's null here is a power limit, not evidence of absence: within-maze
 pairs come almost entirely from maze 4 of two days (66 H, 71 S), whereas
 msp's Nielsen maze-4 result (z ≈ 9) rests on 351 H and 388 S over ten
-SVM-labelled sessions, and msp_revised on the publication sessions is also
+SVM-labelled sessions, and the earlier codebook search on the publication sessions was also
 null for Nielsen (maze 4 z ≈ 1.3). The `svm` scope runs the classifier on
 msp's sessions and labels to settle whether that group-mean difference is
 decodable trial by trial.
@@ -288,7 +252,7 @@ engineered trees, 0.64 CV vs 0.55 held-out):
 With msp's sessions Nielsen's gaze does carry strategy beyond maze: the nine
 dwell shares alone clear chance by 3.4 null sd, every maze sits between 0.53
 and 0.59 (maze 4, 351 H / 388 S, is the strongest), and eight of ten
-held-out sessions score above 0.5. The direction is the one msp_trends saw:
+held-out sessions score above 0.5. The direction is the one the msp codebooks show:
 more dwell at the right exits (RD, then RU) → S, more at the left exit LU
 and the origin's upper-left quadrant → H. Faure's svm-scope signal is
 weaker than on the publication sessions and sits at the origin rather than

@@ -9,8 +9,13 @@ is within-strategy similarity, the off-diagonal cross-strategy, against a
 within-session label-shuffle null.
 
 Fixed here, and so not a CLI axis: SVM labels at the top-ten scope, binary
-occupancy, K = 5 with the codebook in `config.py`, mazes 2-5 only.
-Assignment is uniform balls by default (`--radius`, e.g. ``r0.5`` / ``r1``).
+occupancy, mazes 2-5 only. Assignment is uniform balls around the five fixed
+prototypes by default (`--radius`, e.g. ``r0.5`` / ``r1``); ``--codebook``
+swaps in a region codebook (`config.CODEBOOKS`): ``quads`` (origin ball +
+maze quadrants, K = 5), ``halves`` (origin ball + maze halves, K = 3) or
+``capsules`` (origin-to-exit capsules, no origin state, K = 4). The tag
+carries the codebook (``r0.5capsules``). ``no_origin`` runs only where it
+leaves >= 3 states with an origin to drop (balls, quads).
 Each trial runs from maze onset to fixation onset, re-detected per trial over
 the top-ten sessions.
 
@@ -18,6 +23,7 @@ Usage:
     uv run python -m msp.build --dry-run
     uv run python -m msp.build
     uv run python -m msp.build --radius 0.5
+    uv run python -m msp.build --radius 0.5 --codebook capsules   # also: quads, halves
     uv run python -m msp.build --monkey Faure --maze 4 --n-perm 200
 
 Writes, under out/<tag>/<Monkey>/: <variant>/maze<M>.png, <variant>/results.csv,
@@ -66,31 +72,34 @@ def pool_maze(data, *, maze, keep_sessions, lookup):
     return mask, y_full[mask].astype(int), sessions[mask]
 
 
-def maze_diagnostics(data, mask):
-    """Fixed-codebook coverage for the pooled rows of one maze."""
-    occ = np.asarray(data[FEATURE_BLOCK], dtype=float)[mask]
+def maze_diagnostics(data, mask, codebook):
+    """Codebook coverage for the pooled rows of one maze."""
+    occ = features.codebook_block(data, codebook, FEATURE_BLOCK)[mask]
     n_fix = int(np.asarray(data["n_fix"], dtype=int)[mask].sum())
     n_ok = int(np.asarray(data["n_fix_assigned"], dtype=int)[mask].sum())
     if occ.shape[0] == 0:
-        return dict(assigned=np.nan, visit=np.full(cfg.K, np.nan),
+        return dict(assigned=np.nan, visit=np.full(codebook.k, np.nan),
                     zero_full=np.nan, zero_no_origin=np.nan, n_fix=n_fix)
+    zero_no = (float((occ[:, features.no_origin_dims(codebook.k)].sum(axis=1) == 0).mean())
+               if codebook.has_origin else np.nan)
     return dict(
         assigned=n_ok / max(n_fix, 1),
         visit=occ.mean(axis=0),
         zero_full=float((occ.sum(axis=1) == 0).mean()),
-        zero_no_origin=float((occ[:, features.no_origin_dims()].sum(axis=1) == 0).mean()),
+        zero_no_origin=zero_no,
         n_fix=n_fix,
     )
 
 
-def format_diagnostics(diag):
+def format_diagnostics(diag, codebook):
     visit = "  ".join(
-        f"{name} {v:.2f}" for name, v in zip(cfg.STATE_NAMES, diag["visit"])
+        f"{name} {v:.2f}" for name, v in zip(codebook.names, diag["visit"])
     )
+    no = (f", no_origin {diag['zero_no_origin']:.1%}"
+          if np.isfinite(diag["zero_no_origin"]) else "")
     return (
         f"fixations assigned {diag['assigned']:.1%} of {diag['n_fix']}; "
-        f"visit rate: {visit}; all-zero rows: full {diag['zero_full']:.1%}, "
-        f"no_origin {diag['zero_no_origin']:.1%}"
+        f"visit rate: {visit}; all-zero rows: full {diag['zero_full']:.1%}{no}"
     )
 
 
@@ -104,7 +113,7 @@ def run_cell(data, *, maze, variant, keep_sessions, lookup, args):
     )
     if mask.sum() == 0:
         return None, "no labelled trial in this maze"
-    raw = np.asarray(data[FEATURE_BLOCK], dtype=float)[mask]
+    raw = features.codebook_block(data, args.assignment.codebook, FEATURE_BLOCK)[mask]
     X, _dims = features.apply_variant(raw, variant)
     return estimator.estimate(
         X, y, session_ids,
@@ -168,8 +177,8 @@ def write_csv(path, rows):
 def codebook_figure(data, *, monkey, args, maze=None):
     """Regions over every fixation centroid: all mazes, or one maze (all sessions)."""
     fix_xy = np.asarray(data["fix_xy"])
-    fix_state = np.asarray(data["fix_state"])
     assignment = args.assignment
+    fix_state = features.codebook_fix_state(data, assignment.codebook)
     if maze is None:
         scope_txt, stem = "all sessions, mazes 1–6", cfg.codebook_stem()
     else:
@@ -179,10 +188,10 @@ def codebook_figure(data, *, monkey, args, maze=None):
         scope_txt, stem = f"all sessions, maze {maze}", cfg.codebook_maze_stem(maze)
     fig = figmod.codebook_figure(
         fix_xy, fix_state,
-        codebook=data["codebook_xy"], names=cfg.STATE_NAMES,
+        codebook=data["codebook_xy"], names=assignment.codebook.names,
         assignment=assignment, lim=cfg.MAZE_SCREEN_LIM,
         title=(
-            f"{monkey} — fixed codebook, {assignment.label()}\n"
+            f"{monkey} — {assignment.codebook.label}, radius {assignment.label()}\n"
             f"every in-window fixation centroid, {scope_txt} ({fix_state.size} fixations)"
         ),
     )
@@ -211,17 +220,19 @@ def strategy_figure(data, *, monkey, maze, keep_sessions, lookup, args):
     row_label[mask] = y
     fix_row = np.asarray(data["fix_row"], dtype=int)
     fix_label = row_label[fix_row]
-    occ_all = np.asarray(data[FEATURE_BLOCK], dtype=float)
+    cb = args.assignment.codebook
+    occ_all = features.codebook_block(data, cb, FEATURE_BLOCK)
+    fix_state = features.codebook_fix_state(data, cb)
 
     fix, occ = {}, {}
     for tag, code in (("H", estimator.H), ("S", estimator.S)):
         sel = fix_label == code
-        fix[tag] = (np.asarray(data["fix_xy"])[sel], np.asarray(data["fix_state"])[sel])
+        fix[tag] = (np.asarray(data["fix_xy"])[sel], fix_state[sel])
         occ[tag] = occ_all[mask & (row_label == code)]
 
     fig = figmod.strategy_figure(
         fix, occ,
-        codebook=data["codebook_xy"], names=cfg.STATE_NAMES,
+        codebook=data["codebook_xy"], names=cb.names,
         assignment=args.assignment, lim=cfg.MAZE_SCREEN_LIM,
         title=(
             f"{monkey} — maze {maze} — fixation concentration by strategy\n"
@@ -250,6 +261,7 @@ def build_monkey(monkey, args):
         )
 
     tag = args.assignment.tag
+    cb = args.assignment.codebook
     for variant in args.variant:
         rows = []
         for maze in args.maze:
@@ -269,9 +281,11 @@ def build_monkey(monkey, args):
                     print(f"    removed stale {target}")
                 continue
             fig = figmod.panel_figure(
-                result, k=cfg.K,
-                title=figmod.suptitle(monkey=monkey, maze=maze, variant=variant),
+                result, k=result.d,
+                title=figmod.suptitle(monkey=monkey, maze=maze, variant=variant, codebook=cb),
                 names=[f"{maze}H", f"{maze}S"], vmax=args.vmax,
+                states=("fixed: origin + 4 exits" if cb.key == cfg.DEFAULT_CODEBOOK
+                        else ", ".join(cb.names[1:] if variant == "no_origin" else cb.names)),
             )
             # Tight bbox: a single square matrix cannot fill the canvas width,
             # so crop to the content instead of shipping the blank margins.
@@ -316,7 +330,7 @@ def dry_run(args):
             n_h, n_s, m_h, m_s, reason = estimator.coverage(
                 y, min_trials=args.min_trials
             )
-            diag = maze_diagnostics(data, mask)
+            diag = maze_diagnostics(data, mask, args.assignment.codebook)
             if reason:
                 print(f"  maze {maze}: n_H={n_h:4d} n_S={n_s:4d}  SKIPPED ({reason})")
             else:
@@ -326,7 +340,7 @@ def dry_run(args):
                     f"m_H={m_h:3d} m_S={m_s:3d} "
                     f"({len(set(session_ids.tolist()))} sessions) -> {len(args.variant)} figures"
                 )
-            print(f"          {format_diagnostics(diag)}")
+            print(f"          {format_diagnostics(diag, args.assignment.codebook)}")
     print(f"\n{n_cells} estimator runs at n_rounds={args.n_rounds}, n_perm={args.n_perm}")
 
 
@@ -344,6 +358,12 @@ def main():
         "--radius", type=float, default=None,
         help="uniform assignment radius around each fixed prototype (unit H); "
              "carried in the cache stem, so a new value triggers one extraction pass",
+    )
+    parser.add_argument(
+        "--codebook", default=cfg.DEFAULT_CODEBOOK, choices=list(cfg.CODEBOOKS),
+        help="balls: origin + four exit balls; quads / halves: origin ball + maze "
+             "quadrants / halves; capsules: origin-to-exit capsules, no origin state "
+             "(tag suffix quads / halves / capsules)",
     )
     parser.add_argument("--n-rounds", type=int, default=estimator.N_ROUNDS)
     parser.add_argument("--n-perm", type=int, default=estimator.N_PERM)
@@ -365,7 +385,11 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
     args.maze = sorted(set(args.maze))
-    args.assignment = cfg.resolve_assignment(radius=args.radius)
+    args.assignment = cfg.resolve_assignment(radius=args.radius, codebook=args.codebook)
+    kept = features.variants_for(args.assignment.codebook, args.variant)
+    if kept != tuple(args.variant):
+        print(f"{args.codebook}: skipping no_origin (needs an origin and >= 3 other states)")
+    args.variant = list(kept)
 
     if args.dry_run:
         dry_run(args)

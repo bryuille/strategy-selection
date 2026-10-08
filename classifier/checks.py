@@ -59,6 +59,31 @@ def check_session_holdout_scales():
     print(f"leave-one-session-out: {k} sessions, pooled AUC {pooled:.2f}")
 
 
+def check_order_control():
+    """A feature that only tracks session drift is significant within maze but
+    not under order control; a planted signal beyond drift still is."""
+    rng = np.random.default_rng(4)
+    n = 800
+    meta = _meta(n, rng)
+    meta["trial"] = np.arange(1, n + 1)
+    r = M.order_rank(meta)
+    y = (rng.random(n) < 0.15 + 0.7 * r).astype(int)  # S becomes likelier through the session
+    X = np.stack([r + 0.05 * rng.normal(size=n), rng.normal(size=n)], 1)  # drift tracker, noise
+    try:
+        plain = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
+        M.ORDER_CONTROL = True
+        ctrl = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
+        X[:, 1] += 1.0 * y
+        planted = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
+    finally:
+        M.ORDER_CONTROL = False
+    assert plain.auc > 0.7 and plain.z > 3, (plain.auc, plain.z)
+    assert abs(ctrl.z) < 3, (ctrl.auc, ctrl.z)
+    assert planted.z > 3, (planted.auc, planted.z)
+    print(f"order control: drift tracker z {plain.z:+.1f} -> {ctrl.z:+.1f} (AUC {ctrl.auc:.2f} vs null "
+          f"{np.nanmean(ctrl.null):.2f}); planted signal z {planted.z:+.1f}")
+
+
 def check_regions_partition():
     """Every fixation lands in exactly one region; dwell shares sum to 1 on
     trials with any fixation time; a trial at the RU exit lights only RU."""
@@ -93,6 +118,7 @@ def main():
     check_within_maze_auc_ignores_maze()
     check_null_calibrated_and_signal_found()
     check_session_holdout_scales()
+    check_order_control()
     check_regions_partition()
     check_svm_scope()
     print("all checks passed")

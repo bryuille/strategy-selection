@@ -1,0 +1,19 @@
+monkey,branch,model,feature,weight
+Faure,regions_dwell,logreg,dwell: origin LU,0.18938756842873813
+Faure,regions_dwell,logreg,dwell: origin LD,-0.047399450266621235
+Faure,regions_dwell,logreg,dwell: origin RU,0.06466469225847206
+Faure,regions_dwell,logreg,dwell: origin RD,0.0057463455837896095
+Faure,regions_dwell,logreg,dwell: exit LU,-0.059263389861410325
+Faure,regions_dwell,logreg,dwell: exit LD,-0.08921314868996215
+Faure,regions_dwell,logreg,dwell: exit RU,-0.0050909275043085666
+Faure,regions_dwell,logreg,dwell: exit RD,0.07671784303268096
+Faure,regions_dwell,logreg,dwell: elsewhere,-0.1091824471510278
+Nielsen,regions_dwell,logreg,dwell: origin LU,-0.09968668342937216
+Nielsen,regions_dwell,logreg,dwell: origin LD,0.000374193636004019
+Nielsen,regions_dwell,logreg,dwell: origin RU,0.05359953273952923
+Nielsen,regions_dwell,logreg,dwell: origin RD,0.041278079626686115
+Nielsen,regions_dwell,logreg,dwell: exit LU,-0.1405905757264321
+Nielsen,regions_dwell,logreg,dwell: exit LD,-0.02556044650134683
+Nielsen,regions_dwell,logreg,dwell: exit RU,0.12097939650333288
+Nielsen,regions_dwell,logreg,dwell: exit RD,0.1828553861953419
+Nielsen,regions_dwell,logreg,dwell: elsewhere,-0.018780339223347504

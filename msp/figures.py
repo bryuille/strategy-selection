@@ -9,12 +9,17 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.colors import PowerNorm
-from matplotlib.patches import Circle
+from matplotlib.patches import Circle, FancyBboxPatch
 
 from msp.config import (
+    BALLS_RULE,
+    CAPSULE_RULE,
     CBAR_LABEL,
     CMAP,
     DENSITY_BINS,
+    EXIT_HALF_WIDTH,
+    ORIGIN_STATE,
+    PERIMETER_RADIUS,
     FIG_H,
     FIG_W,
     STRATEGY_COLOUR,
@@ -83,25 +88,26 @@ def draw_matrix(ax, q, *, names, im_kw, counts=None):
     return im
 
 
-def panel_title(result, k):
+def panel_title(result, k, states="fixed: origin + 4 exits"):
     p = f"{result.p:.4f}"
     if result.p_at_floor:
         p = f"~{p}"  # at the test's resolution: "at least this significant"
     z = "—" if not np.isfinite(result.z) else f"{result.z:+.2f}"
     return (
-        f"K = {k}  (fixed: origin + 4 exits)\n"
+        f"K = {k}  ({states})\n"
         f"Δ = {result.delta:+.3f}    z = {z}    p = {p}"
     )
 
 
-def suptitle(*, monkey, maze, variant):
+def suptitle(*, monkey, maze, variant, codebook=None):
+    cb = "" if codebook is None or codebook.key == "balls" else f" — {codebook.label}"
     return (
-        f"{monkey} — maze {maze} — binary occupancy\n"
+        f"{monkey} — maze {maze} — binary occupancy{cb}\n"
         f"{variant}  ·  SVM labels  ·  similarity of group means"
     )
 
 
-def panel_figure(result, *, k, title, names, vmax=None):
+def panel_figure(result, *, k, title, names, vmax=None, states="fixed: origin + 4 exits"):
     """One figure, one 2x2 panel of raw group-mean correlations."""
     vmin, vmax_eff, cmap = colour_limits(result.q, vmax=vmax)
     fig, ax = plt.subplots(1, 1, figsize=(FIG_W, FIG_H), layout="constrained")
@@ -111,7 +117,7 @@ def panel_figure(result, *, k, title, names, vmax=None):
         im_kw=dict(cmap=cmap, vmin=vmin, vmax=vmax_eff),
         counts=(result.n_H, result.n_S),
     )
-    ax.set_title(panel_title(result, k), fontsize=10, pad=8)
+    ax.set_title(panel_title(result, k, states), fontsize=10, pad=8)
     cbar = fig.colorbar(im, ax=ax, fraction=0.04, pad=0.02, shrink=0.62)
     cbar.set_label(CBAR_LABEL, fontsize=9)
     cbar.ax.tick_params(labelsize=8)
@@ -128,14 +134,59 @@ def panel_figure(result, *, k, title, names, vmax=None):
     return fig
 
 
-def _draw_balls(ax, codebook, radius, lim, *, colours=None, lw=1.3):
-    """The five prototypes as crosses with their assignment circles."""
+def _capsule_outline(exit_xy, radius, n=64):
+    """Closed outline of the points within `radius` of the segment 0 -> `exit_xy`."""
+    ex = np.asarray(exit_xy, dtype=float)
+    ang = np.arctan2(ex[1], ex[0])
+    a_exit = np.linspace(ang - np.pi / 2, ang + np.pi / 2, n)
+    a_orig = np.linspace(ang + np.pi / 2, ang + 3 * np.pi / 2, n)
+    pts = np.vstack([ex + radius * np.c_[np.cos(a_exit), np.sin(a_exit)],
+                     radius * np.c_[np.cos(a_orig), np.sin(a_orig)]])
+    return np.vstack([pts, pts[:1]])
+
+
+def _draw_regions(ax, codebook, radius, colours, assignment, lw):
+    """Region codebooks: origin ball + maze perimeter + split lines, or capsules.
+    Colours are by codebook state."""
+    cb = assignment.codebook
+    smap = cb.map_array
+    colour = (lambda s: colours(s)) if colours is not None else (lambda s: "black")
+    if assignment.rule == CAPSULE_RULE:
+        for b, xy in enumerate(codebook):
+            if smap[b] < 0:
+                continue
+            outline = _capsule_outline(xy, radius)
+            ax.plot(outline[:, 0], outline[:, 1], color=colour(smap[b]), lw=lw, zorder=3)
+        return
+    half, pad = EXIT_HALF_WIDTH, PERIMETER_RADIUS
+    ax.add_patch(FancyBboxPatch(
+        (-half, -half), 2 * half, 2 * half, boxstyle=f"round,pad={pad}",
+        fill=False, ec="0.2", lw=lw, zorder=3,
+    ))
+    ax.add_patch(Circle((0, 0), radius, fill=False, ec=colour(smap[ORIGIN_STATE]),
+                        lw=lw + 0.3, zorder=4))
+    reach = half + pad
+    ax.plot([0, 0], [radius, reach], color="0.2", lw=1.0, zorder=3)
+    ax.plot([0, 0], [-reach, -radius], color="0.2", lw=1.0, zorder=3)
+    if cb.k == 5:  # quadrants: the crossbar splits too
+        ax.plot([-reach, -radius], [0, 0], color="0.2", lw=1.0, zorder=3)
+        ax.plot([radius, reach], [0, 0], color="0.2", lw=1.0, zorder=3)
+
+
+def _draw_balls(ax, codebook, radius, lim, *, colours=None, lw=1.3, assignment=None):
+    """The five prototypes as crosses with their assignment circles, or the
+    regions of a region codebook (`assignment.rule`)."""
     codebook = np.asarray(codebook, dtype=float)
     radius = float(radius)
-    for s, (x, y) in enumerate(codebook):
-        ec = colours(s) if colours is not None else "black"
-        ax.add_patch(Circle((x, y), radius, fill=False, ec=ec, lw=lw, zorder=3))
-        ax.plot(x, y, "x", color="black", ms=7, mew=1.4, zorder=4)
+    if assignment is not None and assignment.rule != BALLS_RULE:
+        _draw_regions(ax, codebook, radius, colours, assignment, lw)
+        for x, y in codebook[1:]:
+            ax.plot(x, y, "x", color="black", ms=6, mew=1.2, zorder=4)
+    else:
+        for s, (x, y) in enumerate(codebook):
+            ec = colours(s) if colours is not None else "black"
+            ax.add_patch(Circle((x, y), radius, fill=False, ec=ec, lw=lw, zorder=3))
+            ax.plot(x, y, "x", color="black", ms=7, mew=1.4, zorder=4)
     ax.set_xlim(-lim, lim)
     ax.set_ylim(-lim, lim)
     ax.set_aspect("equal")
@@ -174,7 +225,7 @@ def codebook_figure(
             fix_xy[hit, 0], fix_xy[hit, 1], s=2, color=colours(s), alpha=0.45,
             linewidths=0, label=f"{name}  {hit.sum() / n:.1%}", rasterized=True,
         )
-    _draw_balls(ax, codebook, radius, lim, colours=colours)
+    _draw_balls(ax, codebook, radius, lim, colours=colours, assignment=assignment)
     ax.legend(
         loc="upper right", fontsize=8, markerscale=5, framealpha=0.92,
         title=f"share of {fix_state.size} fixations\n(one dot = one fixation's centroid)",
@@ -236,7 +287,7 @@ def strategy_figure(
         im = ax.pcolormesh(
             edges, edges, dens[tag].T, cmap="Blues", norm=norm, rasterized=True
         )
-        _draw_balls(ax, codebook, radius, lim, colours=colours)
+        _draw_balls(ax, codebook, radius, lim, colours=colours, assignment=assignment)
         ax.set_title(
             f"{tag}: {n_trials} trials, {len(state)} fixations "
             f"({len(state) / max(n_trials, 1):.2f} per trial)",

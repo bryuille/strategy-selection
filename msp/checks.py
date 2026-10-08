@@ -3,6 +3,7 @@
 ``uv run python -m msp.checks``
 
 No feature cache and no labels needed -- everything here is generated. The
+last two checks pin the codebook rules and relabelling (`msp.features`). The
 point is not to reproduce any particular number but to pin the properties the
 2x2 would be meaningless without.
 """
@@ -309,6 +310,78 @@ def check_split_half_mirror_floor():
            q[H, H] < -0.6 and q[S, S] < -0.6, f"r_HH = {q[H, H]:+.3f}, r_SS = {q[S, S]:+.3f}")
 
 
+def check_region_rules():
+    """Region and capsule rules assign by origin ball / maze quadrant / capsule."""
+    from msp import features as F
+    from msp.config import resolve_assignment
+
+    O, LU, LD, RU, RD = 0, 1, 2, 3, 4
+    pts = np.array([
+        [0.1, 0.1],    # origin ball (r 0.5)
+        [-1.0, 1.0],   # LU exit
+        [-0.6, -0.2],  # LD, mid arm
+        [1.9, 0.0],    # RU (y = 0 ties up), near right edge
+        [0.4, -1.95],  # RD, bottom edge between exits
+        [0.0, 1.0],    # stem top: x = 0 ties right
+        [1.75, 1.75],  # corner beyond the exit ball (dist 1.06 from (1, 1))
+        [2.1, 0.0],    # past the right edge
+        [-1.7, -1.7],  # LD corner inside (dist 0.99)
+    ])
+    got = F.assign_by_rule(pts, resolve_assignment(radius=0.5, codebook="quads"))
+    report("region rule", list(got) == [O, LU, LD, RU, RD, RU, -1, -1, LD], str(got))
+
+    pts = np.array([
+        [0.1, 0.1],     # near origin -> RU
+        [-0.05, -0.3],  # near origin -> LD
+        [0.0, 0.0],     # origin: ties right, up
+        [-1.0, 1.0],    # LU exit
+        [1.3, -1.3],    # past RD exit, dist 0.42
+        [0.5, -0.1],    # beside the RD segment, dist 0.42
+        [1.0, 0.0],     # between RU and RD, dist 0.71 from both
+        [0.0, 0.6],     # stem, dist 0.42 from LU and RU segments -> RU
+        [1.4, 1.4],     # beyond RU exit, dist 0.57
+    ])
+    got = F.assign_by_rule(pts, resolve_assignment(radius=0.5, codebook="capsules"))
+    report("capsule rule", list(got) == [RU, LD, RU, LU, RD, RD, -1, RU, -1], str(got))
+
+
+def check_codebook_relabelling():
+    """Codebooks relabel the five extracted states: halves merge, capsules drop origin."""
+    from msp import features as F
+    from msp.config import CODEBOOKS, resolve_assignment, resolve_tag
+
+    data = {
+        "occ_bin": np.array([[1, 0, 1, 0, 0], [0, 1, 1, 1, 0], [0, 0, 0, 0, 0]], float),
+        "occ_ms": np.array([[100, 0, 50, 0, 0], [0, 20, 30, 50, 0], [0, 0, 0, 0, 0]], float),
+        "fix_state": np.array([0, 1, 2, 3, 4, -1]),
+    }
+    q = F.codebook_block(data, CODEBOOKS["quads"])
+    h = F.codebook_block(data, CODEBOOKS["halves"])
+    c = F.codebook_block(data, CODEBOOKS["capsules"])
+    cms = F.codebook_block(data, CODEBOOKS["capsules"], "occ_ms")
+    report("quads is the identity", np.array_equal(q, data["occ_bin"]))
+    report("halves: column max of origin / left / right",
+           np.array_equal(h, [[1, 1, 0], [0, 1, 1], [0, 0, 0]]))
+    report("capsules: origin column dropped",
+           np.array_equal(c, data["occ_bin"][:, 1:]) and np.array_equal(cms[1], [20, 30, 50, 0]))
+    report("fixation relabelling",
+           list(F.codebook_fix_state(data, CODEBOOKS["halves"])) == [0, 1, 1, 2, 2, -1]
+           and list(F.codebook_fix_state(data, CODEBOOKS["capsules"])) == [-1, 0, 1, 2, 3, -1])
+    report("no_origin only where an origin and >= 3 others remain",
+           [F.variants_for(CODEBOOKS[k]) for k in ("balls", "quads", "halves", "capsules")]
+           == [F.VARIANTS, F.VARIANTS, ("full", "mean_removed"), ("full", "mean_removed")])
+    stems = [F.cache_stem("M", assignment=resolve_tag(t))
+             for t in ("r0.5", "r0.5quads", "r0.5halves", "r0.5capsules")]
+    report("cache stems: balls unchanged, quads / halves share one",
+           stems == ["M_msp_fixed5_r0.5", "M_msp_fixed5_r0.5_region",
+                     "M_msp_fixed5_r0.5_region", "M_msp_fixed5_r0.5_capsule"], str(stems))
+    old_balls = {"assign_radius": np.float64(0.5), "fix_row": np.zeros(0), "codebook_k": 5,
+                 "codebook_xy": F.CODEBOOK_XY, "state_names": np.asarray(F.STATE_NAMES)}
+    report("pre-codebook balls caches still match; not as region",
+           F._cache_matches(old_balls, resolve_assignment(radius=0.5))
+           and not F._cache_matches(old_balls, resolve_assignment(radius=0.5, codebook="quads")))
+
+
 def main():
     print("Estimator invariant checks (synthetic data, no cache needed)\n")
     for check in (
@@ -324,6 +397,8 @@ def main():
         check_block_means_uses_all_trials,
         check_label_free_transform_is_a_no_op,
         check_split_half_mirror_floor,
+        check_region_rules,
+        check_codebook_relabelling,
     ):
         print(f"\n{check.__name__}:")
         print(f"    {(check.__doc__ or '').strip().splitlines()[0]}")

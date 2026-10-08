@@ -28,8 +28,8 @@ published ranges are read from `Single_Trial_List/`.
 | `<Monkey>_clean_eye_data` | `data.builder.clean_eye_data` (whole trial) | `load_clean_eye_data` |
 | `<Monkey>_clean_eye_data_s<S>_e<E>` | same, window `[fix−S, fix−E]` ms | `load_clean_eye_data(start_ms=…)` |
 | `<Monkey>_attractor_eye_data` | `data.builder.build_attractor_eye_data` | `load_attractor_eye_data` |
-| `<Monkey>_msp_fixed5_r<radius>` | `msp.features` | `msp.features.load_features` |
-| `<Monkey>_msp_trends_r<radius>[_region]` | `msp_trends.features` | `msp_trends.features.load` |
+| `<Monkey>_msp_fixed5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
+| `<Monkey>_msp_revised_fix[_svm]` (legacy name) | `classifier.fixations` | `classifier.fixations.load` |
 | `<Monkey>_reg_fixed5_<tag>` | `regression.features` | `regression.features.load_fixations` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
@@ -45,7 +45,7 @@ After changing detector or QC constants, delete the affected stems and rebuild
 ```bash
 cd /path/to/your/PROCESSED_ROOT
 rm -f *_clean_eye_data*.npz *_attractor_eye_data.npz \
-      *_msp_fixed5_*.npz *_msp_trends_*.npz *_reg_fixed5_*.npz
+      *_msp_fixed5_*.npz *_msp_revised_fix*.npz *_reg_fixed5_*.npz
 ```
 
 ---
@@ -160,15 +160,19 @@ is tied to the s1466 events, so msp and regression cannot reuse it.
 
 ## Analysis feature caches
 
-### `<Monkey>_msp_fixed5_r<radius>.npz`
+### `<Monkey>_msp_fixed5_r<radius>[_region|_capsule].npz`
 
 Fixed five-state occupancy for MSP (`msp.features`). Example:
 `Faure_msp_fixed5_r1.npz`. Validity is checked against the
-stored `assign_radius` / codebook, not the tag string.
+stored `assign_radius` / codebook / `assignment_rule`, not the tag string
+(caches without `assignment_rule` predate the region codebooks and are
+balls). `…_region` assigns origin ball + maze quadrants (`--codebook quads`
+/ `halves`), `…_capsule` the origin-to-exit capsules (`--codebook
+capsules`, never origin); the five columns keep msp's state order and
+`msp.features.codebook_block` relabels them.
 
-`<Monkey>_msp_trends_r<radius>.npz` is the same extraction cached by
-`msp_trends`, which adds `assignment_rule`; `…_region` swaps the exit balls
-for maze regions.
+The msp_trends caches (`<Monkey>_msp_trends_r<radius>[_region|_capsule]`)
+are orphaned since that package was removed (2026-10-06) and can be deleted.
 
 **Per-trial** (length `N` = usable trials):
 
@@ -256,7 +260,7 @@ mat/Eye ──► <Monkey>_eye_data ──► <Monkey>_clean_eye_data[_s…_e…
                  │                              └─► msp.legacy.saccades (pre1466 plots)
 mat/Behavioral ──► <Monkey>_eye_behavioral ──┘
 
-mat/Eye + eye_behavioral ──► <Monkey>_msp_fixed5_r<radius>, <Monkey>_msp_trends_…
+mat/Eye + eye_behavioral ──► <Monkey>_msp_fixed5_r<radius>[_region|_capsule]
 
 mat/Eye + eye_behavioral ──► <Monkey>_reg_fixed5_<tag>
   (re-detects per trial; does not reuse attractor validity)
