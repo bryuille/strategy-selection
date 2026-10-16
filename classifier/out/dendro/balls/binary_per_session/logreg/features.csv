@@ -1,0 +1,21 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,balls_binary,logreg,binary: origin,-0.07654592508368581
+Faure,june_24_g0,balls_binary,logreg,binary: exit LU,0.0038840286383781597
+Faure,june_24_g0,balls_binary,logreg,binary: exit LD,-0.2695267194034482
+Faure,june_24_g0,balls_binary,logreg,binary: exit RU,0.0504761373499452
+Faure,june_24_g0,balls_binary,logreg,binary: exit RD,-0.12916678653181698
+Faure,june_8_g0,balls_binary,logreg,binary: origin,0.11523829271338802
+Faure,june_8_g0,balls_binary,logreg,binary: exit LU,-0.08441535670454074
+Faure,june_8_g0,balls_binary,logreg,binary: exit LD,-0.1791121872588716
+Faure,june_8_g0,balls_binary,logreg,binary: exit RU,-0.07458588005447885
+Faure,june_8_g0,balls_binary,logreg,binary: exit RD,-0.009598483042282177
+Nielsen,Nov_3_g0,balls_binary,logreg,binary: origin,0.1406294412938815
+Nielsen,Nov_3_g0,balls_binary,logreg,binary: exit LU,-0.10893029200843637
+Nielsen,Nov_3_g0,balls_binary,logreg,binary: exit LD,0.1522914472734989
+Nielsen,Nov_3_g0,balls_binary,logreg,binary: exit RU,0.2627488066246455
+Nielsen,Nov_3_g0,balls_binary,logreg,binary: exit RD,0.10832985173201928
+Nielsen,Nov_6_g0,balls_binary,logreg,binary: origin,-0.11303392172704023
+Nielsen,Nov_6_g0,balls_binary,logreg,binary: exit LU,-0.1625181001784134
+Nielsen,Nov_6_g0,balls_binary,logreg,binary: exit LD,0.06625567190912016
+Nielsen,Nov_6_g0,balls_binary,logreg,binary: exit RU,0.3230459430206289
+Nielsen,Nov_6_g0,balls_binary,logreg,binary: exit RD,-0.08597728915268944

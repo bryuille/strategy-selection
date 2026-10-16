@@ -160,19 +160,38 @@ BLINK_PADDING_MS = 5
 SACCADE_MIN_DURATION_MS = 12
 SACCADE_THRESHOLD_FACTOR = 8
 SACCADE_MERGE_GAP_MS = 40
-# Maximum dispersion -- (max x - min x) + (max y - min y) -- I-DT tolerates
-# inside one fixation. Fragments are kept exactly as detected: a slow drift that
-# crosses the threshold ends one fixation and begins the next, and each fragment
-# is assigned to a cluster on its own. Nothing stitches them back together, so a
-# reported fixation never spans more gaze travel than this.
+# Fixations end only when (a) a detected saccade begins or (b) gaze moves more
+# than FIXATION_MAX_DISTANCE_DEG from the fixation's centroid, anchored on its
+# first FIXATION_MIN_DURATION_MS samples. There is no other cap on duration.
 #
-# An earlier version merged consecutive fragments separated by a sub-saccade
-# gap, which let a chain of them report as one fixation: june_24_g0 trial 308
-# came back as a single 1387 ms "fixation" covering 21.2 deg of drift, carrying
-# the dispersion of only its first fragment because merging never recomputed the
-# event properties. Assigning fragments independently removes that failure mode.
-IDT_DISPERSION_THRESHOLD_DEG = 2.0
+# Until 2026-10-16 fixations came from pymovements I-DT with a 2 deg
+# dispersion threshold. I-DT's dispersion is the cumulative range
+# (max x - min x) + (max y - min y) of the window, a tight metric: a cluster
+# wandering within a 1 deg radius can reach a range-sum near 4 deg. Measured
+# on 40 whole trials of june_24_g0, 41% of consecutive fixation pairs abutted
+# (gap <= 2 ms) with no saccade between them; at those boundaries the first
+# fragment's dispersion was exactly 2.0 while its samples stayed within a
+# median 1.08 deg of their own centroid and the next fragment's centroid landed
+# a median 0.48 deg away. 94% of the fragments contained a ~1 deg jump below
+# the microsaccade detector's threshold; it pushed the range past 2 deg and
+# I-DT cut and restarted at an arbitrary point while gaze hovered in place.
+# That cut was an arbitrary maximum fixation length, so the rule above
+# replaces I-DT.
+#
+# The centroid is anchored rather than running because under a steady drift a
+# running mean trails the eye by half the travel, so the split would come at
+# twice the radius and depend on drift speed. Anchoring makes the rule read as
+# "gaze is now more than 2 deg from where this fixation settled". An earlier
+# version merged I-DT fragments across sub-saccade gaps without recomputing
+# properties and let june_24_g0 trial 308 report a 1387 ms fixation covering
+# 21.2 deg of drift; the distance rule cannot produce that.
+FIXATION_EVENT = "fixation"
+FIXATION_MAX_DISTANCE_DEG = 2.0
 FIXATION_MIN_DURATION_MS = 100
+# Only on segments where the microsaccade detector cannot estimate its
+# threshold (zero velocity variance on an axis): a fixed speed above which a
+# sample breaks a fixation run. No saccade rows are emitted on that path.
+SACCADE_FALLBACK_VELOCITY_DEG_S = 30.0
 CLEAN_EVENT_PROPERTIES = ("peak_velocity", "amplitude", "dispersion", "location")
 CLEAN_EYE_DATA_KEYS = (
     "name",
@@ -340,8 +359,62 @@ def drop_blink_overlaps(events, blinks):
 SACCADE_SKIPS = Counter()
 
 
+def _true_runs(mask):
+    """``(starts, stops)`` of the maximal True runs of `mask`, half-open."""
+    edges = np.flatnonzero(np.diff(np.r_[False, mask, False].astype(np.int8)))
+    return edges[::2], edges[1::2]
+
+
+def fixation_spans(
+    x,
+    y,
+    blocked,
+    *,
+    radius=FIXATION_MAX_DISTANCE_DEG,
+    min_duration=FIXATION_MIN_DURATION_MS,
+):
+    """Inclusive ``(onsets, offsets)`` sample indices of fixations.
+
+    A fixation is a run of finite, unblocked samples (`blocked` marks saccade
+    samples) that ends only where the run ends or where a sample lies more
+    than `radius` from the fixation's centroid. The centroid is the expanding
+    mean of the samples seen so far until `min_duration` samples are in, then
+    stays anchored there. A piece shorter than `min_duration` is dropped and
+    the scan resumes at the sample that ended it.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    ok = np.isfinite(x) & np.isfinite(y) & ~np.asarray(blocked, dtype=bool)
+    onsets, offsets = [], []
+    r2 = float(radius) ** 2
+    for start, stop in zip(*_true_runs(ok)):
+        k = int(start)
+        while stop - k >= min_duration:
+            sx, sy = x[k:stop], y[k:stop]
+            m = min(min_duration, sx.size)
+            cnt = np.arange(1, m + 1, dtype=float)
+            cx = np.empty(sx.size)
+            cy = np.empty(sy.size)
+            cx[:m] = np.cumsum(sx[:m]) / cnt
+            cy[:m] = np.cumsum(sy[:m]) / cnt
+            cx[m:] = cx[m - 1]
+            cy[m:] = cy[m - 1]
+            # Sample j is tested against the centroid of samples < j; the
+            # first sample is its own centroid.
+            px = np.r_[sx[0], cx[:-1]]
+            py = np.r_[sy[0], cy[:-1]]
+            over = np.flatnonzero((sx - px) ** 2 + (sy - py) ** 2 > r2)
+            end = k + int(over[0]) if over.size else int(stop)
+            if end - k >= min_duration:
+                onsets.append(k)
+                offsets.append(end - 1)
+            k = max(end, k + 1)
+    return np.asarray(onsets, dtype=np.int64), np.asarray(offsets, dtype=np.int64)
+
+
 def trial_events(time, eye_x, eye_y, pupil, experiment):
-    """Detect saccades and I-DT fixations, then drop events that overlap blinks."""
+    """Detect saccades, then fixations bounded by saccades and the distance
+    rule (`fixation_spans`); drop events that overlap blinks."""
     t = np.asarray(time, dtype=float)
     x = np.asarray(eye_x, dtype=float)
     y = np.asarray(eye_y, dtype=float)
@@ -380,20 +453,16 @@ def trial_events(time, eye_x, eye_y, pupil, experiment):
         warnings.simplefilter("ignore", UserWarning)
         warnings.simplefilter("ignore", RuntimeWarning)
         gaze.pos2vel("smooth")
-        gaze.detect(
-            "idt",
-            name="fixation_idt",
-            dispersion_threshold=IDT_DISPERSION_THRESHOLD_DEG,
-            minimum_duration=FIXATION_MIN_DURATION_MS,
-        )
         # The microsaccade detector estimates its threshold from velocity
         # variance and raises if either component has none. On a whole trial
         # that never happens; on a clipped window it does -- gaze held still in
         # one axis for the whole segment gives an exactly-zero y threshold.
-        # Fixations are unaffected and are what the pipeline consumes, so a
-        # degenerate segment yields no saccade events for that trial rather
-        # than killing the run. Counted, not swallowed: `trial_events` reports
-        # the tally through `SACCADE_SKIPS` so it cannot go unnoticed.
+        # Such a segment yields no saccade events; its fixation runs are then
+        # broken by the fixed `SACCADE_FALLBACK_VELOCITY_DEG_S` instead, so the
+        # distance rule still has velocity boundaries. Counted, not swallowed:
+        # `trial_events` reports the tally through `SACCADE_SKIPS` so it cannot
+        # go unnoticed.
+        degenerate = False
         try:
             gaze.detect(
                 "microsaccades",
@@ -405,9 +474,29 @@ def trial_events(time, eye_x, eye_y, pupil, experiment):
             if "min_threshold" not in str(exc):
                 raise
             SACCADE_SKIPS["degenerate_threshold"] += 1
-        if gaze.events.frame.filter(pl.col("name") == "saccade").height:
+            degenerate = True
+        saccades = gaze.events.frame.filter(pl.col("name") == "saccade")
+        if saccades.height:
             gaze.events.merge_subsequent_close_events(
                 name="saccade", max_gap=SACCADE_MERGE_GAP_MS
+            )
+            saccades = gaze.events.frame.filter(pl.col("name") == "saccade")
+
+        # Fixations: runs between saccades, split by the distance rule. A
+        # segment with no detected saccade is one run; only the degenerate
+        # path (no threshold could be estimated) falls back to a fixed speed.
+        blocked = np.zeros(n, dtype=bool)
+        for on, off in saccades.select("onset", "offset").rows():
+            blocked[int(on) : int(off) + 1] = True
+        if degenerate:
+            vel = gaze.samples["velocity"].list.to_array(2).to_numpy()
+            speed = np.hypot(vel[:, 0], vel[:, 1])
+            blocked = np.isfinite(speed) & (speed > SACCADE_FALLBACK_VELOCITY_DEG_S)
+        fix_on, fix_off = fixation_spans(x, y, blocked)
+        if fix_on.size:
+            fixations = pm.Events(name=FIXATION_EVENT, onsets=fix_on, offsets=fix_off)
+            gaze.events.frame = pl.concat(
+                [gaze.events.frame, fixations.frame], how="diagonal_relaxed"
             )
 
         if len(gaze.events):
@@ -472,11 +561,11 @@ def clean_eye_data(eye_data, monkey="Faure", *, start_ms=None, end_ms=None):
     With `start_ms` given, each trial's samples are clipped to
     ``[fix_start - start_ms, fix_start - end_ms]`` *before* detection, so the
     detectors run on the analysis window rather than the whole trial. That is
-    not a shortcut for the same answer -- I-DT is a greedy sequential scan, so
-    restarting it at the window edge re-partitions the whole segment. Measured
-    on 400 trials, detect-then-clip and clip-then-detect agree on only 7.8% of
-    trials, so the two orders are genuinely different analyses and the window
-    has to be applied here to mean anything.
+    not a shortcut for the same answer: the saccade threshold is estimated
+    from the segment's velocity variance, and the first fixation's centroid is
+    anchored at the window edge, so detect-then-clip and clip-then-detect are
+    different analyses (under the earlier I-DT detector they agreed on only
+    7.8% of 400 trials) and the window has to be applied here to mean anything.
 
     It is also ~5x cheaper: the window is 1466 ms against a median trial span
     of 7322 ms, and detection dominates this stage.

@@ -1,0 +1,37 @@
+monkey,branch,model,feature,weight
+Faure,capsules_tight_all,logreg,dwell: origin,-0.09151191763477884
+Faure,capsules_tight_all,logreg,dwell: capsule LU,0.058806943568710156
+Faure,capsules_tight_all,logreg,dwell: capsule LD,-0.014581892148190086
+Faure,capsules_tight_all,logreg,dwell: capsule RU,0.028764670647032066
+Faure,capsules_tight_all,logreg,dwell: capsule RD,-0.08321600531050283
+Faure,capsules_tight_all,logreg,dwell: elsewhere,0.026359657276793576
+Faure,capsules_tight_all,logreg,binary: origin,0.07643156291945465
+Faure,capsules_tight_all,logreg,binary: capsule LU,-0.03864296825722359
+Faure,capsules_tight_all,logreg,binary: capsule LD,-0.24585044653441832
+Faure,capsules_tight_all,logreg,binary: capsule RU,-0.21809807861462524
+Faure,capsules_tight_all,logreg,binary: capsule RD,0.11831506069772905
+Faure,capsules_tight_all,logreg,binary: elsewhere,-0.08057872749577644
+Faure,capsules_tight_all,logreg,count: origin,0.21658409677765444
+Faure,capsules_tight_all,logreg,count: capsule LU,-0.10270601505408683
+Faure,capsules_tight_all,logreg,count: capsule LD,0.10637295173304684
+Faure,capsules_tight_all,logreg,count: capsule RU,-0.09931464565796742
+Faure,capsules_tight_all,logreg,count: capsule RD,0.11831506069772905
+Faure,capsules_tight_all,logreg,count: elsewhere,0.012247260003976008
+Nielsen,capsules_tight_all,logreg,dwell: origin,-0.07995482172385572
+Nielsen,capsules_tight_all,logreg,dwell: capsule LU,0.020353116562181365
+Nielsen,capsules_tight_all,logreg,dwell: capsule LD,-0.0022795378742989066
+Nielsen,capsules_tight_all,logreg,dwell: capsule RU,0.16037094343146122
+Nielsen,capsules_tight_all,logreg,dwell: capsule RD,0.017323649262798852
+Nielsen,capsules_tight_all,logreg,dwell: elsewhere,-0.052478922245499236
+Nielsen,capsules_tight_all,logreg,binary: origin,-0.1705752252852278
+Nielsen,capsules_tight_all,logreg,binary: capsule LU,0.012624480740525985
+Nielsen,capsules_tight_all,logreg,binary: capsule LD,0.0790089739591427
+Nielsen,capsules_tight_all,logreg,binary: capsule RU,-0.0558840048432983
+Nielsen,capsules_tight_all,logreg,binary: capsule RD,0.1656475030600721
+Nielsen,capsules_tight_all,logreg,binary: elsewhere,-0.05494511375133821
+Nielsen,capsules_tight_all,logreg,count: origin,0.07150457450185049
+Nielsen,capsules_tight_all,logreg,count: capsule LU,-0.23048198184293997
+Nielsen,capsules_tight_all,logreg,count: capsule LD,0.09037052001509834
+Nielsen,capsules_tight_all,logreg,count: capsule RU,-0.02863661262598999
+Nielsen,capsules_tight_all,logreg,count: capsule RD,-0.0064533234840185895
+Nielsen,capsules_tight_all,logreg,count: elsewhere,0.009973672852813763

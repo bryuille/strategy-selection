@@ -1,0 +1,13 @@
+monkey,branch,model,feature,weight
+Faure,capsules_tight_binary,logreg,binary: origin,0.16965386265517385
+Faure,capsules_tight_binary,logreg,binary: capsule LU,-0.06718293210924416
+Faure,capsules_tight_binary,logreg,binary: capsule LD,-0.19064621246621485
+Faure,capsules_tight_binary,logreg,binary: capsule RU,-0.2793093857555267
+Faure,capsules_tight_binary,logreg,binary: capsule RD,0.1390296751343937
+Faure,capsules_tight_binary,logreg,binary: elsewhere,-0.059445340649998395
+Nielsen,capsules_tight_binary,logreg,binary: origin,-0.1581369607165567
+Nielsen,capsules_tight_binary,logreg,binary: capsule LU,-0.11636872561923149
+Nielsen,capsules_tight_binary,logreg,binary: capsule LD,0.16281900334354352
+Nielsen,capsules_tight_binary,logreg,binary: capsule RU,0.058802840193634534
+Nielsen,capsules_tight_binary,logreg,binary: capsule RD,0.197523509479053
+Nielsen,capsules_tight_binary,logreg,binary: elsewhere,-0.05777094667980829

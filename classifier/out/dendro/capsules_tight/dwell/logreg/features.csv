@@ -1,0 +1,13 @@
+monkey,branch,model,feature,weight
+Faure,capsules_tight_dwell,logreg,dwell: origin,0.11015591572235946
+Faure,capsules_tight_dwell,logreg,dwell: capsule LU,0.029270009280406892
+Faure,capsules_tight_dwell,logreg,dwell: capsule LD,-0.07692029064685756
+Faure,capsules_tight_dwell,logreg,dwell: capsule RU,-0.12381076544502365
+Faure,capsules_tight_dwell,logreg,dwell: capsule RD,0.0702033483484408
+Faure,capsules_tight_dwell,logreg,dwell: elsewhere,0.032847265818637936
+Nielsen,capsules_tight_dwell,logreg,dwell: origin,-0.09476528098785539
+Nielsen,capsules_tight_dwell,logreg,dwell: capsule LU,-0.09462646455255583
+Nielsen,capsules_tight_dwell,logreg,dwell: capsule LD,0.14855478484243145
+Nielsen,capsules_tight_dwell,logreg,dwell: capsule RU,0.1442959654127888
+Nielsen,capsules_tight_dwell,logreg,dwell: capsule RD,0.14358563488555207
+Nielsen,capsules_tight_dwell,logreg,dwell: elsewhere,-0.029692044655463837

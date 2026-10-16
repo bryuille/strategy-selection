@@ -4,7 +4,7 @@ Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 
 1. **Clip** each trial to ``[0, fix_start]`` from maze onset.
 2. **Warp** to unit H.
-3. **Fixations** by I-DT on the clipped, unwarped data.
+3. **Fixations** by `data.builder.trial_events` on the clipped, unwarped data.
 4. **Assign** each fixation's mean warped position to one of the five
    states under the codebook's rule (`assign_by_rule`): the nearest prototype
    within the radius (``balls``), the origin ball else the maze quadrant
@@ -47,7 +47,7 @@ import argparse
 
 import numpy as np
 
-from data.builder import FIXATION_MIN_DURATION_MS, trial_qc_ok
+from data.builder import FIXATION_EVENT, FIXATION_MIN_DURATION_MS, trial_qc_ok
 from data.config import MONKEYS, processed_npz
 from data.mat import load_npz
 from data.loader import load_eye_behavioral_data, savez_atomic
@@ -77,7 +77,6 @@ from msp.config import (
 
 N_MAZES = 6
 MIN_WINDOW_SAMPLES = 6  # clean_eye_data's per-trial floor before detection
-FIXATION_EVENT = "fixation_idt"
 BLOCK_NAMES = ("occ_ms", "occ_bin")
 VARIANTS = ("full", "no_origin", "mean_removed")
 
@@ -117,7 +116,7 @@ def clip_fixation_spans(
     event_rows, lo, hi, name_wanted=FIXATION_EVENT, min_duration_ms=FIXATION_MIN_DURATION_MS
 ):
     """`name_wanted` rows intersected with ``[lo, hi]`` and re-tested against
-    the minimum duration -- equivalent to re-running I-DT on the clipped
+    the minimum duration -- equivalent to re-running detection on the clipped
     segment (see `classifier.features.clip_fixation_spans`)."""
     out = []
     for name, onset, offset in event_rows or ():
@@ -215,7 +214,7 @@ def assign_by_rule(xy, assignment: AssignmentSpec, codebook_xy=CODEBOOK_XY):
 
 
 def fixation_event_spans(event_rows):
-    """I-DT fixation `(onset, offset)` spans, earliest first."""
+    """Fixation `(onset, offset)` spans, earliest first."""
     spans = []
     for name, onset, offset in event_rows or ():
         if str(name).lower() != FIXATION_EVENT:

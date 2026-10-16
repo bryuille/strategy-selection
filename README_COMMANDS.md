@@ -11,6 +11,7 @@ Every `build` takes `--dry-run` (counts and coverage, no statistics) and
 
 Contents: [Data](#data) · [msp](#msp) · [msp.per_session](#mspper_session) ·
 [classifier](#classifier) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
+[counterfactual](#counterfactual) ·
 [Slurm](#slurm) · [Clearing derived caches](#clearing-derived-caches)
 
 ## Data
@@ -146,8 +147,16 @@ locally); without them those sessions' pupil features are NaN.
 ```bash
 uv run python -m classifier.checks                            # synthetic, no data
 uv run python -m classifier.build                             # both branches, both models, dendro scope
-uv run python -m classifier.build --branch engineered --model logreg
+uv run python -m classifier.build --branch regions_dwell --model logreg   # → out/dendro/regions/dwell/
 uv run python -m classifier.build --branch regions            # dwell share + visited, nine regions
+uv run python -m classifier.build --branch regions regions_plus --per-session   # → out/dendro/regions/both_per_session/
+uv run python -m classifier.build --branch exits --model logreg   # the four exit balls alone → out/dendro/exits/both/logreg/
+uv run python -m classifier.build --branch lor --model logreg     # origin ball + left / right half of the maze → out/dendro/lor/both/logreg/
+uv run python -m classifier.build --branch balls --model logreg   # msp's r0.5 codebook in degrees → out/dendro/balls/both/logreg/
+uv run python -m classifier.codebook --branch lor balls regions exits   # region drawings over all six mazes → out/dendro/<branch>/<branch>_by_maze.png
+uv run python -m classifier.pres                              # best per-session region / exits run → <run dir>/session_auc.{png,svg}: one bar per (monkey, session)
+uv run python -m classifier.pres --merged --variant exits/both/logreg   # → out/dendro/exits/both/logreg/merged_auc.{png,svg}: one bar per monkey
+uv run python -m classifier.pres --merged --labels svm --model gbm   # best pooled svm-scope gbm run → <run dir>/merged_auc.{png,svg}
 uv run python -m classifier.build --labels svm                # msp's scope: ten sessions, SVM labels
 uv run python -m classifier.build --n-perm 20                 # smoke test
 uv run python -m classifier.fixations                         # fixation tables (both scopes)
@@ -156,13 +165,14 @@ uv run python -m classifier.pupil_extract --session Oct_22_g0 Nov_18_g0   # clus
 
 | Flag        | Meaning                                                            |
 | ----------- | ------------------------------------------------------------------ |
-| `--labels`  | `dendro` (default): dendrogram labels, publication sessions, mazes 1–6; `svm`: SVM labels, top-ten sessions, mazes 2–5 → `out/<branch>_svm/` |
-| `--branch`  | `raw` (binned x/y/pupil traces), `engineered` (26 curated features), `regions` (dwell share + visited over nine regions; `regions_dwell` / `regions_binary` for one set) |
+| `--labels`  | `dendro` (default): dendrogram labels, publication sessions, mazes 1–6; `svm`: SVM labels, top-ten sessions, mazes 2–5. Top level of the output: `out/<dendro|svm>/<raw|regions|regions_plus|exits|lor|balls>/<variant>/<model>/` |
+| `--branch`  | `raw` (binned x/y/pupil traces; variant `b<ms>`), `raw_plus` (the same traces + the 6×6 time-collapsed gaze map over ±15°; family `raw_plus/`, variant `b<ms>`), `regions` (dwell share + visited over nine regions; variant `both`), `regions_dwell` / `regions_binary` (one set; variants `dwell` / `binary`); `<family>_all` (dwell share + visited + visit count; variant `all`); `regions_plus[_dwell\|_binary]` (same, with "elsewhere" split at 10° and pupil change; family `regions_plus/`); `exits[_dwell\|_binary\|_all]` (the four exit balls alone, no origin quadrants or elsewhere; family `exits/`); `lor[_dwell\|_binary\|_all]` (3° origin ball + left / right half of the maze inside a perimeter 3° out from the exit quadrilateral; family `lor/`); `balls[_dwell\|_binary\|_all]` (msp's r0.5 codebook in degrees: 3° origin ball + the four 3° exit balls, nothing else; family `balls/`). All regions are in degrees around each maze's exits |
 | `--model`   | `logreg` (L2 logistic regression), `gbm` (shallow boosted trees)   |
-| `--bin-ms`  | Raw branch: trace bin width in ms (`1` = the whole 1 kHz trace; default 50; non-default → `out/raw_b<ms>/`) |
-| `--interactions` | Add gaze × maze interaction terms (per-maze weights shrunk toward the shared ones); output `out/<branch>[_svm]_x_maze/` |
+| `--bin-ms`  | Raw branch: trace bin width in ms (`1` = the whole 1 kHz trace; default 50; the variant is `b<ms>`) |
+| `--interactions` | Add gaze × maze interaction terms (per-maze weights shrunk toward the shared ones); variant gets `_x_maze` |
+| `--per-session` | Fit, cross-validate and permutation-test each session on its own (`<Monkey>_<session>.png`, `eval_<Monkey>_<session>.npz`), plus one `combined` row per monkey: the pair-weighted mean of the per-session AUCs against the same weighted mean of their nulls; variant gets `_per_session` |
 | `--replot`  | Redraw figures from the saved `eval_<Monkey>.npz` without refitting |
-| `--n-perm`  | Label shuffles for the within-maze AUC null (default 200)          |
+| `--n-perm`  | Label shuffles for the within-maze AUC null (default 200; any other count adds `_p<n>` to the variant, so it never overwrites the default run) |
 | `--refresh` | Rebuild the raw-trace cache (and the svm fixation cache)           |
 
 ## regression
@@ -208,6 +218,28 @@ uv run python -m counts.build --source svm --monkey Faure --scope top_ten
 | `--monkey`  | `Faure` or `Nielsen`                                                                                           |
 | `--scope`   | `census`: `publication`, `all` (default). `build` also accepts `top_ten` (default)                             |
 
+## counterfactual
+
+Post-choice exit sequences for the publication sessions. The cache
+`<Monkey>_cf_exits.npz` builds on first use (needs pymovements and the pooled
+eye caches).
+
+```bash
+uv run python -m counterfactual.checks                 # exit decoding + detector, synthetic, no data
+uv run python -m counterfactual.extract                # build the cache, both monkeys
+uv run python -m counterfactual.extract --monkey Faure --session june_24_g0 --refresh
+uv run python -m counterfactual.build --dry-run        # summary only
+uv run python -m counterfactual.build                  # exit_sequences.csv + summary.txt per monkey
+```
+
+| Flag          | Meaning                                                             |
+| ------------- | ------------------------------------------------------------------- |
+| `--monkey`    | `Faure`, `Nielsen` (default both)                                   |
+| `--session`   | `extract` only: subset of the monkey's publication sessions         |
+| `--refresh`   | Rebuild the cache                                                   |
+| `--dry-run`   | `build` only: print the summary, write nothing                      |
+| `--out-root`  | `build` only: output directory (default `counterfactual/out`)       |
+
 ## Slurm
 
 Batch scripts live in `slurm/`. Submit from the repo root (logs go to
@@ -252,3 +284,13 @@ rm -f *_clean_eye_data_s*.npz *_attractor_eye_data.npz \
 ```
 
 Never delete anything under `MAT_ROOT`; it is the only copy of the raw data.
+
+**Detector change, 2026-10-16.** Fixations are no longer pymovements I-DT
+(2° dispersion); `data.builder.trial_events` now ends a fixation only at a
+detected saccade or when gaze moves more than 2° from the fixation's anchored
+centroid, and the event name is `fixation` (was `fixation_idt`). Every cache
+in the `rm` line above that was built before this date encodes the old
+detector and must be deleted before msp, classifier or regression are rerun
+(`classifier.fixations` self-invalidates through its `schema`; the msp and
+regression caches do not). `*_clf_raw*` bins raw gaze around `fix_start` and
+is unaffected. The caches were deliberately **not** rebuilt with the change.

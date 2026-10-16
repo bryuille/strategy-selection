@@ -1,0 +1,24 @@
+monkey,session,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,june_24_g0,balls_binary,logreg,1,0.5365853658536586,41,1,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,2,0.38857142857142857,35,15,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,3,0.5904255319148937,47,4,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,4,0.4548611111111111,12,48,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,5,0.5920634920634921,18,70,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,6,0.4226475279106858,11,57,,,,,,,
+Faure,june_24_g0,balls_binary,logreg,within-maze pooled,0.5004662729250855,164,195,0.4739407833385141,0.0557227917270228,0.47602585521047874,0.3034825870646766,0.8489055659787367,5,200
+Faure,june_8_g0,balls_binary,logreg,2,0.6512605042016807,34,7,,,,,,,
+Faure,june_8_g0,balls_binary,logreg,4,0.25,1,48,,,,,,,
+Faure,june_8_g0,balls_binary,logreg,5,0.3416666666666667,2,60,,,,,,,
+Faure,june_8_g0,balls_binary,logreg,within-maze pooled,0.5123152709359606,124,169,0.3986268472906404,0.11859023814016263,0.9586659528497706,0.15422885572139303,0.9827734300439015,5,200
+Faure,combined,balls_binary,logreg,"within-(session, maze) pooled",0.5017940932928512,,,0.4655009660502347,0.05179043994590743,0.7007688538757897,0.23880597014925373,,,200
+Nielsen,Nov_3_g0,balls_binary,logreg,2,0.047058823529411764,85,1,,,,,,,
+Nielsen,Nov_3_g0,balls_binary,logreg,4,0.608370288248337,44,41,,,,,,,
+Nielsen,Nov_3_g0,balls_binary,logreg,5,0.19148936170212766,1,94,,,,,,,
+Nielsen,Nov_3_g0,balls_binary,logreg,within-maze pooled,0.564548663640948,277,220,0.4602760968229954,0.07535990763672593,1.3836610219932963,0.05970149253731343,0.9815966524450279,5,200
+Nielsen,Nov_6_g0,balls_binary,logreg,1,0.45751633986928103,51,3,,,,,,,
+Nielsen,Nov_6_g0,balls_binary,logreg,2,0.48894557823129253,42,14,,,,,,,
+Nielsen,Nov_6_g0,balls_binary,logreg,3,0.6290018832391714,59,9,,,,,,,
+Nielsen,Nov_6_g0,balls_binary,logreg,4,0.43787878787878787,22,30,,,,,,,
+Nielsen,Nov_6_g0,balls_binary,logreg,5,0.6724137931034483,2,58,,,,,,,
+Nielsen,Nov_6_g0,balls_binary,logreg,within-maze pooled,0.516845703125,176,192,0.455853271484375,0.06221186983481143,0.9803986249340465,0.16417910447761194,0.9251154119318182,5,200
+Nielsen,combined,balls_binary,logreg,"within-(session, maze) pooled",0.5403125775241876,,,0.45802902505581744,0.0490652001397989,1.677024698440523,0.04477611940298507,,,200

@@ -59,31 +59,6 @@ def check_session_holdout_scales():
     print(f"leave-one-session-out: {k} sessions, pooled AUC {pooled:.2f}")
 
 
-def check_order_control():
-    """A feature that only tracks session drift is significant within maze but
-    not under order control; a planted signal beyond drift still is."""
-    rng = np.random.default_rng(4)
-    n = 800
-    meta = _meta(n, rng)
-    meta["trial"] = np.arange(1, n + 1)
-    r = M.order_rank(meta)
-    y = (rng.random(n) < 0.15 + 0.7 * r).astype(int)  # S becomes likelier through the session
-    X = np.stack([r + 0.05 * rng.normal(size=n), rng.normal(size=n)], 1)  # drift tracker, noise
-    try:
-        plain = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
-        M.ORDER_CONTROL = True
-        ctrl = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
-        X[:, 1] += 1.0 * y
-        planted = M.evaluate(X, y, meta, "logreg", n_perm=30, n_repeats=1)
-    finally:
-        M.ORDER_CONTROL = False
-    assert plain.auc > 0.7 and plain.z > 3, (plain.auc, plain.z)
-    assert abs(ctrl.z) < 3, (ctrl.auc, ctrl.z)
-    assert planted.z > 3, (planted.auc, planted.z)
-    print(f"order control: drift tracker z {plain.z:+.1f} -> {ctrl.z:+.1f} (AUC {ctrl.auc:.2f} vs null "
-          f"{np.nanmean(ctrl.null):.2f}); planted signal z {planted.z:+.1f}")
-
-
 def check_regions_partition():
     """Every fixation lands in exactly one region; dwell shares sum to 1 on
     trials with any fixation time; a trial at the RU exit lights only RU."""
@@ -104,6 +79,113 @@ def check_regions_partition():
     assert X[0, names.index("binary: exit RU")] == 1.0 and X[0, names.index("binary: origin LU")] == 0.0
     assert np.allclose(dwell[1, :4], [10 / 60, 20 / 60, 30 / 60, 0.0])
     print("regions: one region per fixation, dwell shares sum to 1")
+    # exits: the four exit-ball columns of the same matrix, nothing else
+    Xe, enames = F.regions_matrix(d, exits=True)
+    assert enames == [f"{k}: {n}" for k in ("dwell", "binary") for n in F.REGION_NAMES[4:8]], enames
+    nr = len(F.REGION_NAMES)
+    assert np.array_equal(Xe[:, :4], X[:, 4:8]) and np.array_equal(Xe[:, 4:], X[:, nr + 4:nr + 8])
+    assert np.allclose(Xe[:, :4].sum(1), [1.0, 0.0, 0.0])  # exit shares sum to the time spent at any exit
+    print("exits: the exit-ball columns of regions, shares not forced to sum to 1")
+    # regions_plus: elsewhere splits at FAR_DEG, shares still sum to 1, pupil change appended
+    d["fix_row"] = np.array([0, 0, 1, 1, 1, 2])
+    d["fix_xy_d"] = np.array([[7.0, 7.0], [0.0, 8.0], [0.0, 12.0], [-1.0, -1.0], [1.0, 1.0], [0.0, -12.0]])
+    d["fix_valid_ms"] = np.array([100.0, 50.0, 10.0, 20.0, 30.0, 40.0])
+    d["pupil_change_raw"] = np.array([1.0, 2.0, np.nan])
+    X, names = F.regions_matrix(d, plus=True)
+    k = len(F.REGION_PLUS_NAMES)
+    near, far = names.index(f"dwell: {F.REGION_PLUS_NAMES[8]}"), names.index(f"dwell: {F.REGION_PLUS_NAMES[9]}")
+    assert X.shape[1] == 2 * k + 1 and names[-1] == "pupil change z"
+    assert np.allclose(X[:, :k].sum(1), 1.0)
+    assert np.isclose(X[0, near], 50 / 150) and np.isclose(X[1, far], 10 / 60) and X[2, far] == 1.0
+    assert np.isclose(X[0, -1], -1.0) and np.isclose(X[1, -1], 1.0) and np.isnan(X[2, -1])
+    print("regions_plus: near / far split keeps shares summing to 1; pupil change z within session")
+
+
+def check_lor_partition():
+    """Origin ball wins; inside the perimeter x < 0 is left, x >= 0 right; the
+    perimeter is the exit quadrilateral grown by LOR_PERIMETER_DEG."""
+    from classifier import features as F
+    from classifier.config import LOR_ORIGIN_DEG, LOR_PERIMETER_DEG
+    r, p = LOR_ORIGIN_DEG, LOR_PERIMETER_DEG
+    h = np.array([5.0, 7.0, 11.0, 10.0, 9.0, 4.0])  # LU (-5, 7), LD (-5, -11), RU (10, 9), RD (10, -4)
+    pts = np.array([[0.0, 0.0], [0.0, r - 0.1], [0.0, r + 0.1],  # origin, origin, right (x >= 0)
+                    [-5.0, 7.0], [-5.0, 7.0 + p - 0.1], [-5.0, 7.0 + p + 0.1],  # left, left, outside
+                    [10.0, -4.0], [10.0 + p - 0.1, -4.0], [10.0 + p + 0.1, -4.0],  # right, right, outside
+                    [-5.0 - p - 0.1, 0.0], [-5.0 - p + 0.1, 0.0],  # outside, left
+                    [-5.0 - p / np.sqrt(2) + 0.1, 7.0 + p / np.sqrt(2) + 0.1],  # outside the LU corner arc
+                    [-5.0 - p / np.sqrt(2) + 0.1, 7.0 + p / np.sqrt(2) - 0.1],  # inside it
+                    [2.0, -4.5]])  # inside the quad, right
+    got = F.lor_index(pts, np.tile(h, (len(pts), 1)))
+    want = [0, 0, 2, 1, 1, -1, 2, 2, -1, -1, 1, -1, 1, 2]
+    assert got.tolist() == want, (got.tolist(), want)
+    d = dict(session=np.array(["a", "a"]), fix_row=np.array([0, 0, 0, 1]),
+             fix_xy_d=np.array([[0.0, 0.0], [-5.0, 7.0], [20.0, 20.0], [10.0, 9.0]]),
+             fix_valid_ms=np.array([100.0, 100.0, 200.0, 50.0]), h=np.tile(h, (2, 1)))
+    X, names = F.regions_matrix(d, lor=True)
+    assert names == ["dwell: origin", "dwell: left", "dwell: right", "binary: origin", "binary: left", "binary: right"]
+    assert np.allclose(X[0], [0.25, 0.25, 0.0, 1, 1, 0]) and np.allclose(X[1], [0, 0, 1.0, 0, 0, 1]), X
+    print("lor: origin ball, then left / right inside the exit-hugging perimeter; outside unassigned")
+
+
+def check_balls_partition():
+    """Origin ball + four exit balls in degrees, nothing else; the exit columns
+    equal the `regions` exit columns (same balls at the same landmarks)."""
+    from classifier import features as F
+    from classifier.config import BALLS_ORIGIN_DEG, EXIT_BALL_DEG
+    r, e = BALLS_ORIGIN_DEG, EXIT_BALL_DEG
+    h = np.array([5.0, 7.0, 11.0, 10.0, 9.0, 4.0])  # LU (-5, 7), LD (-5, -11), RU (10, 9), RD (10, -4)
+    pts = np.array([[0.0, 0.0], [0.0, r - 0.1], [0.0, r + 0.1], [-5.0, 7.0], [-5.0, 7.0 + e + 0.1],
+                    [-5.0, -11.0], [10.0, 9.0], [10.0 + e - 0.1, -4.0], [-2.5, 2.5]])  # last: |xy| 3.5 > r
+    got = F.balls_index(pts, np.tile(h, (len(pts), 1)))
+    assert got.tolist() == [0, 0, -1, 1, -1, 2, 3, 4, -1], got.tolist()
+    rng = np.random.default_rng(4)
+    xy = rng.uniform(-15, 15, (3000, 2))
+    H = np.tile(h, (len(xy), 1))
+    b, g = F.balls_index(xy, H), F.region_index(xy, H)
+    assert np.array_equal(b >= 1, (g >= 4) & (g <= 7)) and np.array_equal(b[b >= 1], g[b >= 1] - 3)
+    assert F.BALLS_NAMES == ("origin", "exit LU", "exit LD", "exit RU", "exit RD")
+    print("balls: origin ball + the four exit balls of regions, in degrees; outside unassigned")
+
+
+def check_capsules():
+    """Origin ball wins; each capsule is the stadium of radius CAPSULE_DEG about
+    the segment origin -> exit (parallel tangents); the rest is elsewhere, so
+    dwell shares sum to 1. Shrinking the origin ball hands the ring to the capsule."""
+    from classifier import features as F
+    from classifier.config import CAPSULE_DEG, CAPSULE_ORIGIN_DEG, CAPSULE_ORIGIN_TIGHT_DEG
+    h = np.array([5.0, 7.0, 11.0, 10.0, 9.0, 4.0])  # LU (-5, 7)
+    e = np.array([-5.0, 7.0])
+    u = e / np.linalg.norm(e)
+    n = np.array([-u[1], u[0]])
+    mid = 0.5 * e
+    pts = np.array([[0.0, 0.0], 2.2 * u, e, mid + (CAPSULE_DEG - 0.05) * n, mid + (CAPSULE_DEG + 0.2) * n,
+                    [20.0, 20.0]])
+    got = F.capsule_index(pts, np.tile(h, (len(pts), 1)))
+    assert got.tolist() == [0, 0, 1, 1, 5, 5], got.tolist()
+    tight = F.capsule_index(pts, np.tile(h, (len(pts), 1)), origin_deg=CAPSULE_ORIGIN_TIGHT_DEG)
+    assert tight[1] == 1 and tight[0] == 0, tight.tolist()  # 2.2° is inside the 3° ball, outside the 1.5° ball
+    d = dict(session=np.array(["a"]), fix_row=np.zeros(4, int),
+             fix_xy_d=np.array([[0.0, 0.0], e, [20.0, 20.0], mid]),
+             fix_valid_ms=np.full(4, 25.0), h=h[None, :])
+    X, names = F.regions_matrix(d, ("dwell",), capsule_origin=CAPSULE_ORIGIN_DEG)
+    assert names == [f"dwell: {n}" for n in F.CAPSULE_NAMES]
+    assert np.isclose(X.sum(), 1.0) and np.isclose(X[0, 0], 0.25) and np.isclose(X[0, 1], 0.5)
+    assert np.isclose(X[0, names.index("dwell: elsewhere")], 0.25)
+    print("capsules: stadiums with parallel tangents, origin ball carved out, elsewhere fills the rest")
+
+
+def check_visit_count():
+    """A visit is an entry into a region: LU, LU, elsewhere, LU (stored out of
+    time order) is two LU visits and one elsewhere visit."""
+    from classifier.features import regions_matrix
+    xy = np.array([[-6.0, 5.0], [20.0, 20.0], [-6.2, 5.1], [-6.0, 5.0]])
+    d = dict(session=np.array(["a"]), fix_row=np.zeros(4, int), fix_xy_d=xy,
+             fix_valid_ms=np.full(4, 100.0), h=np.array([[6.0, 5, 11, 10, 9, 5]]),
+             fix_onset_ms=np.array([0.0, 400, 200, 600]))
+    X, names = regions_matrix(d, ("count",))
+    got = dict(zip(names, X[0]))
+    assert got["count: exit LU"] == 2 and got["count: elsewhere"] == 1 and sum(got.values()) == 3, got
+    print("visit count: consecutive fixations in one region are one visit, in time order")
 
 
 def check_svm_scope():
@@ -118,8 +200,11 @@ def main():
     check_within_maze_auc_ignores_maze()
     check_null_calibrated_and_signal_found()
     check_session_holdout_scales()
-    check_order_control()
     check_regions_partition()
+    check_lor_partition()
+    check_balls_partition()
+    check_capsules()
+    check_visit_count()
     check_svm_scope()
     print("all checks passed")
 

@@ -1,0 +1,37 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,regions_binary,gbm,binary: origin LU,0.017034504196456357
+Faure,june_24_g0,regions_binary,gbm,binary: origin LD,0.01809138949331679
+Faure,june_24_g0,regions_binary,gbm,binary: origin RU,0.0954305253341623
+Faure,june_24_g0,regions_binary,gbm,binary: origin RD,0.07248989741995651
+Faure,june_24_g0,regions_binary,gbm,binary: exit LU,0.015418091389493349
+Faure,june_24_g0,regions_binary,gbm,binary: exit LD,0.050077712154180956
+Faure,june_24_g0,regions_binary,gbm,binary: exit RU,0.0
+Faure,june_24_g0,regions_binary,gbm,binary: exit RD,0.0
+Faure,june_24_g0,regions_binary,gbm,binary: elsewhere,0.017687286291576076
+Faure,june_8_g0,regions_binary,gbm,binary: origin LU,0.01822660098522162
+Faure,june_8_g0,regions_binary,gbm,binary: origin LD,0.18201970443349746
+Faure,june_8_g0,regions_binary,gbm,binary: origin RU,0.015517241379310275
+Faure,june_8_g0,regions_binary,gbm,binary: origin RD,0.0
+Faure,june_8_g0,regions_binary,gbm,binary: exit LU,0.08029556650246299
+Faure,june_8_g0,regions_binary,gbm,binary: exit LD,0.08300492610837432
+Faure,june_8_g0,regions_binary,gbm,binary: exit RU,0.0032019704433496887
+Faure,june_8_g0,regions_binary,gbm,binary: exit RD,0.0
+Faure,june_8_g0,regions_binary,gbm,binary: elsewhere,0.038423645320197
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: origin LU,0.06984367120524457
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: origin LD,0.0
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: origin RU,0.0006555723651033629
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: origin RD,0.08845184064548661
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: exit LU,-0.00121028744326781
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: exit LD,0.009329299041855754
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: exit RU,0.10953101361573372
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: exit RD,0.0029248613212304432
+Nielsen,Nov_3_g0,regions_binary,gbm,binary: elsewhere,0.0
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: origin LU,0.010009765625
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: origin LD,0.0267578125
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: origin RU,0.114794921875
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: origin RD,0.021826171875
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: exit LU,0.05087890625
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: exit LD,0.0
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: exit RU,0.051025390625
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: exit RD,0.00185546875
+Nielsen,Nov_6_g0,regions_binary,gbm,binary: elsewhere,0.0

@@ -1,0 +1,25 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: origin,0.1164750609477916
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: capsule LU,-0.11144083190915967
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: capsule LD,-0.18032157000921312
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: capsule RU,-0.29074302971240235
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: capsule RD,0.1636007835535689
+Faure,june_24_g0,capsules_tight_binary,logreg,binary: elsewhere,-0.07426274725271304
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: origin,0.1277834374993957
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: capsule LU,-0.09202834184886112
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: capsule LD,-0.2214210480355202
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: capsule RU,-0.09581968896841844
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: capsule RD,0.0199889243266989
+Faure,june_8_g0,capsules_tight_binary,logreg,binary: elsewhere,0.010242313999681453
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: origin,0.0640363152707891
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: capsule LU,-0.1512857126459051
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: capsule LD,0.1655190936084539
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: capsule RU,0.16717620682123885
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: capsule RD,0.3133278880338722
+Nielsen,Nov_3_g0,capsules_tight_binary,logreg,binary: elsewhere,-0.01841723184278511
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: origin,-0.1966346598068467
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: capsule LU,-0.05167170537644292
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: capsule LD,0.13910097304498417
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: capsule RU,0.047492796736623835
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: capsule RD,0.07461605598201121
+Nielsen,Nov_6_g0,capsules_tight_binary,logreg,binary: elsewhere,-0.04300167899531592

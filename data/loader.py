@@ -143,9 +143,9 @@ def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
     `start_ms` clips each trial to ``[fix_start - start_ms, fix_start - end_ms]``
     *before* the detectors run, and the cache stem carries the window so the
     windowed and whole-trial event tables never overwrite each other. The two
-    are different analyses, not the same answer computed twice -- I-DT is a
-    greedy sequential scan, so clipping before vs after detection agrees on
-    only 7.8% of trials (measured).
+    are different analyses, not the same answer computed twice: the saccade
+    threshold and the first fixation anchor come from the segment (see
+    `data.builder.clean_eye_data`).
 
     Pre-fixation callers pass the analysis window and get a ~5x cheaper pass
     (1466 ms against a median 7322 ms trial). `start_ms=None` keeps the whole

@@ -1,0 +1,24 @@
+monkey,session,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,june_24_g0,regions_plus_all,gbm,1,0.7560975609756098,41,1,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,2,0.5923809523809523,35,15,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,3,0.5691489361702128,47,4,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,4,0.5173611111111112,12,48,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,5,0.6087301587301587,18,70,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,6,0.6889952153110048,11,57,,,,,,,
+Faure,june_24_g0,regions_plus_all,gbm,within-maze pooled,0.6049114081442337,164,195,0.4838366490519118,0.05325898784858563,2.2733206916461746,0.014925373134328358,0.8647592245153221,31,200
+Faure,june_8_g0,regions_plus_all,gbm,2,0.42016806722689076,34,7,,,,,,,
+Faure,june_8_g0,regions_plus_all,gbm,4,0.5833333333333334,1,48,,,,,,,
+Faure,june_8_g0,regions_plus_all,gbm,5,0.48333333333333334,2,60,,,,,,,
+Faure,june_8_g0,regions_plus_all,gbm,within-maze pooled,0.458128078817734,124,169,0.4427647783251231,0.13046518911405755,0.1177578524734264,0.5024875621890548,0.9843958770757778,31,200
+Faure,combined,regions_plus_all,gbm,"within-(session, maze) pooled",0.5884626000552028,,,0.4792340601711289,0.050284449058477114,2.1722131181560553,0.009950248756218905,,,200
+Nielsen,Nov_3_g0,regions_plus_all,gbm,2,0.9529411764705882,85,1,,,,,,,
+Nielsen,Nov_3_g0,regions_plus_all,gbm,4,0.5814855875831486,44,41,,,,,,,
+Nielsen,Nov_3_g0,regions_plus_all,gbm,5,0.3617021276595745,1,94,,,,,,,
+Nielsen,Nov_3_g0,regions_plus_all,gbm,within-maze pooled,0.5869894099848714,277,220,0.4783888048411498,0.07875467686824875,1.3789734078320584,0.08955223880597014,0.9845749917952084,31,200
+Nielsen,Nov_6_g0,regions_plus_all,gbm,1,0.3464052287581699,51,3,,,,,,,
+Nielsen,Nov_6_g0,regions_plus_all,gbm,2,0.5476190476190477,42,14,,,,,,,
+Nielsen,Nov_6_g0,regions_plus_all,gbm,3,0.6421845574387948,59,9,,,,,,,
+Nielsen,Nov_6_g0,regions_plus_all,gbm,4,0.6181818181818182,22,30,,,,,,,
+Nielsen,Nov_6_g0,regions_plus_all,gbm,5,0.11206896551724138,2,58,,,,,,,
+Nielsen,Nov_6_g0,regions_plus_all,gbm,within-maze pooled,0.55517578125,176,192,0.491070556640625,0.06141263726368191,1.0438441901482294,0.15422885572139303,0.9273496685606061,31,200
+Nielsen,combined,regions_plus_all,gbm,"within-(session, maze) pooled",0.5708260977424957,,,0.48483192756139915,0.04886841180891003,1.7597087156701399,0.04477611940298507,,,200

@@ -1,0 +1,37 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,regions_dwell,gbm,dwell: origin LU,0.062480571961454755
+Faure,june_24_g0,regions_dwell,gbm,dwell: origin LD,0.06266708113148896
+Faure,june_24_g0,regions_dwell,gbm,dwell: origin RU,0.03804787068697542
+Faure,june_24_g0,regions_dwell,gbm,dwell: origin RD,0.06935032639104755
+Faure,june_24_g0,regions_dwell,gbm,dwell: exit LU,0.004382965495803548
+Faure,june_24_g0,regions_dwell,gbm,dwell: exit LD,0.044793285669878724
+Faure,june_24_g0,regions_dwell,gbm,dwell: exit RU,0.020111905502020487
+Faure,june_24_g0,regions_dwell,gbm,dwell: exit RD,0.0
+Faure,june_24_g0,regions_dwell,gbm,dwell: elsewhere,0.059434255517562914
+Faure,june_8_g0,regions_dwell,gbm,dwell: origin LU,0.05517241379310345
+Faure,june_8_g0,regions_dwell,gbm,dwell: origin LD,0.023152709359605915
+Faure,june_8_g0,regions_dwell,gbm,dwell: origin RU,0.016748768472906427
+Faure,june_8_g0,regions_dwell,gbm,dwell: origin RD,0.0
+Faure,june_8_g0,regions_dwell,gbm,dwell: exit LU,0.07290640394088672
+Faure,june_8_g0,regions_dwell,gbm,dwell: exit LD,0.045320197044334966
+Faure,june_8_g0,regions_dwell,gbm,dwell: exit RU,0.0
+Faure,june_8_g0,regions_dwell,gbm,dwell: exit RD,0.0
+Faure,june_8_g0,regions_dwell,gbm,dwell: elsewhere,0.08029556650246308
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: origin LU,0.0461422087745839
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: origin LD,0.0
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: origin RU,0.0950075642965204
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: origin RD,0.010438729198184537
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: exit LU,0.05738779626828035
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: exit LD,0.0
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: exit RU,0.025113464447806287
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: exit RD,0.0017650025214321463
+Nielsen,Nov_3_g0,regions_dwell,gbm,dwell: elsewhere,0.18850226928895605
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: origin LU,0.042626953125
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: origin LD,0.02353515625
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: origin RU,0.038916015625
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: origin RD,0.0005859375
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: exit LU,0.058154296875
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: exit LD,0.0
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: exit RU,0.0978515625
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: exit RD,0.0
+Nielsen,Nov_6_g0,regions_dwell,gbm,dwell: elsewhere,0.165380859375

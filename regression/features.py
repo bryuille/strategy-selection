@@ -9,7 +9,7 @@ re-warped per trial inside the analysis window.
 2. **Clip** samples and pupil to ``[geo_present, fix_start]``
    (`config.window_bounds`), exactly as the windowed branch of
    `data.builder.clean_eye_data` does, including its >= 6-sample floor.
-3. **Detect** saccades and I-DT fixations on the clipped segment with
+3. **Detect** saccades and fixations on the clipped segment with
    `data.builder.trial_events` -- the detector behind every events cache.
 4. **Warp + validity** with `data.builder.prepare_trial`, given those events:
    unit-H position and a mask of on-screen, non-blink fixation samples.
@@ -29,6 +29,8 @@ import json
 
 import numpy as np
 
+from data.builder import FIXATION_EVENT
+
 from regression.config import (
     ASSIGN_RADIUS,
     CODEBOOK_XY,
@@ -43,7 +45,6 @@ from regression.config import (
 )
 
 SCHEMA_VERSION = 1
-FIXATION_EVENT = "fixation_idt"
 
 
 # ---- helpers copied from msp/features.py -------------------------------------
@@ -407,7 +408,7 @@ def trial_measures(data):
     """Per (trial, state) measures from the per-fixation table.
 
     ``occ``      1 if the state received any assigned dwell, else 0
-    ``visits``   runs of consecutive same-state assigned fixations, so an I-DT
+    ``visits``   runs of consecutive same-state assigned fixations, so a detector
                  drift split into fragments counts once
     ``dur_ms``   dwell / visits; NaN where unvisited
     ``dwell_ms`` total assigned dwell (msp's ``occ_ms``)

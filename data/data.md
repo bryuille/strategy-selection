@@ -31,6 +31,7 @@ published ranges are read from `Single_Trial_List/`.
 | `<Monkey>_msp_fixed5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
 | `<Monkey>_msp_revised_fix[_svm]` (legacy name) | `classifier.fixations` | `classifier.fixations.load` |
 | `<Monkey>_reg_fixed5_<tag>` | `regression.features` | `regression.features.load_fixations` |
+| `<Monkey>_cf_exits` | `counterfactual.extract` | `counterfactual.extract.load` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
 `<tag>` is a radius tag such as `r1` or `r0.5`. msp and regression analyse
@@ -125,12 +126,12 @@ is `geo_type` (1–6). QC used everywhere for pooled analyses:
 Long table of saccade / fixation events (one row per event). Detection runs
 **after** optional clipping to
 `[fix_start − S, fix_start − E]` ms from `geo_present`. Whole-trial and
-windowed stems must not overwrite each other: I-DT is order-dependent, so the
-two are different analyses.
+windowed stems must not overwrite each other: the saccade threshold and the
+first fixation anchor come from the segment, so the two are different analyses.
 
 | Key | Meaning |
 | --- | --- |
-| `name` | Event type (`fixation_idt`, `saccade`, …) |
+| `name` | Event type (`fixation`, `saccade`, …) |
 | `onset`, `offset`, `duration` | ms from `geo_present` (within the detection segment) |
 | `peak_velocity`, `amplitude`, `dispersion` | pymovements event properties |
 | `location_x`, `location_y` | Event location (degrees) |

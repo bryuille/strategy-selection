@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,regions_all,gbm,1,0.058823529411764705,85,1,,,,,,,
+Faure,regions_all,gbm,2,0.5421607378129117,69,22,,,,,,,
+Faure,regions_all,gbm,3,0.625,90,4,,,,,,,
+Faure,regions_all,gbm,4,0.4519230769230769,13,96,,,,,,,
+Faure,regions_all,gbm,5,0.5084615384615384,20,130,,,,,,,
+Faure,regions_all,gbm,6,0.6535626535626535,11,111,,,,,,,
+Faure,regions_all,gbm,held-out june_24_g0,0.4877214796394156,,,,,,,,,
+Faure,regions_all,gbm,held-out june_8_g0,0.4876847290640394,,,,,,,,,
+Faure,regions_all,gbm,leave-one-session-out pooled,0.48771736130278776,,,,,,,,,
+Faure,regions_all,gbm,within-maze pooled,0.5314277588168373,288,364,0.4983418657565416,0.045762558596300476,0.7229904549736095,0.24378109452736318,0.9125457875457875,27,200
+Nielsen,regions_all,gbm,1,0.2988505747126437,116,3,,,,,,,
+Nielsen,regions_all,gbm,2,0.5076115485564304,127,15,,,,,,,
+Nielsen,regions_all,gbm,3,0.6792750197005516,141,9,,,,,,,
+Nielsen,regions_all,gbm,4,0.6502347417840375,66,71,,,,,,,
+Nielsen,regions_all,gbm,5,0.4451754385964912,3,152,,,,,,,
+Nielsen,regions_all,gbm,held-out Nov_3_g0,0.6099344427634896,,,,,,,,,
+Nielsen,regions_all,gbm,held-out Nov_6_g0,0.4921875,,,,,,,,,
+Nielsen,regions_all,gbm,leave-one-session-out pooled,0.550111634830067,,,,,,,,,
+Nielsen,regions_all,gbm,within-maze pooled,0.5982225300092336,453,412,0.49325398199445986,0.04958891960184127,2.1167742483116374,0.009950248756218905,0.9574465805096551,27,200

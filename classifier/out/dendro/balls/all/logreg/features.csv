@@ -1,0 +1,31 @@
+monkey,branch,model,feature,weight
+Faure,balls_all,logreg,dwell: origin,-0.05573415218335029
+Faure,balls_all,logreg,dwell: exit LU,0.06786398404467721
+Faure,balls_all,logreg,dwell: exit LD,-0.2952462937629484
+Faure,balls_all,logreg,dwell: exit RU,0.14808998252305106
+Faure,balls_all,logreg,dwell: exit RD,-0.24270499278748406
+Faure,balls_all,logreg,binary: origin,-0.007770826188310647
+Faure,balls_all,logreg,binary: exit LU,0.010530939633059644
+Faure,balls_all,logreg,binary: exit LD,-0.12556623173285497
+Faure,balls_all,logreg,binary: exit RU,-0.061798862937113105
+Faure,balls_all,logreg,binary: exit RD,0.06536929063217957
+Faure,balls_all,logreg,count: origin,0.04584331671725245
+Faure,balls_all,logreg,count: exit LU,-0.06521215204004056
+Faure,balls_all,logreg,count: exit LD,0.18325787758582177
+Faure,balls_all,logreg,count: exit RU,-0.061798862937113105
+Faure,balls_all,logreg,count: exit RD,0.06536929063217957
+Nielsen,balls_all,logreg,dwell: origin,-0.016442924867975488
+Nielsen,balls_all,logreg,dwell: exit LU,0.20793312323691243
+Nielsen,balls_all,logreg,dwell: exit LD,0.016797368467946234
+Nielsen,balls_all,logreg,dwell: exit RU,0.24967907011209925
+Nielsen,balls_all,logreg,dwell: exit RD,0.16330490152894553
+Nielsen,balls_all,logreg,binary: origin,-0.1556166856628853
+Nielsen,balls_all,logreg,binary: exit LU,-0.1070596263619505
+Nielsen,balls_all,logreg,binary: exit LD,0.0310451374020537
+Nielsen,balls_all,logreg,binary: exit RU,0.04893937023171602
+Nielsen,balls_all,logreg,binary: exit RD,-0.09467720274088955
+Nielsen,balls_all,logreg,count: origin,0.1234431757571765
+Nielsen,balls_all,logreg,count: exit LU,-0.1799732454932487
+Nielsen,balls_all,logreg,count: exit LD,0.0310451374020537
+Nielsen,balls_all,logreg,count: exit RU,0.051964619824176474
+Nielsen,balls_all,logreg,count: exit RD,-0.0727526179860723

@@ -1,0 +1,109 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,regions_all,gbm,dwell: origin LU,0.062480571961454755
+Faure,june_24_g0,regions_all,gbm,dwell: origin LD,0.06266708113148896
+Faure,june_24_g0,regions_all,gbm,dwell: origin RU,0.03804787068697542
+Faure,june_24_g0,regions_all,gbm,dwell: origin RD,0.06935032639104755
+Faure,june_24_g0,regions_all,gbm,dwell: exit LU,0.004382965495803548
+Faure,june_24_g0,regions_all,gbm,dwell: exit LD,0.044793285669878724
+Faure,june_24_g0,regions_all,gbm,dwell: exit RU,0.020111905502020487
+Faure,june_24_g0,regions_all,gbm,dwell: exit RD,0.0
+Faure,june_24_g0,regions_all,gbm,dwell: elsewhere,0.059434255517562914
+Faure,june_24_g0,regions_all,gbm,binary: origin LU,0.0
+Faure,june_24_g0,regions_all,gbm,binary: origin LD,0.0
+Faure,june_24_g0,regions_all,gbm,binary: origin RU,0.0
+Faure,june_24_g0,regions_all,gbm,binary: origin RD,0.0
+Faure,june_24_g0,regions_all,gbm,binary: exit LU,0.0
+Faure,june_24_g0,regions_all,gbm,binary: exit LD,0.0
+Faure,june_24_g0,regions_all,gbm,binary: exit RU,0.0
+Faure,june_24_g0,regions_all,gbm,binary: exit RD,0.0
+Faure,june_24_g0,regions_all,gbm,binary: elsewhere,0.0
+Faure,june_24_g0,regions_all,gbm,count: origin LU,0.0
+Faure,june_24_g0,regions_all,gbm,count: origin LD,0.0
+Faure,june_24_g0,regions_all,gbm,count: origin RU,0.0
+Faure,june_24_g0,regions_all,gbm,count: origin RD,0.0
+Faure,june_24_g0,regions_all,gbm,count: exit LU,0.0
+Faure,june_24_g0,regions_all,gbm,count: exit LD,0.0
+Faure,june_24_g0,regions_all,gbm,count: exit RU,0.0
+Faure,june_24_g0,regions_all,gbm,count: exit RD,0.0
+Faure,june_24_g0,regions_all,gbm,count: elsewhere,0.0
+Faure,june_8_g0,regions_all,gbm,dwell: origin LU,0.05911330049261081
+Faure,june_8_g0,regions_all,gbm,dwell: origin LD,0.03645320197044335
+Faure,june_8_g0,regions_all,gbm,dwell: origin RU,0.005418719211822664
+Faure,june_8_g0,regions_all,gbm,dwell: origin RD,0.0
+Faure,june_8_g0,regions_all,gbm,dwell: exit LU,0.0665024630541872
+Faure,june_8_g0,regions_all,gbm,dwell: exit LD,0.03399014778325125
+Faure,june_8_g0,regions_all,gbm,dwell: exit RU,0.0
+Faure,june_8_g0,regions_all,gbm,dwell: exit RD,0.0
+Faure,june_8_g0,regions_all,gbm,dwell: elsewhere,0.0665024630541872
+Faure,june_8_g0,regions_all,gbm,binary: origin LU,0.0
+Faure,june_8_g0,regions_all,gbm,binary: origin LD,0.0
+Faure,june_8_g0,regions_all,gbm,binary: origin RU,0.0
+Faure,june_8_g0,regions_all,gbm,binary: origin RD,0.0
+Faure,june_8_g0,regions_all,gbm,binary: exit LU,0.0
+Faure,june_8_g0,regions_all,gbm,binary: exit LD,0.0
+Faure,june_8_g0,regions_all,gbm,binary: exit RU,0.0
+Faure,june_8_g0,regions_all,gbm,binary: exit RD,0.0
+Faure,june_8_g0,regions_all,gbm,binary: elsewhere,0.0
+Faure,june_8_g0,regions_all,gbm,count: origin LU,0.0
+Faure,june_8_g0,regions_all,gbm,count: origin LD,0.0
+Faure,june_8_g0,regions_all,gbm,count: origin RU,0.0
+Faure,june_8_g0,regions_all,gbm,count: origin RD,0.0
+Faure,june_8_g0,regions_all,gbm,count: exit LU,0.0
+Faure,june_8_g0,regions_all,gbm,count: exit LD,0.0
+Faure,june_8_g0,regions_all,gbm,count: exit RU,0.0
+Faure,june_8_g0,regions_all,gbm,count: exit RD,0.0
+Faure,june_8_g0,regions_all,gbm,count: elsewhere,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: origin LU,0.03363590519415023
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: origin LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: origin RU,0.10060514372163383
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: origin RD,0.0058497226424608865
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: exit LU,0.04326777609682295
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: exit LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: exit RU,0.028088754412506266
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: exit RD,-0.00025214321734747804
+Nielsen,Nov_3_g0,regions_all,gbm,dwell: elsewhere,0.17609682299546137
+Nielsen,Nov_3_g0,regions_all,gbm,binary: origin LU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: origin LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: origin RU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: origin RD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: exit LU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: exit LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: exit RU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: exit RD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,binary: elsewhere,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: origin LU,-0.0001512859304085623
+Nielsen,Nov_3_g0,regions_all,gbm,count: origin LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: origin RU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: origin RD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: exit LU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: exit LD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: exit RU,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: exit RD,0.0
+Nielsen,Nov_3_g0,regions_all,gbm,count: elsewhere,-0.0020171457387796465
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: origin LU,0.046142578125
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: origin LD,0.028564453125
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: origin RU,0.037646484375
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: origin RD,0.00732421875
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: exit LU,0.0630859375
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: exit LD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: exit RU,0.089306640625
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: exit RD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,dwell: elsewhere,0.184521484375
+Nielsen,Nov_6_g0,regions_all,gbm,binary: origin LU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: origin LD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: origin RU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: origin RD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: exit LU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: exit LD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: exit RU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: exit RD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,binary: elsewhere,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: origin LU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: origin LD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: origin RU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: origin RD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: exit LU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: exit LD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: exit RU,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: exit RD,0.0
+Nielsen,Nov_6_g0,regions_all,gbm,count: elsewhere,0.01982421875

@@ -1,0 +1,17 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,exits_dwell,logreg,dwell: exit LU,0.014257885688706083
+Faure,june_24_g0,exits_dwell,logreg,dwell: exit LD,-0.302475466609972
+Faure,june_24_g0,exits_dwell,logreg,dwell: exit RU,0.09400350924774276
+Faure,june_24_g0,exits_dwell,logreg,dwell: exit RD,-0.1960341620081661
+Faure,june_8_g0,exits_dwell,logreg,dwell: exit LU,-0.04780243546383364
+Faure,june_8_g0,exits_dwell,logreg,dwell: exit LD,-0.21893836922252438
+Faure,june_8_g0,exits_dwell,logreg,dwell: exit RU,-0.068954959762943
+Faure,june_8_g0,exits_dwell,logreg,dwell: exit RD,-0.018650364737369484
+Nielsen,Nov_3_g0,exits_dwell,logreg,dwell: exit LU,-0.09338170513909785
+Nielsen,Nov_3_g0,exits_dwell,logreg,dwell: exit LD,0.1469456613135015
+Nielsen,Nov_3_g0,exits_dwell,logreg,dwell: exit RU,0.2599333032316532
+Nielsen,Nov_3_g0,exits_dwell,logreg,dwell: exit RD,0.18069140109851295
+Nielsen,Nov_6_g0,exits_dwell,logreg,dwell: exit LU,-0.09106260846261544
+Nielsen,Nov_6_g0,exits_dwell,logreg,dwell: exit LD,0.03377958825969571
+Nielsen,Nov_6_g0,exits_dwell,logreg,dwell: exit RU,0.34629810238454495
+Nielsen,Nov_6_g0,exits_dwell,logreg,dwell: exit RD,-0.09225127171586557

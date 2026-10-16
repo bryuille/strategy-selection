@@ -1,0 +1,73 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: origin,-0.03127435288687751
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: capsule LU,-0.026737536014247255
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: capsule LD,0.11192517415226819
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: capsule RU,0.04610502703094781
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: capsule RD,-0.0821956937295503
+Faure,june_24_g0,capsules_tight_all,logreg,dwell: elsewhere,-0.06372618328678202
+Faure,june_24_g0,capsules_tight_all,logreg,binary: origin,-0.01073636425384666
+Faure,june_24_g0,capsules_tight_all,logreg,binary: capsule LU,-0.04109923244179396
+Faure,june_24_g0,capsules_tight_all,logreg,binary: capsule LD,-0.15412634664390956
+Faure,june_24_g0,capsules_tight_all,logreg,binary: capsule RU,-0.24787112270538186
+Faure,june_24_g0,capsules_tight_all,logreg,binary: capsule RD,0.1252295995411401
+Faure,june_24_g0,capsules_tight_all,logreg,binary: elsewhere,-0.07765674742498285
+Faure,june_24_g0,capsules_tight_all,logreg,count: origin,0.19500287694885984
+Faure,june_24_g0,capsules_tight_all,logreg,count: capsule LU,-0.08758235032504307
+Faure,june_24_g0,capsules_tight_all,logreg,count: capsule LD,-0.12570391508102952
+Faure,june_24_g0,capsules_tight_all,logreg,count: capsule RU,-0.1302989848777721
+Faure,june_24_g0,capsules_tight_all,logreg,count: capsule RD,0.1252295995411401
+Faure,june_24_g0,capsules_tight_all,logreg,count: elsewhere,0.07444090592408847
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: origin,0.04854822110753243
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: capsule LU,0.11663906773996897
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: capsule LD,-0.2634480352793739
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: capsule RU,-0.0137462411242234
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: capsule RD,0.04386632175892096
+Faure,june_8_g0,capsules_tight_all,logreg,dwell: elsewhere,0.08747091205820541
+Faure,june_8_g0,capsules_tight_all,logreg,binary: origin,0.04567316167455246
+Faure,june_8_g0,capsules_tight_all,logreg,binary: capsule LU,-0.08020836369240755
+Faure,june_8_g0,capsules_tight_all,logreg,binary: capsule LD,-0.12565193767425845
+Faure,june_8_g0,capsules_tight_all,logreg,binary: capsule RU,-0.08234612335097233
+Faure,june_8_g0,capsules_tight_all,logreg,binary: capsule RD,-0.006558455603217615
+Faure,june_8_g0,capsules_tight_all,logreg,binary: elsewhere,0.01256142734445528
+Faure,june_8_g0,capsules_tight_all,logreg,count: origin,0.08995342147625206
+Faure,june_8_g0,capsules_tight_all,logreg,count: capsule LU,-0.14257135577109448
+Faure,june_8_g0,capsules_tight_all,logreg,count: capsule LD,0.1589737067423445
+Faure,june_8_g0,capsules_tight_all,logreg,count: capsule RU,-0.035058627253333544
+Faure,june_8_g0,capsules_tight_all,logreg,count: capsule RD,-0.006558455603217615
+Faure,june_8_g0,capsules_tight_all,logreg,count: elsewhere,-0.059798325766214966
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: origin,0.08608282160612314
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: capsule LU,-0.11622293383449772
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: capsule LD,0.09501014624474764
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: capsule RU,0.1305161934448024
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: capsule RD,0.0893087760460907
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,dwell: elsewhere,-0.1256613249858103
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: origin,-0.03352811384341
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: capsule LU,-0.015110957413569645
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: capsule LD,0.01477583603966599
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: capsule RU,0.03244498956389439
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: capsule RD,0.16210530723971733
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,binary: elsewhere,0.0600641480795936
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: origin,0.041995188136671115
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: capsule LU,-0.11362815988449683
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: capsule LD,0.09563736588735383
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: capsule RU,0.027622096702826837
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: capsule RD,0.05607744884171475
+Nielsen,Nov_3_g0,capsules_tight_all,logreg,count: elsewhere,-0.007833798280856397
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: origin,-0.18178658840181433
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: capsule LU,-0.01889073792619275
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: capsule LD,-0.000603354049900524
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: capsule RU,0.1811091872244516
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: capsule RD,0.05419083026566205
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,dwell: elsewhere,0.02826788487329138
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: origin,-0.10332942144637973
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: capsule LU,0.044823493982961406
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: capsule LD,0.10461509277111053
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: capsule RU,-0.08850093481678228
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: capsule RD,0.042950835374127784
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,binary: elsewhere,-0.09185419830286329
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: origin,0.044802746419117655
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: capsule LU,-0.13988319757761258
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: capsule LD,0.031453507346746
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: capsule RU,0.017726046919098886
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: capsule RD,-0.014034352812739173
+Nielsen,Nov_6_g0,capsules_tight_all,logreg,count: elsewhere,-0.005644744989039431

@@ -1,0 +1,11 @@
+monkey,branch,model,feature,weight
+Faure,balls_dwell,logreg,dwell: origin,-0.04445352235419728
+Faure,balls_dwell,logreg,dwell: exit LU,0.03057499536741157
+Faure,balls_dwell,logreg,dwell: exit LD,-0.2500760125743337
+Faure,balls_dwell,logreg,dwell: exit RU,0.0518455299155182
+Faure,balls_dwell,logreg,dwell: exit RD,-0.14276651439565483
+Nielsen,balls_dwell,logreg,dwell: origin,-0.0304318190864421
+Nielsen,balls_dwell,logreg,dwell: exit LU,-0.005041360881301101
+Nielsen,balls_dwell,logreg,dwell: exit LD,0.08907204656330692
+Nielsen,balls_dwell,logreg,dwell: exit RU,0.3046754734305729
+Nielsen,balls_dwell,logreg,dwell: exit RD,0.038378164072703384

@@ -1,0 +1,43 @@
+monkey,branch,model,feature,weight
+Faure,regions_plus,gbm,dwell: origin LU,0.04256399988558683
+Faure,regions_plus,gbm,dwell: origin LD,0.032202740196218695
+Faure,regions_plus,gbm,dwell: origin RU,0.030236549297789007
+Faure,regions_plus,gbm,dwell: origin RD,0.00022196161437033625
+Faure,regions_plus,gbm,dwell: exit LU,0.02457481193329718
+Faure,regions_plus,gbm,dwell: exit LD,0.044448385343668684
+Faure,regions_plus,gbm,dwell: exit RU,0.003006778982294578
+Faure,regions_plus,gbm,dwell: exit RD,0.0
+Faure,regions_plus,gbm,dwell: near 5-10 deg,0.06257944566803013
+Faure,regions_plus,gbm,dwell: far > 10 deg,0.03566831612368073
+Faure,regions_plus,gbm,binary: origin LU,0.0
+Faure,regions_plus,gbm,binary: origin LD,0.0
+Faure,regions_plus,gbm,binary: origin RU,0.0
+Faure,regions_plus,gbm,binary: origin RD,0.0
+Faure,regions_plus,gbm,binary: exit LU,0.0
+Faure,regions_plus,gbm,binary: exit LD,0.0
+Faure,regions_plus,gbm,binary: exit RU,0.0
+Faure,regions_plus,gbm,binary: exit RD,0.0
+Faure,regions_plus,gbm,binary: near 5-10 deg,0.0
+Faure,regions_plus,gbm,binary: far > 10 deg,0.0
+Faure,regions_plus,gbm,pupil change z,0.0603644060524585
+Nielsen,regions_plus,gbm,dwell: origin LU,0.059620562168289724
+Nielsen,regions_plus,gbm,dwell: origin LD,0.012723179780491534
+Nielsen,regions_plus,gbm,dwell: origin RU,0.02627177049518208
+Nielsen,regions_plus,gbm,dwell: origin RD,0.012204037203071016
+Nielsen,regions_plus,gbm,dwell: exit LU,0.02580641005822637
+Nielsen,regions_plus,gbm,dwell: exit LD,0.0020504843613128763
+Nielsen,regions_plus,gbm,dwell: exit RU,0.02734805740196833
+Nielsen,regions_plus,gbm,dwell: exit RD,0.03862459421858089
+Nielsen,regions_plus,gbm,dwell: near 5-10 deg,0.020780839387849692
+Nielsen,regions_plus,gbm,dwell: far > 10 deg,0.04213428144483942
+Nielsen,regions_plus,gbm,binary: origin LU,0.0
+Nielsen,regions_plus,gbm,binary: origin LD,0.0
+Nielsen,regions_plus,gbm,binary: origin RU,0.0
+Nielsen,regions_plus,gbm,binary: origin RD,0.0
+Nielsen,regions_plus,gbm,binary: exit LU,0.0
+Nielsen,regions_plus,gbm,binary: exit LD,0.0
+Nielsen,regions_plus,gbm,binary: exit RU,0.0
+Nielsen,regions_plus,gbm,binary: exit RD,0.0
+Nielsen,regions_plus,gbm,binary: near 5-10 deg,0.0
+Nielsen,regions_plus,gbm,binary: far > 10 deg,0.0
+Nielsen,regions_plus,gbm,pupil change z,0.03986061730303496

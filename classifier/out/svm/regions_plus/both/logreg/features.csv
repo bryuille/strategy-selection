@@ -1,0 +1,43 @@
+monkey,branch,model,feature,weight
+Faure,regions_plus,logreg,dwell: origin LU,0.17871455405929007
+Faure,regions_plus,logreg,dwell: origin LD,-0.022321736673104137
+Faure,regions_plus,logreg,dwell: origin RU,-0.01214495677640841
+Faure,regions_plus,logreg,dwell: origin RD,-0.007122349131481843
+Faure,regions_plus,logreg,dwell: exit LU,0.052822308431963456
+Faure,regions_plus,logreg,dwell: exit LD,-0.14475103250694235
+Faure,regions_plus,logreg,dwell: exit RU,-0.021980105497702733
+Faure,regions_plus,logreg,dwell: exit RD,0.11097442031196231
+Faure,regions_plus,logreg,dwell: near 5-10 deg,0.01415235150098239
+Faure,regions_plus,logreg,dwell: far > 10 deg,-0.08600015655410195
+Faure,regions_plus,logreg,binary: origin LU,0.10729504903925906
+Faure,regions_plus,logreg,binary: origin LD,0.017478935198199805
+Faure,regions_plus,logreg,binary: origin RU,0.1378833354147034
+Faure,regions_plus,logreg,binary: origin RD,0.04448133538067962
+Faure,regions_plus,logreg,binary: exit LU,-0.12219585164330246
+Faure,regions_plus,logreg,binary: exit LD,0.11195976001715525
+Faure,regions_plus,logreg,binary: exit RU,0.06174464686712339
+Faure,regions_plus,logreg,binary: exit RD,-0.02820596594456268
+Faure,regions_plus,logreg,binary: near 5-10 deg,-0.15315797631063913
+Faure,regions_plus,logreg,binary: far > 10 deg,0.0470517667752596
+Faure,regions_plus,logreg,pupil change z,0.13599458833472336
+Nielsen,regions_plus,logreg,dwell: origin LU,-0.17052629710821937
+Nielsen,regions_plus,logreg,dwell: origin LD,-0.11657244820648373
+Nielsen,regions_plus,logreg,dwell: origin RU,0.10708544709035937
+Nielsen,regions_plus,logreg,dwell: origin RD,0.038060251361126625
+Nielsen,regions_plus,logreg,dwell: exit LU,-0.0279765153209322
+Nielsen,regions_plus,logreg,dwell: exit LD,-0.12924385763044843
+Nielsen,regions_plus,logreg,dwell: exit RU,0.06300908646180371
+Nielsen,regions_plus,logreg,dwell: exit RD,0.14519727787418635
+Nielsen,regions_plus,logreg,dwell: near 5-10 deg,-0.11370787762870434
+Nielsen,regions_plus,logreg,dwell: far > 10 deg,0.08697895815079741
+Nielsen,regions_plus,logreg,binary: origin LU,0.15972802435895447
+Nielsen,regions_plus,logreg,binary: origin LD,0.17370665320683853
+Nielsen,regions_plus,logreg,binary: origin RU,0.004685471909963007
+Nielsen,regions_plus,logreg,binary: origin RD,0.03259576745793051
+Nielsen,regions_plus,logreg,binary: exit LU,-0.09566146047322079
+Nielsen,regions_plus,logreg,binary: exit LD,0.11522606654799872
+Nielsen,regions_plus,logreg,binary: exit RU,0.09613349281901379
+Nielsen,regions_plus,logreg,binary: exit RD,0.06440856110001218
+Nielsen,regions_plus,logreg,binary: near 5-10 deg,0.06739888414300524
+Nielsen,regions_plus,logreg,binary: far > 10 deg,-0.05860227115930357
+Nielsen,regions_plus,logreg,pupil change z,0.07571335402285408

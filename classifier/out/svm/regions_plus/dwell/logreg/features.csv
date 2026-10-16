@@ -1,0 +1,23 @@
+monkey,branch,model,feature,weight
+Faure,regions_plus_dwell,logreg,dwell: origin LU,0.20666366033762298
+Faure,regions_plus_dwell,logreg,dwell: origin LD,-0.04040522618640377
+Faure,regions_plus_dwell,logreg,dwell: origin RU,0.06782719424488715
+Faure,regions_plus_dwell,logreg,dwell: origin RD,0.012306353086280667
+Faure,regions_plus_dwell,logreg,dwell: exit LU,-0.05669959323246736
+Faure,regions_plus_dwell,logreg,dwell: exit LD,-0.07235070403558821
+Faure,regions_plus_dwell,logreg,dwell: exit RU,0.012745964159460978
+Faure,regions_plus_dwell,logreg,dwell: exit RD,0.07987090379542487
+Faure,regions_plus_dwell,logreg,dwell: near 5-10 deg,-0.1242024002610363
+Faure,regions_plus_dwell,logreg,dwell: far > 10 deg,-0.08814376148769375
+Faure,regions_plus_dwell,logreg,pupil change z,0.11221502484465372
+Nielsen,regions_plus_dwell,logreg,dwell: origin LU,-0.097067699312944
+Nielsen,regions_plus_dwell,logreg,dwell: origin LD,0.0036768364748353843
+Nielsen,regions_plus_dwell,logreg,dwell: origin RU,0.06277798209346534
+Nielsen,regions_plus_dwell,logreg,dwell: origin RD,0.04760174794293783
+Nielsen,regions_plus_dwell,logreg,dwell: exit LU,-0.1285609734734034
+Nielsen,regions_plus_dwell,logreg,dwell: exit LD,-0.020778769040300755
+Nielsen,regions_plus_dwell,logreg,dwell: exit RU,0.13216215359008354
+Nielsen,regions_plus_dwell,logreg,dwell: exit RD,0.1912968791569988
+Nielsen,regions_plus_dwell,logreg,dwell: near 5-10 deg,-0.08592441356098417
+Nielsen,regions_plus_dwell,logreg,dwell: far > 10 deg,0.0023205374899114865
+Nielsen,regions_plus_dwell,logreg,pupil change z,0.06802025689786698

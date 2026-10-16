@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,capsules_tight_all,logreg,1,0.6352941176470588,85,1,,,,,,,
+Faure,capsules_tight_all,logreg,2,0.5434782608695652,69,22,,,,,,,
+Faure,capsules_tight_all,logreg,3,0.3472222222222222,90,4,,,,,,,
+Faure,capsules_tight_all,logreg,4,0.5921474358974359,13,96,,,,,,,
+Faure,capsules_tight_all,logreg,5,0.4757692307692308,20,130,,,,,,,
+Faure,capsules_tight_all,logreg,6,0.4864864864864865,11,111,,,,,,,
+Faure,capsules_tight_all,logreg,held-out june_24_g0,0.5879701585327946,,,,,,,,,
+Faure,capsules_tight_all,logreg,held-out june_8_g0,0.6379310344827587,,,,,,,,,
+Faure,capsules_tight_all,logreg,leave-one-session-out pooled,0.5935688655810102,,,,,,,,,
+Faure,capsules_tight_all,logreg,within-maze pooled,0.5082480091012515,288,364,0.4931822383390216,0.054455618038221895,0.2766614594596161,0.417910447761194,0.9093120421245421,18,200
+Nielsen,capsules_tight_all,logreg,1,0.5545977011494253,116,3,,,,,,,
+Nielsen,capsules_tight_all,logreg,2,0.6173228346456693,127,15,,,,,,,
+Nielsen,capsules_tight_all,logreg,3,0.4799054373522459,141,9,,,,,,,
+Nielsen,capsules_tight_all,logreg,4,0.5633802816901409,66,71,,,,,,,
+Nielsen,capsules_tight_all,logreg,5,0.41885964912280704,3,152,,,,,,,
+Nielsen,capsules_tight_all,logreg,held-out Nov_3_g0,0.6031265758951084,,,,,,,,,
+Nielsen,capsules_tight_all,logreg,held-out Nov_6_g0,0.50244140625,,,,,,,,,
+Nielsen,capsules_tight_all,logreg,leave-one-session-out pooled,0.5519722153311833,,,,,,,,,
+Nielsen,capsules_tight_all,logreg,within-maze pooled,0.5550554016620498,453,412,0.4839840143120961,0.05099338583316903,1.3937373678710465,0.06965174129353234,0.9547729269808611,18,200

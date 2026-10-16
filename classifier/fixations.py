@@ -3,7 +3,7 @@
 Extraction, window maze onset -> fixation onset:
 
 1. **Clip** each trial to ``[0, fix_start]`` ms from maze onset.
-2. **Detect** I-DT fixations and saccades on the clipped, unwarped gaze
+2. **Detect** saccades and fixations on the clipped, unwarped gaze
    (`data.builder.trial_events`), blink events masked from the pupil trace.
 3. **Warp** to unit H (`data.builder.prepare_trial`).
 4. **Centroids**: every fixation with >= 1 valid in-window sample is kept
@@ -34,6 +34,7 @@ import numpy as np
 
 from data.builder import (
     EYE_SAMPLING_RATE_HZ,
+    FIXATION_EVENT,
     FIXATION_MIN_DURATION_MS,
     behavioral_lookup,
     fix_start_ms,
@@ -58,10 +59,9 @@ from classifier.config import (
 
 # Schema and window tag are the on-disk contract of the existing caches;
 # change them only together with a rebuild.
-SCHEMA = 2
+SCHEMA = 3
 WINDOW_TAG = "onset_to_fix"
 MIN_WINDOW_SAMPLES = 6
-FIXATION_EVENT = "fixation_idt"
 PUPIL_EDGE_MS = 50
 UNIT_LIM = 3.0  # unit-H box; warped samples outside are off-maze
 

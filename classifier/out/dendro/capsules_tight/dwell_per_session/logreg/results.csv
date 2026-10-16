@@ -1,0 +1,24 @@
+monkey,session,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,june_24_g0,capsules_tight_dwell,logreg,1,0.12195121951219512,41,1,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,2,0.4228571428571429,35,15,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,3,0.32978723404255317,47,4,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,4,0.5451388888888888,12,48,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,5,0.3682539682539683,18,70,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,6,0.46730462519936206,11,57,,,,,,,
+Faure,june_24_g0,capsules_tight_dwell,logreg,within-maze pooled,0.42275411874417157,164,195,0.48043985079266394,0.058371330114165274,-0.9882545409821571,0.8258706467661692,0.8369918699186992,6,200
+Faure,june_8_g0,capsules_tight_dwell,logreg,2,0.634453781512605,34,7,,,,,,,
+Faure,june_8_g0,capsules_tight_dwell,logreg,4,0.375,1,48,,,,,,,
+Faure,june_8_g0,capsules_tight_dwell,logreg,5,0.5666666666666667,2,60,,,,,,,
+Faure,june_8_g0,capsules_tight_dwell,logreg,within-maze pooled,0.583743842364532,124,169,0.41683497536945807,0.1290715640992513,1.2931497976326307,0.12935323383084577,0.9856365718648598,6,200
+Faure,combined,capsules_tight_dwell,logreg,"within-(session, maze) pooled",0.4407949213359095,,,0.4733121722329561,0.05445549489977704,-0.5971344298108608,0.746268656716418,,,200
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,2,0.5411764705882353,85,1,,,,,,,
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,4,0.6873614190687362,44,41,,,,,,,
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,5,0.19148936170212766,1,94,,,,,,,
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,within-maze pooled,0.6575895108421583,277,220,0.4738300554715078,0.08139886227321175,2.257518720026699,0.009950248756218905,0.985428290121431,6,200
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,1,0.39869281045751637,51,3,,,,,,,
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,2,0.6989795918367347,42,14,,,,,,,
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,3,0.448210922787194,59,9,,,,,,,
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,4,0.5242424242424243,22,30,,,,,,,
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,5,0.22413793103448276,2,58,,,,,,,
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,within-maze pooled,0.5283203125,176,192,0.46718017578125,0.06545932863712686,0.9340171674793635,0.15920398009950248,0.9280894886363636,6,200
+Nielsen,combined,capsules_tight_dwell,logreg,"within-(session, maze) pooled",0.5919126767551476,,,0.4704515008682709,0.051309752082390095,2.367214242077055,0.004975124378109453,,,200

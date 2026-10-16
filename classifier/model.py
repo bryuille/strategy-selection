@@ -6,14 +6,6 @@ Every model sees the features plus a maze one-hot. Folds are stratified on
 maze, the fraction where the H trial got the lower S-probability (ties count
 half). Maze identity cannot move it. Its null is the same CV repeated on
 labels shuffled within (session, maze).
-
-With `ORDER_CONTROL` (build --order-control) linear + quadratic trial order
-join the design and the null becomes a conditional permutation: labels and
-order stay fixed, each feature keeps its within-session order trend, and only
-its residual is shuffled within (session, maze). Order earns the same credit
-in the fit and in the null, so p asks whether gaze adds beyond drift; the
-AUC itself (and the held-out AUC) includes order's share, so read it against
-the null mean and the `order` branch.
 """
 
 from __future__ import annotations
@@ -57,60 +49,6 @@ def with_maze(X, maze):
     return np.hstack(blocks)
 
 
-ORDER_CONTROL = False  # set by build --order-control: order covariates + conditional permutation null
-
-
-def order_rank(meta):
-    """Trial position within its session, 0 (first scored trial) .. 1 (last)."""
-    r = np.zeros(len(meta["session"]))
-    for s in np.unique(meta["session"]):
-        idx = np.flatnonzero(meta["session"] == s)
-        ranks = np.argsort(np.argsort(meta["trial"][idx], kind="stable"), kind="stable")
-        r[idx] = ranks / max(idx.size - 1, 1)
-    return r
-
-
-def order_terms(meta):
-    """Linear and quadratic trial order: the drift a gaze model must beat."""
-    r = order_rank(meta)
-    return np.stack([r, r ** 2], 1)
-
-
-def design(X, meta):
-    """`with_maze`, plus the order terms under `ORDER_CONTROL`."""
-    Xm = with_maze(X, meta["maze"])
-    return np.hstack([Xm, order_terms(meta)]) if ORDER_CONTROL else Xm
-
-
-def order_split(X, meta):
-    """``(fit, resid)``: each feature regressed on (1, order, order^2) within
-    session over its finite values; NaN stays NaN in `resid`."""
-    T = np.column_stack([np.ones(len(X)), order_terms(meta)])
-    fit = np.zeros_like(X, dtype=float)
-    for s in np.unique(meta["session"]):
-        rows = np.flatnonzero(meta["session"] == s)
-        for j in range(X.shape[1]):
-            v = X[rows, j]
-            ok = np.isfinite(v)
-            if ok.sum() > T.shape[1]:
-                beta = np.linalg.lstsq(T[rows[ok]], v[ok], rcond=None)[0]
-                fit[rows, j] = T[rows] @ beta
-            elif ok.any():
-                fit[rows, j] = v[ok].mean()
-    return fit, X - fit
-
-
-def conditional_permute(fit, resid, groups, rng):
-    """Order-predicted part kept, residual rows permuted within `groups`:
-    a copy of X that keeps every feature's drift but breaks any link to the
-    label beyond it."""
-    out = resid.copy()
-    for g in np.unique(groups):
-        idx = np.flatnonzero(groups == g)
-        out[idx] = resid[rng.permutation(idx)]
-    return fit + out
-
-
 def within_maze_auc(p, y, maze):
     """Pairwise AUC restricted to same-group (H, S) pairs; also per group.
     `maze` is the maze id, or any group key (e.g. ``"session|maze"``)."""
@@ -136,7 +74,7 @@ def strata(meta, y):
 
 def oof_probabilities(X, y, meta, kind, *, seed=SEED, n_folds=N_FOLDS, n_repeats=N_REPEATS):
     """Mean out-of-fold S-probability over `n_repeats` stratified K-folds."""
-    Xm = design(X, meta)
+    Xm = with_maze(X, meta["maze"])
     st = strata(meta, y)
     # a stratum with < n_folds members cannot be split evenly; sklearn warns and
     # distributes it, which is what we want
@@ -179,15 +117,9 @@ def evaluate(X, y, meta, kind, *, n_perm=N_PERM, seed=SEED, n_repeats=N_REPEATS)
     groups = np.asarray([f"{s}|{m}" for s, m in zip(meta["session"], meta["maze"])])
     rng = np.random.default_rng((seed, 7))
     null = np.empty(n_perm)
-    if ORDER_CONTROL:
-        # labels and order fixed; only gaze beyond its own drift is shuffled
-        fit, resid = order_split(X, meta)
     for i in range(n_perm):
-        if ORDER_CONTROL:
-            Xp, yp = conditional_permute(fit, resid, groups, rng), y
-        else:
-            Xp, yp = X, shuffle_within(y, groups, rng)
-        pp = oof_probabilities(Xp, yp, meta, kind, seed=seed + 1 + i, n_repeats=1)
+        yp = shuffle_within(y, groups, rng)
+        pp = oof_probabilities(X, yp, meta, kind, seed=seed + 1 + i, n_repeats=1)
         null[i] = within_maze_auc(pp, yp, meta["maze"])[0]
     fin = null[np.isfinite(null)]
     z = (auc - fin.mean()) / fin.std(ddof=1) if fin.size > 1 and fin.std() > 0 else np.nan
@@ -203,7 +135,7 @@ def session_holdout(X, y, meta, kind, *, seed=SEED):
     value counts only same-(session, maze) pairs, since each session's
     probabilities come from a different model and are not comparable across
     sessions. With two sessions this is train-A-test-B both ways."""
-    Xm = design(X, meta)
+    Xm = with_maze(X, meta["maze"])
     sessions = np.unique(meta["session"])
     if sessions.size < 2:
         return {}, np.nan
@@ -226,7 +158,7 @@ def session_holdout(X, y, meta, kind, *, seed=SEED):
 def coefficients(X, y, meta, names, *, seed=SEED):
     """Standardised logistic coefficients on the whole pool (features only;
     the maze one-hot columns are dropped from the report)."""
-    Xm = design(X, meta)
+    Xm = with_maze(X, meta["maze"])
     model = make_model("logreg", seed=seed).fit(Xm, y)
     coef = model[-1].coef_.ravel()[: len(names)]
     return dict(zip(names, coef))
@@ -235,7 +167,7 @@ def coefficients(X, y, meta, names, *, seed=SEED):
 def gbm_importance(X, y, meta, names, *, seed=SEED, n_repeats=5):
     """Permutation importance of each feature for the within-maze AUC, fitted
     on the whole pool (optimistic, for ranking only)."""
-    Xm = design(X, meta)
+    Xm = with_maze(X, meta["maze"])
     model = make_model("gbm", seed=seed).fit(Xm, y)
     base = within_maze_auc(model.predict_proba(Xm)[:, 1], y, meta["maze"])[0]
     rng = np.random.default_rng(seed)

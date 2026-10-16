@@ -1,0 +1,25 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: origin,0.10256576668765977
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: capsule LU,-0.01745407865951841
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: capsule LD,-0.0022416616877210414
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: capsule RU,-0.12260654405420644
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: capsule RD,0.0912180516534507
+Faure,june_24_g0,capsules_tight_dwell,logreg,dwell: elsewhere,0.005687247132342474
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: origin,0.12853749375968435
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: capsule LU,0.058816144884435845
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: capsule LD,-0.25431855557385014
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: capsule RU,-0.0317756073076095
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: capsule RD,0.022297087262834525
+Faure,june_8_g0,capsules_tight_dwell,logreg,dwell: elsewhere,0.09202962180684537
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: origin,0.06746418418958643
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: capsule LU,-0.20974766464473465
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: capsule LD,0.16781267264613325
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: capsule RU,0.1786700465864171
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: capsule RD,0.2238140379415686
+Nielsen,Nov_3_g0,capsules_tight_dwell,logreg,dwell: elsewhere,-0.14522787671168344
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: origin,-0.1795605267946136
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: capsule LU,-0.051440987514793375
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: capsule LD,0.11427925303530348
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: capsule RU,0.15328638660124597
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: capsule RD,0.080386669234819
+Nielsen,Nov_6_g0,capsules_tight_dwell,logreg,dwell: elsewhere,0.03673138920543747

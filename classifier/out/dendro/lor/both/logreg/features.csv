@@ -1,0 +1,13 @@
+monkey,branch,model,feature,weight
+Faure,lor,logreg,dwell: origin,-0.010960359376583838
+Faure,lor,logreg,dwell: left,-0.12784355211379198
+Faure,lor,logreg,dwell: right,-0.020941525451999187
+Faure,lor,logreg,binary: origin,-0.04966091304247415
+Faure,lor,logreg,binary: left,0.12795636380389547
+Faure,lor,logreg,binary: right,-0.029054845109653536
+Nielsen,lor,logreg,dwell: origin,0.006452018881734718
+Nielsen,lor,logreg,dwell: left,0.04708247763165568
+Nielsen,lor,logreg,dwell: right,0.13608365463699232
+Nielsen,lor,logreg,binary: origin,-0.07483166893283472
+Nielsen,lor,logreg,binary: left,-0.09620493149450757
+Nielsen,lor,logreg,binary: right,0.07936645609131003

@@ -1,8 +1,8 @@
 """Feature matrices for both branches, one cache per monkey, branch and scope.
 
 Raw: `<Monkey>_clf_raw[_svm].npz`, built from the pooled eye cache and the
-pupil tables. Engineered / regions: computed on the fly from the fixation
-table of `classifier.fixations` (which also folds in the pupil tables). Both return ``(X, names, meta)`` with `meta` holding session,
+pupil tables. Regions: computed on the fly from the fixation table of
+`classifier.fixations` (which also folds in the pupil tables). Both return ``(X, names, meta)`` with `meta` holding session,
 trial, maze and label per row; rows are the labelled, QC-passing trials of
 the scope's mazes. Sessions without a pupil table get NaN pupil features
 (logistic imputes to the session mean, the tree takes NaN).
@@ -19,9 +19,16 @@ from data.config import processed_npz
 from data.loader import load_eye_behavioral_data, load_eye_data, savez_atomic
 from data.mat import load_npz
 from classifier.config import (
+    BALLS_ORIGIN_DEG,
+    CAPSULE_DEG,
+    CAPSULE_ORIGIN_DEG,
+    CAPSULE_ORIGIN_TIGHT_DEG,
     EXIT_BALL_DEG,
+    FAR_DEG,
     GRID_LIM_DEG,
     LABEL_SCOPES,
+    LOR_ORIGIN_DEG,
+    LOR_PERIMETER_DEG,
     MAZES,
     ORIGIN_DISC_DEG,
     POSITION_LIMIT_DEG,
@@ -32,7 +39,6 @@ from classifier.config import (
     RAW_BIN_MS,
     RAW_GRID,
     RAW_WINDOW_MS,
-    RING_EDGES_DEG,
 )
 
 RAW_SCHEMA = 2  # traces stored un-interpolated at 1 kHz; widths derived on load
@@ -244,6 +250,16 @@ def raw_matrix(d):
     return np.hstack(blocks), names
 
 
+def grid_matrix(d):
+    """The time-collapsed gaze map stored with the raw cache: share of
+    in-window samples per cell of a RAW_GRID x RAW_GRID grid over
+    [-GRID_LIM_DEG, GRID_LIM_DEG] deg (``np.histogram2d`` order, x outer)."""
+    edges = np.linspace(-GRID_LIM_DEG, GRID_LIM_DEG, RAW_GRID + 1)
+    mid = (edges[:-1] + edges[1:]) / 2
+    names = [f"gaze map x {mx:+.1f}, y {my:+.1f} deg" for mx in mid for my in mid]
+    return np.asarray(d["grid"], dtype=float), names
+
+
 def rebin(d, bin_ms):
     """A coarser copy of the 1 kHz cache by NaN-aware block-averaging of traces."""
     src = float(d.get("bin_ms", 1.0))
@@ -258,7 +274,7 @@ def rebin(d, bin_ms):
     return out
 
 
-# ---- engineered branch -------------------------------------------------------
+# ---- fixation table and maze landmarks ---------------------------------------
 
 
 def load_fix(monkey, *, labels="dendro", refresh=False):
@@ -275,117 +291,226 @@ def _exit_landmarks(h):
                      np.stack([h4, h5], 1), np.stack([h4, -h6], 1)], 1)  # LU, LD, RU, RD
 
 
-ENGINEERED_NAMES = (
-    "origin dwell share", "o-LU share", "o-LD share", "o-RU share", "o-RD share",
-    "LU visited", "LD visited", "RU visited", "RD visited",
-    "LU dwell", "LD dwell", "RU dwell", "RD dwell",
-    "ring 2-6 share", "ring 6-10 share", "ring >10 share",
-    "n fixations", "first fix: origin", "first fix: left", "first fix: right",
-    "last fix: origin", "last fix: left", "last fix: right",
-    "first fix onset (s)", "pupil mean z", "pupil change z",
-)
-
-
-def engineered_matrix(d):
-    """One row per cache trial (all of them; the caller selects labelled rows)."""
-    n = len(d["session"])
-    rows = np.asarray(d["fix_row"], dtype=int)
-    xy = np.asarray(d["fix_xy_d"], dtype=float)
-    ms = np.asarray(d["fix_valid_ms"], dtype=float)
-    onset = np.asarray(d["fix_onset_ms"], dtype=float)
-    h = np.asarray(d["h"], dtype=float)[rows]
-    rad = np.linalg.norm(xy, axis=1)
-    tot = np.bincount(rows, weights=ms, minlength=n)
-    share = lambda mask: np.divide(np.bincount(rows[mask], weights=ms[mask], minlength=n), tot,
-                                   out=np.zeros(n), where=tot > 0)
-    in_disc = rad <= ORIGIN_DISC_DEG
-    right, up = xy[:, 0] >= 0, xy[:, 1] >= 0
-    X = [share(in_disc),
-         share(in_disc & ~right & up), share(in_disc & ~right & ~up),
-         share(in_disc & right & up), share(in_disc & right & ~up)]
-    dist = np.linalg.norm(xy[:, None, :] - _exit_landmarks(h), axis=-1)  # (F, 4)
-    for k in range(4):
-        X.append((np.bincount(rows[dist[:, k] <= EXIT_BALL_DEG], minlength=n) > 0).astype(float))
-    for k in range(4):
-        X.append(share(dist[:, k] <= EXIT_BALL_DEG))
-    e = RING_EDGES_DEG
-    X += [share((rad > e[0]) & (rad <= e[1])), share((rad > e[1]) & (rad <= e[2])), share(rad > e[2])]
-    X.append(np.bincount(rows, minlength=n).astype(float))
-    order = np.lexsort((onset, rows))
-    first_i = order[np.unique(rows[order], return_index=True)[1]]
-    last_i = order[::-1][np.unique(rows[order[::-1]], return_index=True)[1]]
-    for idx in (first_i, last_i):
-        for cond in (rad[idx] <= ORIGIN_DISC_DEG,
-                     (rad[idx] > ORIGIN_DISC_DEG) & (xy[idx, 0] < 0),
-                     (rad[idx] > ORIGIN_DISC_DEG) & (xy[idx, 0] >= 0)):
-            v = np.zeros(n)
-            v[rows[idx][cond]] = 1.0
-            X.append(v)
-    first_on = np.full(n, np.nan)
-    first_on[rows[first_i]] = onset[first_i] / 1000.0
-    X.append(np.where(np.isfinite(first_on), first_on, np.nanmedian(first_on)))
-    sess = d["session"].astype(str)
-    X.append(within_session_z(np.asarray(d["pupil_mean_raw"], dtype=float), sess))
-    X.append(within_session_z(np.asarray(d["pupil_change_raw"], dtype=float), sess))
-    X = np.stack(X, 1)
-    assert X.shape[1] == len(ENGINEERED_NAMES)
-    return X, list(ENGINEERED_NAMES)
-
-
 # ---- regions branch ----------------------------------------------------------
 #
-# The engineered fits put their weight on two families, in both monkeys and
-# both scopes: dwell-time shares over the origin-disc quadrants and the exit
-# balls, and whether an exit ball was visited at all. `regions` keeps exactly
-# those, over one partition of the screen in degrees: the four quadrants of
-# the origin disc (ORIGIN_DISC_DEG), the four exit balls (EXIT_BALL_DEG), and
-# everything else. Two sets over the same nine regions, as in msp's
-# binary / dwell pair: `dwell` (share of in-window fixation time, sums to 1)
-# and `binary` (visited or not). No ordering, latency or pupil features.
+# Two families of gaze summary, over one partition of the screen in degrees:
+# the four quadrants of the origin disc (ORIGIN_DISC_DEG), the four exit balls
+# (EXIT_BALL_DEG), and everything else. Two sets over the same nine regions,
+# as in msp's binary / dwell pair: `dwell` (share of in-window fixation time,
+# sums to 1) and `binary` (visited or not). No ordering, latency or pupil
+# features.
+#
+# `regions_plus` adds the two engineered terms that kept their sign in both
+# monkeys and through the trial-order control: "elsewhere" is split at
+# FAR_DEG into near (ORIGIN_DISC_DEG to FAR_DEG, outside the exit balls) and
+# far, so the dwell shares still sum to 1, and pupil change (late minus early,
+# z within session) is appended once.
+#
+# `exits` keeps only the four exit-ball columns of the same partition (dwell
+# share is still of all in-window fixation time, so the four shares sum to
+# the share of time spent at any exit, not to 1).
+#
+# `lor` is a different partition, msp's `halves` codebook in degrees: an origin
+# ball (LOR_ORIGIN_DEG), then the left (x < 0) and right half of "inside the
+# maze", every point within LOR_PERIMETER_DEG of the quadrilateral the exits
+# span. Fixations outside the perimeter are unassigned, so shares sum to the
+# share of time inside the maze.
+#
+# `balls` is msp's r0.5 codebook in degrees: an origin ball (BALLS_ORIGIN_DEG)
+# and the four exit balls (EXIT_BALL_DEG) at each maze's exits, nearest ball
+# wins, everything else unassigned.
+#
+# `capsules` joins each exit ball to the origin ball with parallel tangents:
+# a capsule is every point within CAPSULE_DEG of the segment origin -> exit.
+# The origin ball is its own region (it wins where it overlaps a capsule) and
+# everything outside is "elsewhere", so the dwell shares sum to 1.
+# `capsules_tight` keeps the same capsules and shrinks the origin ball.
+#
+# Everything is in degrees around each maze's own exit locations; nothing in
+# classifier is warped to unit H.
 
 REGION_NAMES = ("origin LU", "origin LD", "origin RU", "origin RD",
                 "exit LU", "exit LD", "exit RU", "exit RD", "elsewhere")
-REGIONS_KINDS = {"regions": ("dwell", "binary"), "regions_dwell": ("dwell",), "regions_binary": ("binary",)}
+REGION_PLUS_NAMES = REGION_NAMES[:-1] + (f"near {ORIGIN_DISC_DEG:g}-{FAR_DEG:g} deg", f"far > {FAR_DEG:g} deg")
+EXIT_IDS = range(4, 8)  # the exit-ball rows of REGION_NAMES
+LOR_NAMES = ("origin", "left", "right")
+BALLS_NAMES = ("origin", "exit LU", "exit LD", "exit RU", "exit RD")
+CAPSULE_NAMES = ("origin", "capsule LU", "capsule LD", "capsule RU", "capsule RD", "elsewhere")
+RAW_KINDS = ("raw", "raw_plus")
+REGIONS_KINDS = {"regions": ("dwell", "binary"), "regions_dwell": ("dwell",), "regions_binary": ("binary",),
+                 "regions_plus": ("dwell", "binary"), "regions_plus_dwell": ("dwell",),
+                 "regions_plus_binary": ("binary",),
+                 # dwell share + visited + visit count (separate entries into the region)
+                 "regions_all": ("dwell", "binary", "count"), "regions_plus_all": ("dwell", "binary", "count"),
+                 # the four exit balls alone
+                 "exits": ("dwell", "binary"), "exits_dwell": ("dwell",), "exits_binary": ("binary",),
+                 "exits_all": ("dwell", "binary", "count"),
+                 # origin ball + left / right half of the maze
+                 "lor": ("dwell", "binary"), "lor_dwell": ("dwell",), "lor_binary": ("binary",),
+                 "lor_all": ("dwell", "binary", "count"),
+                 # msp's r0.5 codebook in degrees: origin ball + four exit balls
+                 "balls": ("dwell", "binary"), "balls_dwell": ("dwell",), "balls_binary": ("binary",),
+                 "balls_all": ("dwell", "binary", "count"),
+                 # origin ball + four origin-to-exit capsules + elsewhere
+                 "capsules": ("dwell", "binary"), "capsules_dwell": ("dwell",), "capsules_binary": ("binary",),
+                 "capsules_all": ("dwell", "binary", "count"),
+                 "capsules_tight": ("dwell", "binary"), "capsules_tight_dwell": ("dwell",),
+                 "capsules_tight_binary": ("binary",), "capsules_tight_all": ("dwell", "binary", "count")}
 
 
-def region_index(xy, h):
-    """Region id per fixation (``REGION_NAMES`` order). Exit balls win over the
-    origin disc where they overlap (they do not at the default radii)."""
+def is_plus(branch):
+    return branch.startswith("regions_plus")
+
+
+def is_exits(branch):
+    return branch.startswith("exits")
+
+
+def is_lor(branch):
+    return branch.startswith("lor")
+
+
+def is_balls(branch):
+    return branch.startswith("balls")
+
+
+def is_capsules_tight(branch):
+    return branch.startswith("capsules_tight")
+
+
+def is_capsules(branch):
+    return branch.startswith("capsules") and not is_capsules_tight(branch)
+
+
+def region_index(xy, h, *, split_far=False):
+    """Region id per fixation (``REGION_NAMES`` order, or ``REGION_PLUS_NAMES``
+    with `split_far`). Exit balls win over the origin disc where they overlap
+    (they do not at the default radii). `xy` and `h` in degrees."""
+    exits, disc_r, ball_r = _exit_landmarks(h), ORIGIN_DISC_DEG, EXIT_BALL_DEG
     rad = np.linalg.norm(xy, axis=1)
     right, up = xy[:, 0] >= 0, xy[:, 1] >= 0
     idx = np.full(len(xy), 8, dtype=int)
-    in_disc = rad <= ORIGIN_DISC_DEG
+    if split_far:
+        idx[rad > FAR_DEG] = 9
+    in_disc = rad <= disc_r
     idx[in_disc & ~right & up] = 0
     idx[in_disc & ~right & ~up] = 1
     idx[in_disc & right & up] = 2
     idx[in_disc & right & ~up] = 3
-    dist = np.linalg.norm(xy[:, None, :] - _exit_landmarks(h), axis=-1)  # (F, 4): LU, LD, RU, RD
-    near = dist.min(1) <= EXIT_BALL_DEG
+    dist = np.linalg.norm(xy[:, None, :] - exits, axis=-1)  # (F, 4): LU, LD, RU, RD
+    near = dist.min(1) <= ball_r
     idx[near] = 4 + dist.argmin(1)[near]
     return idx
 
 
-def regions_matrix(d, kinds=("dwell", "binary")):
-    """One row per cache trial: per-region dwell share and / or visited flag."""
+def exit_quad(h):
+    """The convex quadrilateral the exits span, ``(F, 4, 2)`` in the order
+    LU, RU, RD, LD (one winding) from the per-fixation arm lengths `h`."""
+    return _exit_landmarks(h)[:, [0, 2, 3, 1], :]
+
+
+def dist_to_polygon(xy, poly):
+    """Distance from each point of `xy` ``(F, 2)`` to the convex polygon
+    ``poly[f]`` ``(F, V, 2)`` (vertices in order): 0 inside, else the
+    distance to the nearest edge."""
+    a = poly
+    ab = np.roll(poly, -1, axis=1) - a  # edge vectors
+    ap = xy[:, None, :] - a
+    t = np.clip((ap * ab).sum(-1) / np.maximum((ab * ab).sum(-1), 1e-12), 0.0, 1.0)
+    seg = np.linalg.norm(ap - t[..., None] * ab, axis=-1).min(1)
+    cross = ab[..., 0] * ap[..., 1] - ab[..., 1] * ap[..., 0]
+    inside = (cross >= 0).all(1) | (cross <= 0).all(1)
+    return np.where(inside, 0.0, seg)
+
+
+def lor_index(xy, h, *, origin_deg=LOR_ORIGIN_DEG, perimeter_deg=LOR_PERIMETER_DEG):
+    """Region id per fixation in ``LOR_NAMES`` order, -1 outside the maze.
+    Origin ball first; then, within `perimeter_deg` of the exit quadrilateral,
+    left (x < 0) or right. `xy` and `h` in degrees."""
+    idx = np.full(len(xy), -1, dtype=int)
+    inside = dist_to_polygon(xy, exit_quad(h)) <= perimeter_deg
+    idx[inside] = np.where(xy[inside, 0] < 0, 1, 2)
+    idx[np.linalg.norm(xy, axis=1) <= origin_deg] = 0
+    return idx
+
+
+def balls_index(xy, h, *, origin_deg=BALLS_ORIGIN_DEG, exit_deg=EXIT_BALL_DEG):
+    """msp's ball assignment in degrees: ``BALLS_NAMES`` id of the nearest
+    ball (origin at (0, 0), exits at the maze's own landmarks) that holds the
+    point, else -1. `xy` and `h` in degrees."""
+    protos = np.concatenate([np.zeros((len(xy), 1, 2)), _exit_landmarks(h)], axis=1)  # (F, 5, 2)
+    radii = np.array([origin_deg, exit_deg, exit_deg, exit_deg, exit_deg])
+    dist = np.linalg.norm(xy[:, None, :] - protos, axis=-1)
+    dist = np.where(dist <= radii, dist, np.inf)
+    return np.where(np.isfinite(dist.min(1)), dist.argmin(1), -1)
+
+
+def capsule_index(xy, h, *, origin_deg=CAPSULE_ORIGIN_DEG, capsule_deg=CAPSULE_DEG):
+    """``CAPSULE_NAMES`` id per fixation, in degrees. A capsule is every point
+    within `capsule_deg` of the segment from the origin to one exit (the two
+    balls joined by parallel tangents); the nearest segment wins where they
+    overlap. The origin ball wins over every capsule, and the rest is elsewhere."""
+    exits = _exit_landmarks(h)  # (F, 4, 2)
+    dot = (xy[:, None, :] * exits).sum(-1)
+    t = np.clip(dot / np.maximum((exits * exits).sum(-1), 1e-12), 0.0, 1.0)
+    dist = np.linalg.norm(xy[:, None, :] - t[..., None] * exits, axis=-1)
+    dist = np.where(dist <= capsule_deg, dist, np.inf)
+    idx = np.full(len(xy), CAPSULE_NAMES.index("elsewhere"), dtype=int)
+    has = np.isfinite(dist.min(1))
+    idx[has] = 1 + dist.argmin(1)[has]
+    idx[np.linalg.norm(xy, axis=1) <= origin_deg] = 0
+    return idx
+
+
+def regions_matrix(d, kinds=("dwell", "binary"), *, plus=False, exits=False, lor=False, balls=False,
+                   capsule_origin=None):
+    """One row per cache trial: per-region dwell share and / or visited flag;
+    with `plus`, over ``REGION_PLUS_NAMES`` and with pupil change appended;
+    with `exits`, only the four exit-ball columns are kept; with `lor`, the
+    partition is origin ball / left half / right half instead; with `balls`,
+    msp's five balls (origin + exits) in degrees; with `capsule_origin`, the
+    origin ball, four capsules and elsewhere."""
     n = len(d["session"])
     rows = np.asarray(d["fix_row"], dtype=int)
     xy = np.asarray(d["fix_xy_d"], dtype=float)
     ms = np.asarray(d["fix_valid_ms"], dtype=float)
     h = np.asarray(d["h"], dtype=float)[rows]
-    reg = region_index(xy, h)
+    if capsule_origin is not None:
+        reg, all_names, ids = capsule_index(xy, h, origin_deg=capsule_origin), CAPSULE_NAMES, range(len(CAPSULE_NAMES))
+    elif balls:
+        reg, all_names, ids = balls_index(xy, h), BALLS_NAMES, range(len(BALLS_NAMES))
+    elif lor:
+        reg, all_names, ids = lor_index(xy, h), LOR_NAMES, range(len(LOR_NAMES))
+    else:
+        reg = region_index(xy, h, split_far=plus)
+        all_names = REGION_PLUS_NAMES if plus else REGION_NAMES
+        ids = EXIT_IDS if exits else range(len(all_names))
     tot = np.bincount(rows, weights=ms, minlength=n)
+    if "count" in kinds:
+        # a visit starts at a trial's first fixation or wherever the region changes,
+        # so consecutive fixations inside one region count once
+        order = np.lexsort((np.asarray(d["fix_onset_ms"], dtype=float), rows))
+        r_o, g_o = rows[order], reg[order]
+        starts = np.ones(len(order), dtype=bool)
+        starts[1:] = (r_o[1:] != r_o[:-1]) | (g_o[1:] != g_o[:-1])
     X, names = [], []
     for kind in kinds:
-        for k, name in enumerate(REGION_NAMES):
+        for k in ids:
+            name = all_names[k]
             sel = reg == k
             if kind == "dwell":
                 X.append(np.divide(np.bincount(rows[sel], weights=ms[sel], minlength=n), tot,
                                    out=np.zeros(n), where=tot > 0))
             elif kind == "binary":
                 X.append((np.bincount(rows[sel], minlength=n) > 0).astype(float))
+            elif kind == "count":
+                X.append(np.bincount(r_o[starts & (g_o == k)], minlength=n).astype(float))
             else:
                 raise ValueError(kind)
             names.append(f"{kind}: {name}")
+    if plus:
+        X.append(within_session_z(np.asarray(d["pupil_change_raw"], dtype=float), d["session"].astype(str)))
+        names.append("pupil change z")
     return np.stack(X, 1), names
 
 
@@ -396,18 +521,18 @@ def dataset(monkey, branch, *, labels="dendro", bin_ms=RAW_BIN_MS, refresh=False
     """``(X, names, meta)`` over the labelled trials of `branch` in the
     `labels` scope (its sessions, label stem and mazes)."""
     scope = LABEL_SCOPES[labels]
-    if branch == "raw":
+    if branch in RAW_KINDS:
         d = load_raw(monkey, labels=labels, bin_ms=bin_ms, refresh=refresh)
         X, names = raw_matrix(d)
-    elif branch == "engineered":
-        d = load_fix(monkey, labels=labels, refresh=refresh)
-        X, names = engineered_matrix(d)
+        if branch == "raw_plus":  # timing (traces) + static (gaze map)
+            G, gnames = grid_matrix(d)
+            X, names = np.hstack([X, G]), names + gnames
     elif branch in REGIONS_KINDS:
         d = load_fix(monkey, labels=labels, refresh=refresh)
-        X, names = regions_matrix(d, REGIONS_KINDS[branch])
-    elif branch == "order":
-        d = load_fix(monkey, labels=labels, refresh=refresh)
-        X, names = np.empty((len(d["session"]), 0)), []  # filled below, from the kept rows
+        origin = (CAPSULE_ORIGIN_TIGHT_DEG if is_capsules_tight(branch) else CAPSULE_ORIGIN_DEG
+                  if is_capsules(branch) else None)
+        X, names = regions_matrix(d, REGIONS_KINDS[branch], plus=is_plus(branch), exits=is_exits(branch),
+                                  lor=is_lor(branch), balls=is_balls(branch), capsule_origin=origin)
     else:
         raise ValueError(branch)
     sess = d["session"].astype(str)
@@ -417,8 +542,4 @@ def dataset(monkey, branch, *, labels="dendro", bin_ms=RAW_BIN_MS, refresh=False
     keep = np.isfinite(y) & np.isin(np.asarray(d["maze_id"], dtype=int), scope["mazes"])
     meta = dict(session=sess[keep], trial=trials[keep], maze=np.asarray(d["maze_id"], dtype=int)[keep],
                 y=y[keep].astype(int))
-    if branch == "order":
-        # trial order alone: how much of the label a drift-only "classifier" reads
-        from classifier.model import order_terms
-        return order_terms(meta), ["trial order", "trial order squared"], meta
     return X[keep], names, meta

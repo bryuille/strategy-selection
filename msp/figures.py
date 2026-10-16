@@ -199,7 +199,7 @@ def codebook_figure(
 ):
     """The five prototypes and their assignment regions over every fixation
     centroid, coloured by the state each was assigned to (grey =
-    unassigned). One dot is one I-DT fixation, drawn at the mean warped
+    unassigned). One dot is one fixation, drawn at the mean warped
     position of its valid in-window samples -- the point the assignment
     used. The legend gives each state's share of all fixations: the codebook's
     coverage."""

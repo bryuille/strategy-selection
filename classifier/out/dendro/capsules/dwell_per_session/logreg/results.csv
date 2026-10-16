@@ -1,0 +1,24 @@
+monkey,session,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,june_24_g0,capsules_dwell,logreg,1,0.0,41,1,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,2,0.17714285714285713,35,15,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,3,0.0797872340425532,47,4,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,4,0.2864583333333333,12,48,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,5,0.2111111111111111,18,70,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,6,0.09728867623604466,11,57,,,,,,,
+Faure,june_24_g0,capsules_dwell,logreg,within-maze pooled,0.18650917003419334,164,195,0.4797303388249922,0.060127935789501555,-4.876621240039239,1.0,0.7988742964352721,6,200
+Faure,june_8_g0,capsules_dwell,logreg,2,0.6512605042016807,34,7,,,,,,,
+Faure,june_8_g0,capsules_dwell,logreg,4,0.375,1,48,,,,,,,
+Faure,june_8_g0,capsules_dwell,logreg,5,0.6083333333333333,2,60,,,,,,,
+Faure,june_8_g0,capsules_dwell,logreg,within-maze pooled,0.6059113300492611,124,169,0.41759852216748766,0.12247674414555337,1.537539303445064,0.07462686567164178,0.9862092002290513,6,200
+Faure,combined,capsules_dwell,logreg,"within-(session, maze) pooled",0.233508142423406,,,0.472767733922164,0.057484184897296085,-4.162181162109722,1.0,,,200
+Nielsen,Nov_3_g0,capsules_dwell,logreg,2,0.36470588235294116,85,1,,,,,,,
+Nielsen,Nov_3_g0,capsules_dwell,logreg,4,0.6735033259423503,44,41,,,,,,,
+Nielsen,Nov_3_g0,capsules_dwell,logreg,5,0.20212765957446807,1,94,,,,,,,
+Nielsen,Nov_3_g0,capsules_dwell,logreg,within-maze pooled,0.637922339889057,277,220,0.4636787695410993,0.08414062294538235,2.0708614251770308,0.01990049751243781,0.9848375451263538,6,200
+Nielsen,Nov_6_g0,capsules_dwell,logreg,1,0.3137254901960784,51,3,,,,,,,
+Nielsen,Nov_6_g0,capsules_dwell,logreg,2,0.6139455782312925,42,14,,,,,,,
+Nielsen,Nov_6_g0,capsules_dwell,logreg,3,0.5235404896421846,59,9,,,,,,,
+Nielsen,Nov_6_g0,capsules_dwell,logreg,4,0.4409090909090909,22,30,,,,,,,
+Nielsen,Nov_6_g0,capsules_dwell,logreg,5,0.1724137931034483,2,58,,,,,,,
+Nielsen,Nov_6_g0,capsules_dwell,logreg,within-maze pooled,0.4873046875,176,192,0.46333740234375,0.06429396992933245,0.3727765633790109,0.4079601990049751,0.9253373579545454,6,200
+Nielsen,combined,capsules_dwell,logreg,"within-(session, maze) pooled",0.5613991565368395,,,0.4635053336641032,0.051101272841850225,1.9156826714610626,0.024875621890547265,,,200

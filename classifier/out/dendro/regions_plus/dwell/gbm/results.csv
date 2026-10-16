@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,regions_plus_dwell,gbm,1,0.5294117647058824,85,1,,,,,,,
+Faure,regions_plus_dwell,gbm,2,0.5349143610013175,69,22,,,,,,,
+Faure,regions_plus_dwell,gbm,3,0.6444444444444445,90,4,,,,,,,
+Faure,regions_plus_dwell,gbm,4,0.3838141025641026,13,96,,,,,,,
+Faure,regions_plus_dwell,gbm,5,0.5988461538461538,20,130,,,,,,,
+Faure,regions_plus_dwell,gbm,6,0.687960687960688,11,111,,,,,,,
+Faure,regions_plus_dwell,gbm,held-out june_24_g0,0.5088591855766241,,,,,,,,,
+Faure,regions_plus_dwell,gbm,held-out june_8_g0,0.5073891625615764,,,,,,,,,
+Faure,regions_plus_dwell,gbm,leave-one-session-out pooled,0.5086944521115098,,,,,,,,,
+Faure,regions_plus_dwell,gbm,within-maze pooled,0.5638509670079636,288,364,0.49513900739476674,0.050272020156644656,1.3668032316802545,0.0945273631840796,0.9168669871794872,11,200
+Nielsen,regions_plus_dwell,gbm,1,0.07183908045977011,116,3,,,,,,,
+Nielsen,regions_plus_dwell,gbm,2,0.5485564304461942,127,15,,,,,,,
+Nielsen,regions_plus_dwell,gbm,3,0.7486209613869188,141,9,,,,,,,
+Nielsen,regions_plus_dwell,gbm,4,0.6602646180110969,66,71,,,,,,,
+Nielsen,regions_plus_dwell,gbm,5,0.4583333333333333,3,152,,,,,,,
+Nielsen,regions_plus_dwell,gbm,held-out Nov_3_g0,0.6026222894604135,,,,,,,,,
+Nielsen,regions_plus_dwell,gbm,held-out Nov_6_g0,0.525634765625,,,,,,,,,
+Nielsen,regions_plus_dwell,gbm,leave-one-session-out pooled,0.5635078144381047,,,,,,,,,
+Nielsen,regions_plus_dwell,gbm,within-maze pooled,0.6143813481071099,453,412,0.4926434095106187,0.04690045160873338,2.5956666603573226,0.009950248756218905,0.9599755674146467,11,200

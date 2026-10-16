@@ -10,7 +10,7 @@ Window: maze onset -> fixation onset. Two label scopes (``--labels``):
                       own anchors and are left out, as in msp.
 
 Imports only `data/` and the scientific stack. The fixation table behind the
-engineered / regions branches is built by `classifier.fixations` and the
+regions branches is built by `classifier.fixations` and the
 pupil tables by `classifier.pupil_extract`.
 
 Two feature branches, one evaluation:
@@ -18,10 +18,20 @@ Two feature branches, one evaluation:
 ``raw``         the eye trace itself: gaze x, y (degrees) and pupil, averaged
                 in `RAW_BIN_MS` bins over the last `RAW_WINDOW_MS` before
                 fixation onset, each bin session-z-scored. Nothing hand-picked.
-``engineered``  the handful of quantities an earlier codebook search pointed at:
-                origin-disc quadrant dwell, exit-ball occupancy and dwell in
-                degrees, origin share, fixation count, eccentricity rings,
-                first / last fixation state, pupil mean and change.
+``regions``     dwell share and / or visited over nine regions in degrees:
+                the four origin-disc quadrants, the four exit balls and
+                everything else (`regions_dwell` / `regions_binary` for one set).
+``regions_plus`` the same with "elsewhere" split at `FAR_DEG` and pupil change
+                added (`regions_plus_dwell` / `regions_plus_binary`).
+``exits``       the four exit balls alone (`exits_dwell` / `exits_binary`).
+``lor``         origin ball + left / right half of the maze, in degrees
+                (`lor_dwell` / `lor_binary`); msp's `halves` codebook with a
+                perimeter that hugs the exit balls.
+``balls``       msp's r0.5 codebook in degrees: origin ball + four exit balls
+                (`balls_dwell` / `balls_binary`), nothing else.
+``capsules``   origin ball + four capsules (parallel tangents between the
+                origin and exit balls) + elsewhere, in degrees
+                (`capsules_tight` shrinks only the origin ball).
 
 Maze is almost a function of strategy on these sessions (maze 1 all H, maze
 6 all S), and the maze is readable from gaze, so every model gets the maze
@@ -45,7 +55,7 @@ SESSIONS = {
 }
 MONKEYS = tuple(SESSIONS)
 MAZES = (1, 2, 3, 4, 5, 6)
-STEM_DEG = 7.0  # vertical scale of the unit-H warp at x = 0 (data.builder)
+STEM_DEG = 7.0  # physical height of the centre stem in degrees (data.builder), for drawings
 
 # ---- label scopes -------------------------------------------------------------
 TOP_N = 10
@@ -77,10 +87,29 @@ RAW_GRID = 6  # dwell map, RAW_GRID x RAW_GRID over [-GRID_LIM, GRID_LIM] deg
 GRID_LIM_DEG = 15.0
 POSITION_LIMIT_DEG = 30.0
 
-# ---- engineered branch -------------------------------------------------------
+# ---- regions branch ------------------------------------------------------------
 ORIGIN_DISC_DEG = 5.0
 EXIT_BALL_DEG = 3.0
-RING_EDGES_DEG = (2.0, 6.0, 10.0)
+FAR_DEG = 10.0  # regions_plus: "elsewhere" split into near (disc edge to FAR_DEG) and far
+# Everything in classifier is in degrees; nothing here is warped to unit H.
+# Where a codebook mirrors one of msp's (whose balls are r0.5 unit H), a 3 deg
+# ball stands in: 0.5 unit H is 2.5-4.5 deg depending on maze and direction.
+# balls: msp's r0.5 codebook in degrees, an origin ball + the four exit balls
+# (EXIT_BALL_DEG) at each maze's exits, everything else unassigned.
+BALLS_ORIGIN_DEG = 3.0
+# capsules: msp's r0.5 capsules in degrees. Each capsule is every point within
+# CAPSULE_DEG of the segment from the origin to one exit, i.e. the two balls
+# joined by parallel tangents. The origin ball is carved out as its own region
+# and everything outside the capsules is "elsewhere". `tight` keeps the same
+# capsules and shrinks the origin ball to the r0.25 stand-in.
+CAPSULE_DEG = 3.0
+CAPSULE_ORIGIN_DEG = 3.0
+CAPSULE_ORIGIN_TIGHT_DEG = 1.5
+# lor: origin ball + maze halves. "Inside the maze" is every point within
+# LOR_PERIMETER_DEG of the quadrilateral the four exits span, i.e. the outer
+# edge of exit balls of that radius joined by straight tangents; x < 0 is left.
+LOR_ORIGIN_DEG = 3.0
+LOR_PERIMETER_DEG = 3.0
 
 # ---- pupil tables (classifier.pupil_extract) ---------------------------------
 PUPIL_DIR = Path(__file__).resolve().parent / "out" / "pupil"

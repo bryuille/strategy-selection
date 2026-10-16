@@ -1,0 +1,23 @@
+monkey,branch,model,feature,weight
+Faure,regions_plus_binary,gbm,binary: origin LU,0.0663756757529819
+Faure,regions_plus_binary,gbm,binary: origin LD,-0.0002482766511255674
+Faure,regions_plus_binary,gbm,binary: origin RU,0.01581533708990015
+Faure,regions_plus_binary,gbm,binary: origin RD,0.00496553302251077
+Faure,regions_plus_binary,gbm,binary: exit LU,0.013149509453390907
+Faure,regions_plus_binary,gbm,binary: exit LD,0.007497497211178161
+Faure,regions_plus_binary,gbm,binary: exit RU,0.0012276536712336305
+Faure,regions_plus_binary,gbm,binary: exit RD,0.003990160464517567
+Faure,regions_plus_binary,gbm,binary: near 5-10 deg,0.04301421584050798
+Faure,regions_plus_binary,gbm,binary: far > 10 deg,0.0018351877806698446
+Faure,regions_plus_binary,gbm,pupil change z,0.12023168673664938
+Nielsen,regions_plus_binary,gbm,binary: origin LU,0.01207199721749883
+Nielsen,regions_plus_binary,gbm,binary: origin LD,0.01369737723501827
+Nielsen,regions_plus_binary,gbm,binary: origin RU,0.011865563971762727
+Nielsen,regions_plus_binary,gbm,binary: origin RD,0.0062409826351316425
+Nielsen,regions_plus_binary,gbm,binary: exit LU,0.018693641469572798
+Nielsen,regions_plus_binary,gbm,binary: exit LD,0.0027110063379192973
+Nielsen,regions_plus_binary,gbm,binary: exit RU,0.02247835832431595
+Nielsen,regions_plus_binary,gbm,binary: exit RD,0.040862510949657316
+Nielsen,regions_plus_binary,gbm,binary: near 5-10 deg,0.009132336270417873
+Nielsen,regions_plus_binary,gbm,binary: far > 10 deg,0.01374053176688821
+Nielsen,regions_plus_binary,gbm,pupil change z,0.09456671561807595

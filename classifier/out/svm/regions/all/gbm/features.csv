@@ -1,0 +1,55 @@
+monkey,branch,model,feature,weight
+Faure,regions_all,gbm,dwell: origin LU,0.048771488229741755
+Faure,regions_all,gbm,dwell: origin LD,0.03682102914676357
+Faure,regions_all,gbm,dwell: origin RU,0.031062040559480586
+Faure,regions_all,gbm,dwell: origin RD,0.00020251136981213057
+Faure,regions_all,gbm,dwell: exit LU,0.04502273962415269
+Faure,regions_all,gbm,dwell: exit LD,0.06686307599897032
+Faure,regions_all,gbm,dwell: exit RU,0.0008157661394125216
+Faure,regions_all,gbm,dwell: exit RD,0.0001790566631389323
+Faure,regions_all,gbm,dwell: elsewhere,0.03876433740453651
+Faure,regions_all,gbm,binary: origin LU,0.0
+Faure,regions_all,gbm,binary: origin LD,0.0
+Faure,regions_all,gbm,binary: origin RU,0.0
+Faure,regions_all,gbm,binary: origin RD,0.0
+Faure,regions_all,gbm,binary: exit LU,0.0
+Faure,regions_all,gbm,binary: exit LD,0.0
+Faure,regions_all,gbm,binary: exit RU,0.0
+Faure,regions_all,gbm,binary: exit RD,0.0
+Faure,regions_all,gbm,binary: elsewhere,0.0
+Faure,regions_all,gbm,count: origin LU,0.0025022167558136576
+Faure,regions_all,gbm,count: origin LD,0.0014381739652756353
+Faure,regions_all,gbm,count: origin RU,0.0007551271416722071
+Faure,regions_all,gbm,count: origin RD,0.0
+Faure,regions_all,gbm,count: exit LU,0.0
+Faure,regions_all,gbm,count: exit LD,0.0009507737192872457
+Faure,regions_all,gbm,count: exit RU,0.0
+Faure,regions_all,gbm,count: exit RD,0.0
+Faure,regions_all,gbm,count: elsewhere,0.004014187237207212
+Nielsen,regions_all,gbm,dwell: origin LU,0.06656232287319004
+Nielsen,regions_all,gbm,dwell: origin LD,0.01588312206935638
+Nielsen,regions_all,gbm,dwell: origin RU,0.035119415674756495
+Nielsen,regions_all,gbm,dwell: origin RD,0.020914811665893707
+Nielsen,regions_all,gbm,dwell: exit LU,0.03134146184366462
+Nielsen,regions_all,gbm,dwell: exit LD,0.002399263152470721
+Nielsen,regions_all,gbm,dwell: exit RU,0.025836360591539088
+Nielsen,regions_all,gbm,dwell: exit RD,0.03832605503168955
+Nielsen,regions_all,gbm,dwell: elsewhere,0.045790822898953934
+Nielsen,regions_all,gbm,binary: origin LU,0.0
+Nielsen,regions_all,gbm,binary: origin LD,0.0
+Nielsen,regions_all,gbm,binary: origin RU,0.0
+Nielsen,regions_all,gbm,binary: origin RD,0.0
+Nielsen,regions_all,gbm,binary: exit LU,0.0
+Nielsen,regions_all,gbm,binary: exit LD,0.0
+Nielsen,regions_all,gbm,binary: exit RU,0.0
+Nielsen,regions_all,gbm,binary: exit RD,0.0
+Nielsen,regions_all,gbm,binary: elsewhere,0.0
+Nielsen,regions_all,gbm,count: origin LU,0.0018363219456896563
+Nielsen,regions_all,gbm,count: origin LD,0.0
+Nielsen,regions_all,gbm,count: origin RU,0.0
+Nielsen,regions_all,gbm,count: origin RD,0.0
+Nielsen,regions_all,gbm,count: exit LU,0.0
+Nielsen,regions_all,gbm,count: exit LD,0.0
+Nielsen,regions_all,gbm,count: exit RU,0.0
+Nielsen,regions_all,gbm,count: exit RD,0.0
+Nielsen,regions_all,gbm,count: elsewhere,0.0003004714793630736

@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,capsules,logreg,1,0.611764705882353,85,1,,,,,,,
+Faure,capsules,logreg,2,0.44466403162055335,69,22,,,,,,,
+Faure,capsules,logreg,3,0.19166666666666668,90,4,,,,,,,
+Faure,capsules,logreg,4,0.4254807692307692,13,96,,,,,,,
+Faure,capsules,logreg,5,0.4553846153846154,20,130,,,,,,,
+Faure,capsules,logreg,6,0.42096642096642095,11,111,,,,,,,
+Faure,capsules,logreg,held-out june_24_g0,0.5385452284737333,,,,,,,,,
+Faure,capsules,logreg,held-out june_8_g0,0.5591133004926109,,,,,,,,,
+Faure,capsules,logreg,leave-one-session-out pooled,0.5408501242064587,,,,,,,,,
+Faure,capsules,logreg,within-maze pooled,0.4301763367463026,288,364,0.49160409556313994,0.0542611160727893,-1.1320769505447368,0.8606965174129353,0.8984184218559218,12,200
+Nielsen,capsules,logreg,1,0.4109195402298851,116,3,,,,,,,
+Nielsen,capsules,logreg,2,0.5207349081364829,127,15,,,,,,,
+Nielsen,capsules,logreg,3,0.3971631205673759,141,9,,,,,,,
+Nielsen,capsules,logreg,4,0.5710627400768246,66,71,,,,,,,
+Nielsen,capsules,logreg,5,0.31359649122807015,3,152,,,,,,,
+Nielsen,capsules,logreg,held-out Nov_3_g0,0.6091780131114473,,,,,,,,,
+Nielsen,capsules,logreg,held-out Nov_6_g0,0.48876953125,,,,,,,,,
+Nielsen,capsules,logreg,leave-one-session-out pooled,0.5480029769288017,,,,,,,,,
+Nielsen,capsules,logreg,within-maze pooled,0.5145429362880887,453,412,0.47829697599261306,0.050434544456536556,0.7186732959729938,0.27860696517412936,0.952677939947277,12,200

@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,balls,logreg,1,0.5647058823529412,85,1,,,,,,,
+Faure,balls,logreg,2,0.4901185770750988,69,22,,,,,,,
+Faure,balls,logreg,3,0.6083333333333333,90,4,,,,,,,
+Faure,balls,logreg,4,0.40544871794871795,13,96,,,,,,,
+Faure,balls,logreg,5,0.6234615384615385,20,130,,,,,,,
+Faure,balls,logreg,6,0.3013923013923014,11,111,,,,,,,
+Faure,balls,logreg,held-out june_24_g0,0.5250233136462543,,,,,,,,,
+Faure,balls,logreg,held-out june_8_g0,0.6133004926108374,,,,,,,,,
+Faure,balls,logreg,leave-one-session-out pooled,0.5349158156224124,,,,,,,,,
+Faure,balls,logreg,within-maze pooled,0.4985779294653015,288,364,0.4941620449374289,0.051750064712660436,0.08533099528264528,0.4925373134328358,0.9050480769230769,10,200
+Nielsen,balls,logreg,1,0.32471264367816094,116,3,,,,,,,
+Nielsen,balls,logreg,2,0.5354330708661418,127,15,,,,,,,
+Nielsen,balls,logreg,3,0.5776201733648542,141,9,,,,,,,
+Nielsen,balls,logreg,4,0.569355527102006,66,71,,,,,,,
+Nielsen,balls,logreg,5,0.33114035087719296,3,152,,,,,,,
+Nielsen,balls,logreg,held-out Nov_3_g0,0.5930408472012103,,,,,,,,,
+Nielsen,balls,logreg,held-out Nov_6_g0,0.515869140625,,,,,,,,,
+Nielsen,balls,logreg,leave-one-session-out pooled,0.5538327958322997,,,,,,,,,
+Nielsen,balls,logreg,within-maze pooled,0.5407433056325023,453,412,0.47917474607571564,0.054085261430768104,1.138361134402531,0.11442786069651742,0.954355001178765,10,200

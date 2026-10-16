@@ -1,0 +1,15 @@
+Faure: post-choice exit sequences
+
+  june_8_g0: 406 trials kept; dropped qc=237, no_chosen_exit=0, no_window=0, no_events=0; pupil=none
+  june_24_g0: 487 trials kept; dropped qc=134, no_chosen_exit=0, no_window=0, no_events=0; pupil=none
+
+trials: 893; fixations in window: 6339
+exit-list length (incl. chosen): 1: 217, 2: 351, 3: 219, 4: 76, 5: 25, 6: 4, 7: 1
+trials with >= 1 post-choice exit fixation: 676 (76%)
+choice-saccade landing fixation on the decoded chosen exit: 889/893 (100%)  <- sanity check of the LR/LR2 decoding; that fixation is item 0, not repeated
+trials whose list visits an exit other than the chosen one: 338
+trials whose list visits the correct exit after choosing wrongly: 32
+chosen == correct: 719/893
+
+post-choice fixation states: elsewhere=3763, origin=544, LU=733, LD=444, RU=524, RD=331
+strategy label present: 660/893 (0 = H, 1 = S; from <session>_strategy_choices)

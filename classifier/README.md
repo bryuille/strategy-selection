@@ -16,19 +16,46 @@ Findings: [README.md](../README.md#classifier).
 - **Features** (one set per branch):
   - `raw`: gaze x, gaze y and pupil, averaged in 50 ms bins over the last
     1.5 s. Each bin is z-scored within session, and empty bins stay NaN.
-  - `engineered` (26):
-    - origin-disc dwell share and its four quadrant shares;
-    - for each of the four exit balls, visited (yes / no) and dwell share;
-    - eccentricity-ring shares, fixation count;
-    - first and last fixation location (origin / left / right);
-    - first-fixation onset;
-    - pupil mean and change (z within session).
-  - `regions`: the same nine regions (4 origin quadrants, 4 exit balls,
+  - `raw_plus`: the `raw` traces plus a 6 × 6 gaze map (share of in-window
+    samples per 5° cell over ±15°), so timing and static position together.
+  - `regions`: nine regions (4 origin quadrants, 4 exit balls,
     elsewhere), as dwell share (`regions_dwell`), visited (`regions_binary`),
     or both (`regions`). No pupil, latency or order terms.
-  - `order`: trial position in the session (linear and squared) and nothing
-    else. It shows how much the trial-order confound alone predicts.
-- Fixations are I-DT detections. Regions are measured in degrees around
+  - `regions_plus` (same three variants): the regions with "elsewhere"
+    split into near (5–10°, outside the exit balls) and far (> 10°), so
+    dwell shares still sum to 1, plus one pupil-change term (mean of the
+    last 300 ms minus the first 300 ms, z within session). These are the
+    two engineered terms that kept their sign in both monkeys and survived a
+    trial-order control.
+  - `all` (a variant of every regions family: `regions_all`, `regions_plus_all`,
+    `exits_all`, `lor_all`, `balls_all`): dwell share + visited + visit count,
+    where a visit is one entry into the region (consecutive fixations inside
+    it count once).
+  - `exits` (same variants: `exits`, `exits_dwell`, `exits_binary`,
+    `exits_all`): the four exit balls alone, no origin quadrants and no
+    "elsewhere". Dwell share is still of all in-window fixation time, so the
+    four shares sum to the time spent at any exit rather than to 1.
+  - `lor` (same variants): msp's `halves` codebook in degrees: a 3° origin
+    ball, then the left (x < 0) and right half of "inside the maze", every
+    point within 3° of the quadrilateral the four exits span, so the
+    perimeter hugs a 3° ball at each exit (`LOR_ORIGIN_DEG`,
+    `LOR_PERIMETER_DEG`). Fixations outside are unassigned.
+  - `balls` (same variants): msp's r0.5 codebook in degrees: a 3° origin ball
+    (`BALLS_ORIGIN_DEG`) plus the four 3° exit balls, nearest ball wins,
+    everything else unassigned. Five regions, no quadrants, no "elsewhere".
+  - `capsules` (same variants): a 3° origin ball, four capsules and elsewhere.
+    A capsule is every point within 3° of the segment from the origin to one
+    exit, the two balls joined by parallel tangents; the origin ball wins
+    where they overlap. `capsules_tight` keeps those capsules and shrinks the
+    origin ball to 1.5°.
+- Everything in `classifier` is in degrees around each maze's own exit
+  locations; nothing is warped to unit H. Where a codebook mirrors one of
+  msp's (whose balls are r0.5 unit H), a 3° ball stands in: 0.5 unit H is
+  2.5–4.5° depending on maze and direction.
+- `classifier.codebook` draws any of `regions`, `exits`, `lor`, `balls` over
+  the six mazes with every fixation centroid coloured by its region
+  (`out/<scope>/<branch>/<branch>_by_maze.png`), to check a codebook against the data.
+- Fixations are `data.builder.trial_events` detections (saccade- and distance-bounded). Regions are measured in degrees around
   maze-specific exit locations.
 
 ## What is trained and what is tested
@@ -51,30 +78,20 @@ Findings: [README.md](../README.md#classifier).
 5. **Null and p**: the whole fit is repeated `n_perm` times (1 repeat each)
    with labels shuffled within (session, maze). p is one-sided,
    p = (1 + #null ≥ observed) / (n_perm + 1). z is measured against the null
-   mean and sd, and the grey band in the figure is the null's 95 % range.
+   mean and sd, and the grey band in the figure is the null's 5th–95th
+   percentile, so its top edge is the p = 0.05 cutoff.
 6. **Held-out session**: train on all other sessions and predict the left-out
    one; repeat for each session. Only pairs from the same (session, maze)
    are scored, because predictions from different fits are not comparable.
    This tests transfer across days.
+   With `--per-session`, steps 1–5 run on each session alone instead (no
+   held-out-session fit), and a `combined` row per monkey pools them: the
+   pair-weighted mean of the per-session within-maze AUCs, tested against the
+   same weighted mean of the per-session nulls, draw by draw.
 7. **Weights** (right panel): one fit on all trials. For `logreg`, these are
    standardised coefficients (red → S, blue → H). For `gbm`, they are
    permutation importances (the drop in within-maze AUC when a feature is
    shuffled). They are fitted in-sample and are for ranking features only.
-
-## Trial-order control (`--order-control`)
-
-Strategy labels drift over a session, so a feature that also drifts (pupil,
-fatigue, latency) can look predictive. With this flag:
-
-- Trial position (linear and squared) is added to every model's input.
-- The null keeps the labels and trial order fixed and changes the gaze
-  instead. Each feature is split into the part predicted by trial order
-  (fitted within session) and the residual. Only the residuals are shuffled
-  within (session, maze).
-
-Order therefore earns the same credit in the real fit and in the null, and p
-asks whether gaze adds anything beyond drift. The AUC itself includes order's
-share, so read it against the null mean, not against 0.5.
 
 ## Design choices worth knowing
 
@@ -87,11 +104,22 @@ share, so read it against the null mean, not against 0.5.
   their null.
 - **`regions` and `regions_dwell` give identical trees**: "visited" is just
   "dwell > 0", so the trees make the same splits.
-- **Missing pupil** → NaN features, not dropped trials.
+- **Missing pupil** → NaN features, not dropped trials (raw and
+  `regions_plus`).
 
 ## Outputs
 
-`out/<branch>[_svm][_x_maze][_order]/<model>/`, or under `--out-root`:
+`out/<scope>/<family>/<variant>/<model>/`, where:
+
+- scope is `dendro` or `svm`;
+- family is `raw` (variant `b<bin ms>`, e.g. `b50`, `b1`), `regions`,
+  `regions_plus`, `exits`, `lor` or `balls` (variant `both`, `dwell`,
+  `binary` or `all`);
+- the variant gets `_p<n>` for a non-default shuffle count (`both_p1000`) and
+  `_x_maze` with `--interactions`, so no run overwrites another;
+- model is `logreg` or `gbm`.
+
+Each folder holds:
 
 - `<Monkey>.png`: left panel, AUC per maze, pooled, and the null band; right
   panel, the top 20 weights.
@@ -100,7 +128,9 @@ share, so read it against the null mean, not against 0.5.
   (AUC, null mean and sd, z, p, ordinary AUC, n_H, n_S, n_perm).
 - `features.csv`: weights or importances.
 - `eval_<Monkey>.npz`: everything `--replot` needs to redraw the figure.
+- `merged_auc.{png,svg}` (pooled runs) or `session_auc.{png,svg}`
+  (`_per_session` runs), where `classifier.pres` has been run on the folder:
+  the presentation bar chart of within-maze AUC against the shuffle null,
+  one bar per monkey or per (monkey, session).
 
-Existing result sets: `out/` (n_perm 200), `out/nperm1000/`, and
-`out/order_control/` (n_perm 1000 with the trial-order control, plus the
-`order` branch alone).
+`out/pupil/` holds the per-session pupil tables (inputs, not results).

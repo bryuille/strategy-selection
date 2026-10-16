@@ -1,17 +1,18 @@
 """Fit and evaluate both branches for both monkeys.
 
     uv run python -m classifier.build                      # both branches, both models
-    uv run python -m classifier.build --branch engineered --model logreg
+    uv run python -m classifier.build --branch regions --model logreg
     uv run python -m classifier.build --branch regions     # dwell share + visited over nine regions
+    uv run python -m classifier.build --branch exits       # the same over the four exit balls alone
+    uv run python -m classifier.build --branch lor         # origin ball + left / right half of the maze
+    uv run python -m classifier.build --branch balls       # msp's r0.5 codebook in degrees: origin + four exit balls
     uv run python -m classifier.build --labels svm         # top-ten sessions, SVM labels, mazes 2-5
     uv run python -m classifier.build --n-perm 20          # smoke test
-    uv run python -m classifier.build --order-control      # trial-order covariates, conditional permutation null
-    uv run python -m classifier.build --branch order       # trial order alone (the confound's size)
 
-Writes out/<branch>[_svm]/<model>/<Monkey>.png (within-maze AUC per maze and
-pooled against the shuffle null; feature weights), results.csv (per monkey
-and maze, per held-out session, and pooled) and features.csv (weights /
-importances).
+Writes out/<scope>/<family>/<variant>/<model>/ (see `out_branch_name`):
+<Monkey>.png (within-maze AUC per maze and pooled against the shuffle null;
+feature weights), results.csv (per monkey and maze, per held-out session, and
+pooled) and features.csv (weights / importances).
 """
 
 from __future__ import annotations
@@ -54,7 +55,8 @@ def figure(monkey, branch, kind, ev, weights, names, signs=None, *, scope_label=
     labels = [f"maze {m}\n{per[m][1]} H\n{per[m][2]} S" for m in mazes] + ["pooled\n(within\nmaze)"]
     vals = [per[m][0] for m in mazes] + [ev.auc]
     fin = ev.null[np.isfinite(ev.null)]
-    lo, hi = np.percentile(fin, [2.5, 97.5]) if fin.size else (np.nan, np.nan)
+    # 5th-95th: the top edge is the one-sided p = 0.05 cutoff, as in classifier.pres
+    lo, hi = np.percentile(fin, [5, 95]) if fin.size else (np.nan, np.nan)
     ax1.axhspan(lo, hi, color="#e6e6e6", zorder=0)
     ax1.axhline(0.5, color="0.4", lw=0.8)
     # red / blue are reserved for S / H (right panel); these are maze-status colours
@@ -62,7 +64,7 @@ def figure(monkey, branch, kind, ev, weights, names, signs=None, *, scope_label=
     colours = [THIN if min(per[m][1], per[m][2]) < cfg.SOLID_N else SOLID for m in mazes] + [POOLED]
     ax1.bar(range(len(vals)), vals, color=colours)
     from matplotlib.patches import Patch
-    handles = [Patch(color=NULL, label="shuffle null 95%"),
+    handles = [Patch(color=NULL, label="shuffle null, 5th–95th percentile"),
                Patch(color=SOLID, label=f"maze with ≥ {cfg.SOLID_N} of each strategy"),
                Patch(color=THIN, label=f"maze with < {cfg.SOLID_N} of one strategy"),
                Patch(color=POOLED, label="within-maze pooled")]
@@ -85,9 +87,8 @@ def figure(monkey, branch, kind, ev, weights, names, signs=None, *, scope_label=
                    else "permutation importance (drop in within-maze AUC; red where the fitted sign is + → S)")
     ax2.tick_params(labelsize=7)
     ax2.set_title(f"top features of {len(names)}", fontsize=9)
-    order = ", trial order in the design, null = gaze residuals shuffled given order" if M.ORDER_CONTROL else ""
     fig.suptitle(f"{monkey} — {branch} features{' + gaze x maze interactions' if M.INTERACTIONS else ''} — {kind}\n"
-                 f"{scope_label}, maze one-hot in every model{order}, "
+                 f"{scope_label}, maze one-hot in every model, "
                  f"{cfg.N_REPEATS}x{cfg.N_FOLDS}-fold CV stratified on (session, maze, label)", fontsize=10)
     return fig
 
@@ -107,9 +108,10 @@ def holdout_text(ev):
             f"per session {np.nanmin(vals):.2f}–{np.nanmax(vals):.2f}")
 
 
-def rows_from_eval(monkey, branch, kind, out):
-    """results.csv and features.csv rows rebuilt from eval_<Monkey>.npz."""
-    d = np.load(out / f"eval_{monkey}.npz", allow_pickle=True)
+def rows_from_eval(monkey, branch, kind, out, stem=None):
+    """results.csv and features.csv rows rebuilt from eval_<stem>.npz (stem
+    defaults to the monkey; ``<Monkey>_<session>`` for per-session fits)."""
+    d = np.load(out / f"eval_{stem or monkey}.npz", allow_pickle=True)
     rows = [dict(monkey=monkey, branch=branch, model=kind, maze=int(m), auc=float(a), n_H=int(nh), n_S=int(ns))
             for m, a, nh, ns in d["per_maze"]]
     ho, ho_auc = _holdout_from_npz(d)
@@ -146,7 +148,8 @@ def holdout_rows(monkey, branch, kind, ho, ho_auc):
 
 
 def replot(monkey, branch, kind, out, names, *, scope_label=""):
-    """Rebuild the figure from eval_<Monkey>.npz."""
+    """Rebuild the figure (and its Evaluation) from eval_<monkey>.npz, where
+    `monkey` is the file stem."""
     d = np.load(out / f"eval_{monkey}.npz", allow_pickle=True)
     per = {int(m): (float(a), int(nh), int(ns)) for m, a, nh, ns in d["per_maze"]}
     holdout, holdout_auc = _holdout_from_npz(d)
@@ -154,112 +157,168 @@ def replot(monkey, branch, kind, out, names, *, scope_label=""):
                       float(d["pooled_auc"]), holdout, holdout_auc)
     names = list(d["names"])
     return figure(monkey, branch, kind, ev, dict(zip(names, d["weights"])), names, dict(zip(names, d["signs"])),
-                  scope_label=scope_label)
+                  scope_label=scope_label), ev
 
 
-def out_branch_name(branch, bin_ms, *, labels=cfg.DEFAULT_LABELS, interactions=False, order_control=False):
-    """``raw`` / ``raw_b<ms>`` / ``engineered``, then ``_svm`` for that scope,
-    then ``_x_maze`` with interactions, then ``_order`` with order control."""
-    name = branch
-    if branch == "raw" and bin_ms != cfg.RAW_BIN_MS:
-        name = f"raw_b{bin_ms:g}"
-    tag = cfg.LABEL_SCOPES[labels]["tag"]
-    if tag:
-        name += f"_{tag}"
+REGION_VARIANTS = {"regions": "both", "regions_dwell": "dwell", "regions_binary": "binary",
+                   "regions_plus": "both", "regions_plus_dwell": "dwell", "regions_plus_binary": "binary",
+                   "regions_all": "all", "regions_plus_all": "all",
+                   "exits": "both", "exits_dwell": "dwell", "exits_binary": "binary", "exits_all": "all",
+                   "lor": "both", "lor_dwell": "dwell", "lor_binary": "binary", "lor_all": "all",
+                   "balls": "both", "balls_dwell": "dwell", "balls_binary": "binary", "balls_all": "all",
+                   "capsules": "both", "capsules_dwell": "dwell", "capsules_binary": "binary", "capsules_all": "all",
+                   "capsules_tight": "both", "capsules_tight_dwell": "dwell", "capsules_tight_binary": "binary",
+                   "capsules_tight_all": "all"}
+
+
+def out_branch_name(branch, bin_ms, *, labels=cfg.DEFAULT_LABELS, interactions=False, n_perm=cfg.N_PERM,
+                    per_session=False):
+    """``<scope>/<family>/<variant>``: scope ``dendro`` / ``svm``; family
+    ``raw`` / ``raw_plus`` (variant ``b<bin ms>``) or ``regions`` / ``regions_plus`` /
+    ``exits`` / ``lor`` / ``balls`` / ``capsules`` (variant ``both`` / ``dwell`` / ``binary`` /
+    ``all``);
+    ``_x_maze`` with interactions, ``_per_session`` for one fit per session and
+    ``_p<n>`` for a non-default `n_perm`, so no run overwrites another."""
+    if branch in F.RAW_KINDS:
+        family, variant = branch, f"b{bin_ms:g}"
+    else:
+        family = ("regions_plus" if F.is_plus(branch) else "exits" if F.is_exits(branch)
+                  else "lor" if F.is_lor(branch) else "balls" if F.is_balls(branch)
+                  else "capsules_tight" if F.is_capsules_tight(branch) else "capsules" if F.is_capsules(branch)
+                  else "regions")
+        variant = REGION_VARIANTS[branch]
     if interactions:
-        name += "_x_maze"
-    if order_control:
-        name += "_order"
-    return name
+        variant += "_x_maze"
+    if per_session:
+        variant += "_per_session"
+    if n_perm != cfg.N_PERM:
+        variant += f"_p{n_perm}"
+    return f"{labels}/{family}/{variant}"
+
+
+def subset(X, meta, keep):
+    return X[keep], {k: (v[keep] if isinstance(v, np.ndarray) and len(v) == len(keep) else v)
+                     for k, v in meta.items()}
+
+
+def combined_row(monkey, branch, kind, evs, n_perm):
+    """Per-session fits pooled: the within-(session, maze) AUC is the pair-weighted
+    mean of the per-session AUCs, and its null the same weighted mean of the
+    per-session nulls draw by draw (draws are independent across sessions)."""
+    w = np.array([sum(nh * ns for _, nh, ns in ev.per_maze.values()) for ev in evs.values()], dtype=float)
+    auc = float(np.dot(w, [ev.auc for ev in evs.values()]) / w.sum())
+    null = np.stack([ev.null for ev in evs.values()]) * w[:, None]
+    null = null.sum(0) / w.sum()
+    fin = null[np.isfinite(null)]
+    z = (auc - fin.mean()) / fin.std(ddof=1)
+    p = (1 + np.sum(fin >= auc)) / (fin.size + 1)
+    print(f"  {monkey} per-session combined: within-(session, maze) AUC {auc:.3f} z={z:+.2f} p={p:.4f}")
+    return dict(monkey=monkey, branch=branch, model=kind, session="combined", maze="within-(session, maze) pooled",
+                auc=auc, null_mean=fin.mean(), null_sd=fin.std(ddof=1), z=z, p=p, n_perm=n_perm)
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--branch", nargs="*", default=["raw", "engineered", "regions"],
-                    choices=["raw", "engineered", *F.REGIONS_KINDS, "order"],
-                    help="raw traces; 26 engineered features; `regions` = per-region dwell share + visited "
-                         "over origin-disc quadrants, exit balls and elsewhere (`regions_dwell` / "
-                         "`regions_binary` for one set); `order` = trial order alone")
+    ap.add_argument("--branch", nargs="*", default=["raw", "regions"],
+                    choices=[*F.RAW_KINDS, *F.REGIONS_KINDS],
+                    help="raw traces; `raw_plus` = raw traces + the 6x6 time-collapsed gaze map; `regions` = per-region dwell share + visited over origin-disc "
+                         "quadrants, exit balls and elsewhere (`regions_dwell` / `regions_binary` for one set); "
+                         "`regions_plus[_dwell|_binary]` = elsewhere split near / far + pupil change; "
+                         "`exits[_dwell|_binary|_all]` = the four exit balls alone; "
+                         "`lor[_dwell|_binary|_all]` = origin ball + left / right half of the maze; "
+                         "`balls[_dwell|_binary|_all]` = msp's r0.5 codebook in degrees, origin ball + four exit balls; "
+                         "`capsules[_tight][_dwell|_binary|_all]` = origin ball + four origin-to-exit capsules + elsewhere")
     ap.add_argument("--model", nargs="*", default=list(cfg.MODELS), choices=cfg.MODELS)
     ap.add_argument("--monkey", nargs="*", default=list(cfg.MONKEYS), choices=cfg.MONKEYS)
     ap.add_argument("--n-perm", type=int, default=cfg.N_PERM)
     ap.add_argument("--out-root", type=Path, default=cfg.OUT_ROOT)
     ap.add_argument("--bin-ms", type=float, default=cfg.RAW_BIN_MS,
                     help="raw branch: trace bin width in ms (1 = the whole 1 kHz trace); "
-                         "non-default widths go to out/raw_b<ms>/")
+                         "the width names the variant: out/<scope>/raw/b<ms>/")
     ap.add_argument("--labels", choices=list(cfg.LABEL_SCOPES), default=cfg.DEFAULT_LABELS,
                     help="label scope: `dendro` = dendrogram labels on the publication sessions, mazes 1-6 "
-                         "(default); `svm` = SVM labels on the top-ten sessions, mazes 2-5 (out/<branch>_svm/)")
+                         "(default); `svm` = SVM labels on the top-ten sessions, mazes 2-5; top level of out/")
     ap.add_argument("--refresh", action="store_true")
     ap.add_argument("--dpi", type=int, default=160)
     ap.add_argument("--interactions", action="store_true",
                     help="add gaze x maze interaction terms (per-maze weights shrunk toward shared ones); "
-                         "output goes to out/<branch>_x_maze/")
-    ap.add_argument("--order-control", action="store_true",
-                    help="control trial order: order covariates in the design, and a null that keeps labels "
-                         "and each feature's order trend and shuffles only its residual within (session, maze); "
-                         "output out/<branch>[_svm]_order/")
+                         "the variant gets an _x_maze suffix")
+    ap.add_argument("--per-session", action="store_true",
+                    help="fit, cross-validate and permutation-test each session on its own (figures "
+                         "<Monkey>_<session>.png), plus a pair-weighted combination per monkey; "
+                         "the variant gets a _per_session suffix")
     ap.add_argument("--replot", action="store_true",
                     help="redraw figures from the saved eval_<Monkey>.npz without refitting")
     args = ap.parse_args()
 
     M.INTERACTIONS = bool(args.interactions)
-    M.ORDER_CONTROL = bool(args.order_control)
     scope_label = cfg.LABEL_SCOPES[args.labels]["label"]
     refreshed = set()  # (cache, monkey) already rebuilt under --refresh: once, not once per branch
     for branch in args.branch:
-        cache = "raw" if branch == "raw" else "fix"
+        cache = "raw" if branch in F.RAW_KINDS else "fix"
         data = {m: F.dataset(m, branch, labels=args.labels, bin_ms=args.bin_ms,
                              refresh=args.refresh and (cache, m) not in refreshed) for m in args.monkey}
         refreshed.update((cache, m) for m in args.monkey)
         out_branch = out_branch_name(branch, args.bin_ms, labels=args.labels,
-                                     interactions=args.interactions, order_control=args.order_control)
+                                     interactions=args.interactions, n_perm=args.n_perm,
+                                     per_session=args.per_session)
         for kind in args.model:
             rows, frows = [], []
             for monkey in args.monkey:
-                X, names, meta = data[monkey]
-                y = meta["y"]
+                X_all, names, meta_all = data[monkey]
                 out = args.out_root / out_branch / kind
                 out.mkdir(parents=True, exist_ok=True)
-                if args.replot:
-                    fig = replot(monkey, out_branch, kind, out, names, scope_label=scope_label)
-                    fig.savefig(out / f"{monkey}.png", dpi=args.dpi)
+                if args.per_session:
+                    units = [(f"{monkey}_{s}", s, *subset(X_all, meta_all, meta_all["session"] == s))
+                             for s in np.unique(meta_all["session"])]
+                else:
+                    units = [(monkey, None, X_all, meta_all)]
+                evs = {}
+                for stem, session, X, meta in units:
+                    tag = {} if session is None else dict(session=session)
+                    if args.replot:
+                        fig, evs[stem] = replot(stem, out_branch, kind, out, names, scope_label=scope_label)
+                        fig.savefig(out / f"{stem}.png", dpi=args.dpi)
+                        plt.close(fig)
+                        r_, f_ = rows_from_eval(monkey, branch, kind, out, stem=stem)
+                        rows += [{**r, **tag} for r in r_]
+                        frows += [{**r, **tag} for r in f_]
+                        continue
+                    y = meta["y"]
+                    print(f"\n=== {stem} / {out_branch} / {kind}: {len(y)} trials ({(y == 0).sum()} H, {(y == 1).sum()} S), "
+                          f"{np.unique(meta['session']).size} sessions, {X.shape[1]} features ===", flush=True)
+                    ev = evs[stem] = M.evaluate(X, y, meta, kind, n_perm=args.n_perm)
+                    signs = M.coefficients(X, y, meta, names)
+                    weights = signs if kind == "logreg" else M.gbm_importance(X, y, meta, names)
+                    fin = ev.null[np.isfinite(ev.null)]
+                    print(f"  within-maze AUC {ev.auc:.3f} (null mean {fin.mean():.3f} sd {fin.std(ddof=1):.3f}) "
+                          f"z={ev.z:+.2f} p={ev.p:.3f}; ordinary AUC {ev.pooled_auc:.3f}")
+                    for m, (a, nh, ns) in sorted(ev.per_maze.items()):
+                        print(f"    maze {m}: AUC {a:.3f} ({nh} H, {ns} S)")
+                        rows.append(dict(monkey=monkey, **tag, branch=branch, model=kind, maze=m, auc=a, n_H=nh, n_S=ns))
+                    for b, v in ev.session_holdout.items():
+                        print(f"    held-out {b}: within-maze AUC {v:.3f}")
+                    if len(ev.session_holdout) > 2:
+                        print(f"    leave-one-session-out pooled: {ev.holdout_auc:.3f}")
+                    rows += [{**r, **tag} for r in holdout_rows(monkey, branch, kind, ev.session_holdout, ev.holdout_auc)]
+                    rows.append(dict(monkey=monkey, **tag, branch=branch, model=kind, maze="within-maze pooled",
+                                     auc=ev.auc, null_mean=fin.mean(), null_sd=fin.std(ddof=1), z=ev.z, p=ev.p,
+                                     ordinary_auc=ev.pooled_auc, n_H=int((y == 0).sum()), n_S=int((y == 1).sum()),
+                                     n_features=X.shape[1], n_perm=args.n_perm))
+                    frows += [dict(monkey=monkey, **tag, branch=branch, model=kind, feature=k, weight=v)
+                              for k, v in weights.items()]
+                    np.savez(out / f"eval_{stem}.npz", auc=ev.auc, z=ev.z, p=ev.p, pooled_auc=ev.pooled_auc,
+                             null=ev.null, oof=ev.oof, y=y, maze=meta["maze"], session=meta["session"],
+                             per_maze=np.array([(m, a, nh, ns) for m, (a, nh, ns) in sorted(ev.per_maze.items())]),
+                             holdout=np.array([(b, v) for b, v in ev.session_holdout.items()], dtype=object),
+                             holdout_auc=ev.holdout_auc, labels=args.labels,
+                             names=np.array(names), weights=np.array([weights[n] for n in names]),
+                             signs=np.array([signs[n] for n in names]))
+                    fig = figure(stem, out_branch, kind, ev, weights, names, signs, scope_label=scope_label)
+                    fig.savefig(out / f"{stem}.png", dpi=args.dpi)
                     plt.close(fig)
-                    r_, f_ = rows_from_eval(monkey, out_branch, kind, out)
-                    rows += r_
-                    frows += f_
-                    continue
-                print(f"\n=== {monkey} / {out_branch} / {kind}: {len(y)} trials ({(y == 0).sum()} H, {(y == 1).sum()} S), "
-                      f"{np.unique(meta['session']).size} sessions, {X.shape[1]} features ===", flush=True)
-                ev = M.evaluate(X, y, meta, kind, n_perm=args.n_perm)
-                signs = M.coefficients(X, y, meta, names)
-                weights = signs if kind == "logreg" else M.gbm_importance(X, y, meta, names)
-                fin = ev.null[np.isfinite(ev.null)]
-                print(f"  within-maze AUC {ev.auc:.3f} (null mean {fin.mean():.3f} sd {fin.std(ddof=1):.3f}) "
-                      f"z={ev.z:+.2f} p={ev.p:.3f}; ordinary AUC {ev.pooled_auc:.3f}")
-                for m, (a, nh, ns) in sorted(ev.per_maze.items()):
-                    print(f"    maze {m}: AUC {a:.3f} ({nh} H, {ns} S)")
-                    rows.append(dict(monkey=monkey, branch=branch, model=kind, maze=m, auc=a, n_H=nh, n_S=ns))
-                for b, v in ev.session_holdout.items():
-                    print(f"    held-out {b}: within-maze AUC {v:.3f}")
-                if len(ev.session_holdout) > 2:
-                    print(f"    leave-one-session-out pooled: {ev.holdout_auc:.3f}")
-                rows += holdout_rows(monkey, branch, kind, ev.session_holdout, ev.holdout_auc)
-                rows.append(dict(monkey=monkey, branch=branch, model=kind, maze="within-maze pooled", auc=ev.auc,
-                                 null_mean=fin.mean(), null_sd=fin.std(ddof=1), z=ev.z, p=ev.p,
-                                 ordinary_auc=ev.pooled_auc, n_H=int((y == 0).sum()), n_S=int((y == 1).sum()),
-                                 n_features=X.shape[1], n_perm=args.n_perm))
-                frows += [dict(monkey=monkey, branch=branch, model=kind, feature=k, weight=v) for k, v in weights.items()]
-                np.savez(out / f"eval_{monkey}.npz", auc=ev.auc, z=ev.z, p=ev.p, pooled_auc=ev.pooled_auc,
-                         null=ev.null, oof=ev.oof, y=y, maze=meta["maze"], session=meta["session"],
-                         per_maze=np.array([(m, a, nh, ns) for m, (a, nh, ns) in sorted(ev.per_maze.items())]),
-                         holdout=np.array([(b, v) for b, v in ev.session_holdout.items()], dtype=object),
-                         holdout_auc=ev.holdout_auc, labels=args.labels,
-                         names=np.array(names), weights=np.array([weights[n] for n in names]),
-                         signs=np.array([signs[n] for n in names]))
-                fig = figure(monkey, out_branch, kind, ev, weights, names, signs, scope_label=scope_label)
-                fig.savefig(out / f"{monkey}.png", dpi=args.dpi)
-                plt.close(fig)
+                if args.per_session:
+                    rows.append(combined_row(monkey, branch, kind, evs, args.n_perm))
             write_csv(args.out_root / out_branch / kind / "results.csv", rows)
             write_csv(args.out_root / out_branch / kind / "features.csv", frows)
 

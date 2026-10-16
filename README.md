@@ -67,9 +67,10 @@ after changing detector or QC constants, delete the derived caches
 | `data/`       | Shared layer: paths, `.mat` readers, cache builders, strategy labels     |
 | `counts/`     | H/S trial census per session and maze                                    |
 | `msp/`        | **Main analysis**, maze-strategy pairs; also `msp.per_session`, `msp.saccades`, and `msp/legacy/` |
-| `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs engineered features, within-maze AUC; dendrogram or SVM scope |
+| `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs region dwell, within-maze AUC; dendrogram or SVM scope |
 | `regression/` | Logistic regression of strategy on gaze, maze held fixed                 |
 | `scatter/`    | Mean gaze per maze between fixation and the flash                        |
+| `counterfactual/` | Post-choice exit sequences per trial (publication sessions); annotation only |
 | `slurm/`      | Batch scripts for Engaging                                               |
 
 Each package reads `data/` and writes only to its own `out/`. When a default
@@ -83,6 +84,11 @@ publication sessions, two per monkey). Gaze is warped to "unit H" (fixation poin
 origin, exits at (±1, ±1)), and each fixation is assigned to the nearest of
 five states (origin, LU, LD, RU, RD) within `--radius`, giving tags such as
 `r0.5`. Each trial is analysed from maze onset to fixation onset.
+Fixations come from `data.builder.trial_events`: saccades are pymovements'
+microsaccade detector, and a fixation ends only at a saccade or when gaze
+moves more than 2° from the fixation's anchored centroid (no other duration
+cap; I-DT was retired on 2026-10-16, see
+[README_COMMANDS.md](README_COMMANDS.md#clearing-derived-caches)).
 
 ### `counts/`
 
@@ -152,12 +158,7 @@ SVM labels on the ten best sessions per monkey, mazes 2–5, the msp scope
   off-screen) stays NaN, never interpolated: the tree model takes NaN
   natively and the logistic pipeline imputes it to the column mean. Trials
   with under half the window covered are dropped. Nothing hand-picked.
-- `engineered`: 26 quantities the earlier codebook search pointed at: origin-disc
-  (5°) dwell and its four quadrants, exit-ball (3°) occupancy and dwell,
-  eccentricity rings, fixation count, first / last fixation region, first
-  fixation onset, pupil mean and change.
-
-- `regions`: the two families the engineered fits lean on, over one
+- `regions`: dwell and visits over one
   partition of the screen in degrees: the four quadrants of the 5° origin
   disc, the four 3° exit balls, and everything else. Two sets over the same
   nine regions, msp's binary / dwell pair: `dwell` (share of in-window
@@ -167,6 +168,26 @@ SVM labels on the ten best sessions per monkey, mazes 2–5, the msp scope
   (visited ⇔ dwell share > 0), so the tree model gives `regions` and
   `regions_dwell` identical fits; for the logistic model the pair adds a
   little or nothing over dwell alone.
+- `regions_plus`: the same, with "elsewhere" split into near (5–10°) and far
+  (> 10°) and a pupil-change term (late minus early, z within session)
+  added: the two engineered terms whose sign agreed across monkeys and held
+  under a trial-order control.
+- `exits`: the four 3° exit balls alone, dropping the origin quadrants and
+  "elsewhere" (8 features for dwell + binary). Dwell share is still of all
+  in-window fixation time, so the four shares sum to the time spent at any
+  exit, not to 1.
+- `lor`: msp's `halves` codebook in degrees: a 3° origin ball, then the left
+  and right half of the maze, where "inside the maze" is within 3° of the
+  quadrilateral the exits span (the perimeter hugs a 3° ball at each exit,
+  not msp's wide r1 margin). 6 features for dwell + binary; fixations
+  outside the perimeter are unassigned. `classifier.codebook` draws it.
+- `balls`: msp's `r0.5` codebook in degrees: a 3° origin ball plus the four 3°
+  exit balls, nearest ball wins, everything else unassigned (10 features for
+  dwell + binary). No quadrants, no "elsewhere".
+
+Every classifier region is in degrees around each maze's own exit locations;
+the classifier never warps gaze to unit H (the 3° balls stand in for msp's
+r0.5 unit-H balls, which span 2.5–4.5° depending on maze and direction).
 
 Pupil comes from the per-session tables `classifier.pupil_extract` writes
 on the cluster (`classifier/out/pupil/`); the fixation table is
@@ -183,8 +204,12 @@ maze and label). Its chance level comes from 200 refits with labels shuffled
 within (session, maze). A leave-one-session-out fit (train on the other
 sessions, score the held-out one; pooled over held-out predictions) is
 reported alongside, which with two sessions is train one day, test the
-other. Output: `classifier/out/<branch>[_svm]/<model>/`
-(`<Monkey>.png`, `results.csv`, `features.csv`).
+other. Output: `classifier/out/<scope>/<raw|regions|regions_plus|exits|lor|balls>/<variant>/<model>/`
+(`<Monkey>.png`, `results.csv`, `features.csv`, plus `classifier.pres`'s
+`merged_auc.*` / `session_auc.*` bar chart where it has been run): scope `dendro` / `svm`;
+variant `b<bin ms>` for raw, `both` / `dwell` / `binary` for regions, with
+`_p<n>` for a non-default shuffle count (the `_p1000` runs) and `_x_maze` for
+interactions. How each figure is built: [classifier/README.md](classifier/README.md).
 
 **Findings (2026-10-05, dendro scope).** Within-maze AUC, out of fold, with the shuffle
 null's mean ≈ 0.50 and sd ≈ 0.05 (200 shuffles). Empty gaze bins are kept as
@@ -196,28 +221,19 @@ coverage channel:
 | raw, logistic, 50 ms bins (156 features) | 0.68 (p = 0.005) | 0.51 (chance) |
 | raw, logistic, 1 ms = whole trace (6,036) | 0.67 (p = 0.005) | 0.56 (p = 0.050) |
 | raw, boosted trees, 50 ms | 0.64 (p = 0.005) | 0.49 (chance) |
-| engineered, logistic (26 features) | 0.67 (p = 0.005) | 0.58 (p = 0.035) |
-| engineered, boosted trees | 0.67 (p = 0.005) | 0.60 (p = 0.070) |
-| engineered, logistic + gaze × maze terms | 0.68 (p = 0.005) | 0.57 (p = 0.095) |
 
 Faure's gaze carries strategy information beyond maze in every branch and
 transfers across sessions (train one day, test the other: 0.58–0.70).
 Nielsen is at chance on the raw traces (the whole-trace 0.56 does not
-transfer: 0.45 one way, 0.66 the other) and marginal on the engineered
-features (0.58–0.60; cross-session 0.51–0.61). Bin width does not matter much
-in the fixed-width sweeps. Per-maze gaze weights change nothing for the
-engineered features, so the within-maze signal is shared across mazes, not
-maze-specific; they weaken cross-session transfer (Faure 0.56–0.58).
-Features shared by the raw and engineered models: lower pupil → S in Faure
+transfer: 0.45 one way, 0.66 the other). Bin width does not matter much
+in the fixed-width sweeps. Raw-trace weights: lower pupil → S in Faure
 (through most of the window), pupil rising in the last 250 ms → S in
-Nielsen; dwell below-right of the fixation point → S and below-left → H in
-Faure; dwell near the RU exit → S in Nielsen; and in both monkeys the
+Nielsen; and in both monkeys the
 largest single raw weight is gaze height about 275 ms before fixation, with
 opposite signs, which is why the monkeys' models do not transfer to each
 other. Trial order within a session predicts S on its own (Faure within-maze
 AUC 0.62, Nielsen 0.44), so the mechanistic reading of the time-related
-features (first-fixation latency) is open; the predictive result is
-unaffected. Ordinary AUC including maze is 0.87–0.96 everywhere: the maze
+features is open; the predictive result is unaffected. Ordinary AUC including maze is 0.87–0.96 everywhere: the maze
 confound, not gaze.
 
 Nielsen's null here is a power limit, not evidence of absence: within-maze
@@ -231,20 +247,17 @@ decodable trial by trial.
 **Findings (2026-10-06, regions branch, dendro scope).** Within-maze AUC,
 logistic / boosted trees: Faure 0.60 / 0.53 (`regions`), 0.61 / 0.53
 (dwell only), 0.56 / 0.55 (binary only); Nielsen 0.59 / 0.61, 0.56 / 0.61,
-0.56 / 0.54. The nine dwell shares recover most of what the 26 engineered
-features gave on the publication sessions, at the cost of the pupil and
-latency terms that carried Faure.
+0.56 / 0.54. The regions carry no pupil or latency terms, which carried
+Faure's raw-trace result.
 
 **Findings (2026-10-06, svm scope: ten sessions per monkey, SVM labels,
 mazes 2–5, pupil tables for every session).** Within-maze AUC, logistic /
 boosted trees; null sd ≈ 0.02, p from 200 shuffles; the leave-one-session-out
-pooled AUC sits within 0.01–0.04 of every entry (largest gap: Nielsen
-engineered trees, 0.64 CV vs 0.55 held-out):
+pooled AUC sits within 0.01–0.04 of every entry:
 
 | Branch | Faure (2,384–2,438 trials) | Nielsen (2,935–3,028 trials) |
 | --- | --- | --- |
 | raw, 50 ms bins (90) | 0.57 (p = 0.015) / 0.61 (p = 0.005) | 0.52 (p = 0.075) / 0.55 (p = 0.055) |
-| engineered (26) | 0.56 (p = 0.005) / 0.59 (p = 0.010) | 0.58 (p = 0.005) / 0.64 (p = 0.005) |
 | regions, dwell + binary (18) | 0.55 (p = 0.015) / 0.54 (p = 0.055) | 0.57 (p = 0.005) / 0.60 (p = 0.005) |
 | regions, dwell only (9) | 0.56 (p = 0.005) / 0.54 (p = 0.055) | 0.57 (p = 0.005) / 0.60 (p = 0.005) |
 | regions, binary only (9) | 0.55 (p = 0.015) / 0.52 (p = 0.100) | 0.56 (p = 0.005) / 0.55 (p = 0.005) |
@@ -264,12 +277,9 @@ match the cross-validated ones throughout, so none of this rests on mixing
 days between training and test.
 
 *Across monkeys (svm scope).* The weight signs agree far more than on the
-publication sessions: 18 of 26 engineered coefficients and 6 of 9 dwell
-shares share a sign, and the six largest engineered weights all do: more
-origin-disc dwell, more RD-exit dwell, less LD-exit dwell, a rising pupil,
-more time beyond 10°, and a visited LD exit all → S in both monkeys. The
-disagreement is the origin's upper-left quadrant (→ S in Faure, → H in
-Nielsen) and the two latency / first-fixation terms. A model fitted on one
+publication sessions: 6 of 9 dwell shares share a sign (more RD-exit dwell
+and less LD-exit dwell → S in both monkeys). The disagreement is the
+origin's upper-left quadrant (→ S in Faure, → H in Nielsen). A model fitted on one
 monkey and scored on the other reaches only 0.49–0.54 within maze, against
 0.55–0.58 within monkey, so the shared part is a direction, not a decoder:
 the monkey-specific weights carry most of the magnitude.
@@ -290,6 +300,17 @@ all z-scored. Unestimable columns are dropped and marked × in the figure. In
 the figure, solid bars have a 95% CI excluding 0, and ★ survives Holm
 correction. The result is associational, and its intervals are optimistic.
 Output: `regression/out/`.
+
+### `counterfactual/`
+
+After the choice, which exits does the monkey look at? Each trial becomes a
+list of exit codes (1 = LU, 2 = LD, 3 = RU, 4 = RD): the chosen exit, decoded
+from `trial_answer*` with `LR` / `LR2`, then every exit fixated from the
+choice saccade to `trial_end`, in order, repeats kept. Fixation centroids are
+assigned to the nearest exit within 3°; origin and elsewhere fixations are
+kept separately. Publication sessions only, no statistics yet. Output:
+`counterfactual/out/<Monkey>/exit_sequences.csv` and `summary.txt`; see
+[counterfactual/README.md](counterfactual/README.md).
 
 ### `scatter/`
 

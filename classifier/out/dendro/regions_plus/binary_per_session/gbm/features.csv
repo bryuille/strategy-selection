@@ -1,0 +1,45 @@
+monkey,session,branch,model,feature,weight
+Faure,june_24_g0,regions_plus_binary,gbm,binary: origin LU,0.0
+Faure,june_24_g0,regions_plus_binary,gbm,binary: origin LD,0.009045694746658395
+Faure,june_24_g0,regions_plus_binary,gbm,binary: origin RU,0.04992228784581909
+Faure,june_24_g0,regions_plus_binary,gbm,binary: origin RD,0.06108175318619833
+Faure,june_24_g0,regions_plus_binary,gbm,binary: exit LU,0.005533105377681058
+Faure,june_24_g0,regions_plus_binary,gbm,binary: exit LD,0.018682001865091703
+Faure,june_24_g0,regions_plus_binary,gbm,binary: exit RU,0.0
+Faure,june_24_g0,regions_plus_binary,gbm,binary: exit RD,0.0
+Faure,june_24_g0,regions_plus_binary,gbm,binary: near 5-10 deg,0.021013366490519103
+Faure,june_24_g0,regions_plus_binary,gbm,binary: far > 10 deg,0.01973888716195211
+Faure,june_24_g0,regions_plus_binary,gbm,pupil change z,0.23758159776188995
+Faure,june_8_g0,regions_plus_binary,gbm,binary: origin LU,0.0
+Faure,june_8_g0,regions_plus_binary,gbm,binary: origin LD,0.13940886699507393
+Faure,june_8_g0,regions_plus_binary,gbm,binary: origin RU,0.019950738916256226
+Faure,june_8_g0,regions_plus_binary,gbm,binary: origin RD,0.0
+Faure,june_8_g0,regions_plus_binary,gbm,binary: exit LU,0.009359605911330116
+Faure,june_8_g0,regions_plus_binary,gbm,binary: exit LD,-0.004926108374384186
+Faure,june_8_g0,regions_plus_binary,gbm,binary: exit RU,0.0
+Faure,june_8_g0,regions_plus_binary,gbm,binary: exit RD,0.0
+Faure,june_8_g0,regions_plus_binary,gbm,binary: near 5-10 deg,0.020197044334975423
+Faure,june_8_g0,regions_plus_binary,gbm,binary: far > 10 deg,0.0
+Faure,june_8_g0,regions_plus_binary,gbm,pupil change z,0.2610837438423646
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: origin LU,0.048159354513363596
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: origin LD,0.0
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: origin RU,0.014926878466969228
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: origin RD,0.1163893091275845
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: exit LU,0.0030257186081694477
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: exit LD,0.0
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: exit RU,0.09798285426122037
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: exit RD,0.014120020171457392
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: near 5-10 deg,0.0026727181038830317
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,binary: far > 10 deg,0.0
+Nielsen,Nov_3_g0,regions_plus_binary,gbm,pupil change z,0.19783156833081192
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: origin LU,0.007373046875
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: origin LD,0.014306640625
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: origin RU,0.071240234375
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: origin RD,0.01201171875
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: exit LU,0.01943359375
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: exit LD,0.0
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: exit RU,0.05361328125
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: exit RD,0.0
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: near 5-10 deg,0.0
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,binary: far > 10 deg,0.0
+Nielsen,Nov_6_g0,regions_plus_binary,gbm,pupil change z,0.18759765625
