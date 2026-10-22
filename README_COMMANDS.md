@@ -230,7 +230,20 @@ uv run python -m counterfactual.extract                # build the cache, both m
 uv run python -m counterfactual.extract --monkey Faure --session june_24_g0 --refresh
 uv run python -m counterfactual.build --dry-run        # summary only
 uv run python -m counterfactual.build                  # exit_sequences.csv + summary.txt per monkey
+uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2 3   # one movie per trial
+uv run python -m counterfactual.movie --session Nov_3_g0 --batch --n-trials 15   # one video, 15 trials back to back
+uv run python -m counterfactual.movie --session june_8_g0 --batch --labelled --start 15   # next 15 labelled trials
 ```
+
+`counterfactual.movie` writes `counterfactual/out/movies/<Monkey>/<session>/trial_<id>.mp4`
+or, with `--batch`, one `batch_<first>-<last>.mp4` of the trials back to back with a
+one-second hold at each trial start (needs ffmpeg; `*.mp4` under `out/` is
+gitignored). The clock runs from `flash_three`, with the analysed window's start
+(`saccade_init`) marked on the timeline: gaze on the maze with the
+3° exit / origin circles, the active fixation's centroid marker and label for
+its whole duration, an expanding ring plus "NEW FIXATION" banner for the first
+150 ms of every fixation, saccades in orange, a numbered fixation timeline and
+the exit list growing as items are counted.
 
 | Flag          | Meaning                                                             |
 | ------------- | ------------------------------------------------------------------- |
@@ -239,6 +252,12 @@ uv run python -m counterfactual.build                  # exit_sequences.csv + su
 | `--refresh`   | Rebuild the cache                                                   |
 | `--dry-run`   | `build` only: print the summary, write nothing                      |
 | `--out-root`  | `build` only: output directory (default `counterfactual/out`)       |
+| `--trial-id`  | `movie` only: trial ids (default: the first `--n-trials` cached trials) |
+| `--batch`     | `movie` only: all trials in one video (default 15 trials)           |
+| `--labelled`  | `movie` only: only trials with a dendrogram strategy label           |
+| `--start`     | `movie` only: skip the first N eligible trials (a different batch)   |
+| `--speed`     | `movie` only: playback speed, 1 = real time (default 0.25)          |
+| `--dpi`       | `movie` only: frame resolution (default 120)                         |
 
 ## Slurm
 

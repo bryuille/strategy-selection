@@ -55,6 +55,28 @@ post-choice items start with the next fixation.
   list-length distribution, and the sanity check that the first post-choice
   exit fixation equals the decoded chosen exit.
 
+## Movies
+
+`counterfactual.movie` renders one `.mp4` per trial
+(`out/movies/<Monkey>/<session>/trial_<id>.mp4`), or with `--batch` one
+video of many trials back to back (`batch_<first>-<last>.mp4`, a one-second
+hold at each trial start). The clock is ms from `flash_three`, so the choice
+saccade is visible and the analysed window's start (`saccade_init`) is marked
+on the timeline. The title and the right panel carry the trial's dendrogram
+strategy label (H / S / unlabelled); `--labelled` restricts a batch to
+labelled trials and `--start N` skips the first N. Each frame shows:
+gaze trail and current sample on the maze, the exit and origin circles, and
+for the active fixation a centroid marker, a tether to the gaze sample and a
+status box ("fixation #k, age / duration, COUNTED as LU → item [1]" or
+"elsewhere: not counted") that stay on for the fixation's whole duration. The
+first 150 ms of every fixation add an expanding ring and a "NEW FIXATION #k"
+banner, so two abutting fixations are visibly two. Saccades turn the trail
+orange. A timeline strip shows the numbered fixation blocks coloured by state
+with the counted exits marked, and the right panel lists the exit items as
+they are counted. Events are re-detected per trial with the same detector
+call the cache used (no pupil, so the count can differ from a cache built
+with blink masking; the movie prints when it does).
+
 Blink masking needs a pupil trace: the classifier's per-session pupil tables
 (`classifier/out/pupil/`), else the eye mats. Without either (this laptop)
 masking is off and the extraction warns.
