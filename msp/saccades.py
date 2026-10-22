@@ -4,9 +4,10 @@ Session/maze gaze panels (raw vs snapped gaze, state spans, codebook)
 assigned against this package's fixed codebook and uniform balls
 (``AssignmentSpec``). Depends only on ``data.*`` and ``msp.*``.
 
-As in `msp.features`, each trial is re-detected and re-warped inside
-``[geo_present, fix_start]`` with
-`msp.features.redetect_trace`. The retired fixed-length window lives in
+As in `msp.features`, looks come from `data.looks` (``fix`` epoch, maze
+onset -> `fix_start`); the gaze trace is drawn from the pooled eye cache
+warped to unit H, and each sample inside a look's stable islands carries that
+look's state. The retired fixed-length window lives in
 `msp.legacy.saccades`, which reuses this module's plotting through the
 ``collect`` / ``out_root`` hooks.
 
@@ -45,7 +46,7 @@ from msp.config import (
     AssignmentSpec,
     resolve_tag,
 )
-from msp.features import assign_trial, redetect_trace
+from msp.features import assign_by_rule
 from msp.figures import save_figure
 
 MONKEYS = ("Faure", "Nielsen")
@@ -191,16 +192,18 @@ def _runs_from_state(t_rel, state):
     return runs
 
 
-def _raw_redetect(behavioral, eye, maze, session, assignment, *, monkey):
-    """Default window: re-detect and re-warp each trial inside its window."""
-    import pymovements as pm
+def _raw_looks(behavioral, eye, maze, session, assignment, *, monkey):
+    """Default window: the trial's looks from the ``fix`` cache, with the gaze
+    trace (pooled eye cache, warped to unit H) for display. A sample's state
+    is the state of the look whose stable island contains it, else -1."""
+    from data.builder import to_maze, unpack_eye
+    from data.looks import islands_of, load_looks, looks_of, trial_index, usable_rows
 
-    from data.builder import EYE_SAMPLING_RATE_HZ, pupil_for_trial, unpack_eye
-
+    looks = load_looks(monkey, "fix", (session,))
+    look_rows = trial_index(looks)
+    usable = usable_rows(looks)
     lookup = behavioral_lookup(behavioral)
     codebook_xy = np.asarray(CODEBOOK_XY, dtype=np.float32)
-    experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
-    pupils = {}
     raw = []
     sessions = np.asarray(eye["session"]).astype(str)
     for i in np.flatnonzero(sessions == session):
@@ -213,20 +216,42 @@ def _raw_redetect(behavioral, eye, maze, session, assignment, *, monkey):
         fix_ms = float(fix_start_ms(behavioral, beh_i))
         if not np.isfinite(fix_ms) or fix_ms <= 0:
             continue
+        r = look_rows.get((session, trial_id))
+        if r is None or not usable[r]:
+            continue
         lo, hi = assignment.window_bounds(fix_ms)
         h = tuple(float(behavioral[f"h{k}"][beh_i]) for k in range(1, 7))
-        pupil = pupil_for_trial(pupils, monkey, session, trial_id)
-        tr = redetect_trace(t_s, x, y, h, pupil, lo, hi, experiment=experiment)
-        if tr is None:
-            continue
-        raw.append(_raw_entry(trial_id, tr["t_ms"], tr["x"], tr["y"], tr["valid"],
-                              tr["valid_win"], tr["spans"], lo, hi, fix_ms, h,
-                              cue_rel_ms(behavioral, beh_i), assignment, codebook_xy))
+        n = min(t_s.size, x.size, y.size)
+        t_ms = np.asarray(t_s[:n], dtype=float) * 1000.0
+        wx, wy = to_maze(np.asarray(x[:n], dtype=float), np.asarray(y[:n], dtype=float), h)
+        valid = np.isfinite(t_ms) & np.isfinite(wx) & np.isfinite(wy)
+        sl = looks_of(looks, r)
+        xy_u = looks["look_xy_u"][sl].astype(np.float32).reshape(-1, 2)
+        states_f = assign_by_rule(xy_u, assignment, codebook_xy) if len(xy_u) else np.empty(0, dtype=np.int16)
+        state = np.full(n, -1, dtype=int)
+        for k, sid in enumerate(states_f):
+            if sid < 0:
+                continue
+            starts, ends = islands_of(looks, sl.start + k)
+            for a, b in zip(starts, ends):
+                state[(t_ms >= a) & (t_ms <= b)] = int(sid)
+        state = np.where(valid, state, -1)
+        recon_x = np.where(state >= 0, codebook_xy[np.clip(state, 0, None), 0], np.nan)
+        recon_y = np.where(state >= 0, codebook_xy[np.clip(state, 0, None), 1], np.nan)
+        raw.append({
+            "trial_id": trial_id, "t_ms": t_ms, "x": wx, "y": wy,
+            "recon_x": recon_x, "recon_y": recon_y, "state": state, "valid": valid,
+            "fix_ms": fix_ms, "lo": lo, "hi": hi, "h": h, "cue_rel": cue_rel_ms(behavioral, beh_i),
+        })
     return raw
 
 
 def _raw_entry(trial_id, t_ms, x, y, valid, valid_win, spans, lo, hi, fix_ms, h,
                cue_rel, assignment, codebook_xy):
+    """LEGACY: per-sample states from pymovements fixation spans; used only by
+    `msp.legacy.saccades` (retired ``pre1466`` window)."""
+    from msp.legacy.assign import assign_trial
+
     state, _centroids, _fix_state = assign_trial(
         np.stack([x, y], axis=1).astype(np.float32), t_ms, valid_win, spans,
         codebook_xy, assignment,
@@ -243,7 +268,7 @@ def _raw_entry(trial_id, t_ms, x, y, valid, valid_win, spans, lo, hi, fix_ms, h,
 
 def _collect_maze_trials(
     behavioral, source, maze, session, assignment: AssignmentSpec, *, monkey,
-    collect=_raw_redetect,
+    collect=_raw_looks,
 ):
     """Per-trial traces for one (session, maze) under `assignment`'s window.
 
@@ -397,7 +422,7 @@ def _load_session_data(monkey):
 
 def plot_2d_average(
     maze, session, *, monkey, assignment: AssignmentSpec, dpi=200,
-    behavioral=None, source=None, collect=_raw_redetect, out_root=cfg.OUT_ROOT,
+    behavioral=None, source=None, collect=_raw_looks, out_root=cfg.OUT_ROOT,
 ):
     if behavioral is None or source is None:
         behavioral, source = _load_session_data(monkey)
@@ -508,7 +533,7 @@ def _save_2d_trial(
 
 def plot_2d_trials(
     maze, session, *, monkey, assignment: AssignmentSpec, dpi=200,
-    behavioral=None, source=None, collect=_raw_redetect, out_root=cfg.OUT_ROOT,
+    behavioral=None, source=None, collect=_raw_looks, out_root=cfg.OUT_ROOT,
 ):
     if behavioral is None or source is None:
         behavioral, source = _load_session_data(monkey)
@@ -530,7 +555,7 @@ def plot_2d_trials(
 
 def plot_2d_trial(
     maze, session, trial_id, *, monkey, assignment: AssignmentSpec, dpi=200,
-    behavioral=None, source=None, collect=_raw_redetect, out_root=cfg.OUT_ROOT,
+    behavioral=None, source=None, collect=_raw_looks, out_root=cfg.OUT_ROOT,
 ):
     if behavioral is None or source is None:
         behavioral, source = _load_session_data(monkey)
@@ -557,7 +582,7 @@ def plot_session(
     dpi=200,
     behavioral=None,
     source=None,
-    collect=_raw_redetect,
+    collect=_raw_looks,
     out_root=cfg.OUT_ROOT,
 ):
     monkey = monkey or _monkey_for_session(session)
@@ -582,7 +607,7 @@ def run_all_analyses(
     views=("average", "trials"),
     dpi=200,
     load_source=load_eye_data,
-    collect=_raw_redetect,
+    collect=_raw_looks,
     out_root=cfg.OUT_ROOT,
 ):
     """Average and per-trial panels for every assignment × publication session × maze.

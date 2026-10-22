@@ -25,13 +25,15 @@ published ranges are read from `Single_Trial_List/`.
 | `<session>_strategy_svm` | `data.labels.build_svm_choices` | `load_svm_choices` |
 | `<Monkey>_eye_data` | `data.builder.build_eye_data` | `load_eye_data` |
 | `<Monkey>_eye_behavioral` | `data.builder.build_eye_behavioral_data` | `load_eye_behavioral_data` |
-| `<Monkey>_clean_eye_data` | `data.builder.clean_eye_data` (whole trial) | `load_clean_eye_data` |
-| `<Monkey>_clean_eye_data_s<S>_e<E>` | same, window `[fix−S, fix−E]` ms | `load_clean_eye_data(start_ms=…)` |
-| `<Monkey>_attractor_eye_data` | `data.builder.build_attractor_eye_data` | `load_attractor_eye_data` |
-| `<Monkey>_msp_fixed5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
+| `<Monkey>_clean_eye_data` (LEGACY) | `data.builder.clean_eye_data` (whole trial) | `load_clean_eye_data` |
+| `<Monkey>_clean_eye_data_s<S>_e<E>` (LEGACY) | same, window `[fix−S, fix−E]` ms | `load_clean_eye_data(start_ms=…)` |
+| `<Monkey>_attractor_eye_data` (LEGACY) | `data.builder.build_attractor_eye_data` | `load_attractor_eye_data` |
 | `<Monkey>_msp_revised_fix[_svm]` (legacy name) | `classifier.fixations` | `classifier.fixations.load` |
-| `<Monkey>_reg_fixed5_<tag>` | `regression.features` | `regression.features.load_fixations` |
+| `<Monkey>_looks_<epoch>` | `data.looks.build_looks` (timestamp_preprocessing) | `data.looks.load_looks` |
+| `<Monkey>_msp_looks5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
+| `<Monkey>_reg_looks5_<tag>` | `regression.features` | `regression.features.load_fixations` |
 | `<Monkey>_cf_exits` | `counterfactual.extract` | `counterfactual.extract.load` |
+| `<Monkey>_cf_models` | `counterfactual.models` | `counterfactual.models.load` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
 `<tag>` is a radius tag such as `r1` or `r0.5`. msp and regression analyse
@@ -119,7 +121,32 @@ is `geo_type` (1–6). QC used everywhere for pooled analyses:
 
 ---
 
-## Events and warped gaze
+## Looks (`data.looks`)
+
+### `<Monkey>_looks_<epoch>.npz`
+
+Long table from `timestamp_preprocessing.current.preprocess_trial` on the raw
+eye mats, one file per epoch: `fix` (maze onset → `fix_start`) and `trial`
+(maze onset → `trial_end`). The saccade threshold is estimated inside the
+epoch, so the two are different analyses: never slice `trial` for
+pre-fixation work. Every behavioral row of the built sessions is present
+(`qc_ok` stored, no QC filter); skipped trials are listed with a reason.
+
+| Group | Keys |
+| --- | --- |
+| per trial | `session`, `trial_indices_all`, `maze_id`, `qc_ok`, `h` (n,6), `fix_ms`, `epoch_end_ms`, `saccade_status`, `gap_ms`, `n_samples`, `n_valid`, `n_looks`, `n_saccades`, `look_start`/`look_stop`, `sac_start`/`sac_stop` (row ranges) |
+| per look | `look_row`, `look_onset_ms`, `look_offset_ms`, `look_stable_ms`, `look_cand_start_ms`, `look_cand_end_ms`, `look_xy_d` (deg), `look_xy_u` (unit H), `look_roi_adv` (the package's centre/left/right ROI, reference only), `look_ambiguous`, `look_segment`, `look_witness_deg`, `look_n_islands` |
+| per stable island | `island_look`, `island_start_ms`, `island_end_ms` |
+| per saccade | `sac_row`, `sac_onset_ms`, `sac_offset_ms`, `sac_duration_ms`, `sac_peak_deg_s`, `sac_xy_u`, `sac_segment` |
+| skipped | `skip_session`, `skip_trial`, `skip_reason` (`no_eye_cell`, `no_pupil`, `bad_epoch`, `bad_geometry`, `preprocess_error:<type>`) |
+| meta | `schema`, `epoch`, `monkey`, `sessions`, `config_json`, `source_sha256` (hash of the package source; a mismatch rebuilds) |
+
+Times are unrounded ms from `geo_present`. Consumers: `msp.features`,
+`regression.features`, `classifier.fixations` (`fix`), `counterfactual.extract`
+(`trial`); `scatter` and the classifier raw branch use the sample-level
+`data.looks.sample_quality` instead.
+
+## Events and warped gaze (LEGACY)
 
 ### `<Monkey>_clean_eye_data[_s<S>_e<E>].npz`
 

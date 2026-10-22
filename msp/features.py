@@ -2,21 +2,21 @@
 
 Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 
-1. **Clip** each trial to ``[0, fix_start]`` from maze onset.
-2. **Warp** to unit H.
-3. **Fixations** by `data.builder.trial_events` on the clipped, unwarped data.
-4. **Assign** each fixation's mean warped position to one of the five
-   states under the codebook's rule (`assign_by_rule`): the nearest prototype
-   within the radius (``balls``), the origin ball else the maze quadrant
-   (``region``), or the origin-to-exit capsule (``capsule``). Every sample of
-   that fixation inherits the state. Saccades, blinks and fixations outside
-   every region are omitted.
-5. **Relabel** to the codebook's states at analysis time (`codebook_block`,
+1. **Looks** from `data.looks` (the advisor's `timestamp_preprocessing`,
+   epoch ``fix`` = maze onset -> `fix_start`): qualified looks with >= 75 ms of
+   stable support, bounded by detected saccades and data gaps, with their
+   time-weighted centroid in unit H and their stable duration.
+2. **Assign** each look's centroid to one of the five states under the
+   codebook's rule (`assign_by_rule`): the nearest prototype within the
+   radius (``balls``), the origin ball else the maze quadrant (``region``),
+   or the origin-to-exit capsule (``capsule``). Looks outside every region
+   are omitted; a look's dwell is its stable support.
+3. **Relabel** to the codebook's states at analysis time (`codebook_block`,
    `codebook_fix_state`): ``halves`` merges the quadrants, ``capsules`` has
    no origin column.
 
-Gaze is re-detected and re-warped per trial inside the window, the same path
-`regression.features` uses; this covers the svm/top_ten sessions only.
+Covers the svm/top_ten sessions only. `regression.features` and
+`classifier.fixations` read the same looks cache.
 
 Blocks (one row per usable trial, ``float32``):
 
@@ -24,21 +24,22 @@ Blocks (one row per usable trial, ``float32``):
 ``occ_bin``  visited / not visited per state, {0, 1} (d = 5) -- what `build` uses
 
 Which trials become rows is decided before the codebook is consulted (QC,
-maze 1-6, a usable window, >= 2 valid in-window on-screen samples), so the
-row population equals that of the fitted-codebook caches at any K. This is
-what makes `n_H`/`n_S` comparable across packages.
+maze 1-6, a usable window, >= 2 valid samples and an estimated saccade
+threshold), so the row population equals that of the other packages at any
+K. This is what makes `n_H`/`n_S` comparable across packages.
 
-Diagnostics kept per trial: `n_fix` (fixation spans with >= 1 valid
-in-window sample) and `n_fix_assigned`. Every fixation's centroid is also
+Diagnostics kept per trial: `n_fix` (looks with an on-maze centroid) and
+`n_fix_assigned`. Every fixation's centroid is also
 stored (`fix_xy`), with its state (`fix_state`) and the index of the trial row
 it belongs to (`fix_row`), so the figures can split fixations by maze and by
 the trial's strategy label.
 
-Cache: ``<PROCESSED_ROOT>/<Monkey>_msp_fixed5_r<radius>[_region|_capsule].npz``
+Cache: ``<PROCESSED_ROOT>/<Monkey>_msp_looks5_r<radius>[_region|_capsule].npz``
 (`data.config`): one per (radius, rule), so ``quads`` and ``halves`` share
-one. The codebook, radius and rule are verified on load (stored
-``assign_radius`` / ``assignment_rule``, not the tag string) and the cache
-rebuilt if `config.py` has changed under it.
+one. The codebook, radius, rule and the looks source (package hash) are
+verified on load and the cache rebuilt if any changed under it. The
+pre-2026-10-22 ``*_msp_fixed5_*`` caches (pymovements detector) are
+orphaned.
 """
 
 from __future__ import annotations
@@ -47,11 +48,12 @@ import argparse
 
 import numpy as np
 
-from data.builder import FIXATION_EVENT, FIXATION_MIN_DURATION_MS, trial_qc_ok
+from data.builder import behavioral_lookup, trial_qc_ok
 from data.config import MONKEYS, processed_npz
+from data.looks import LOOKS_SCHEMA, load_looks, looks_of, usable_rows
+from data.looks import source_sha256 as looks_source_sha256
 from data.mat import load_npz
 from data.loader import load_eye_behavioral_data, savez_atomic
-from data.builder import behavioral_lookup, fix_start_ms
 from msp.config import (
     ASSIGN_RADIUS,
     BALLS_RULE,
@@ -76,56 +78,12 @@ from msp.config import (
 )
 
 N_MAZES = 6
-MIN_WINDOW_SAMPLES = 6  # clean_eye_data's per-trial floor before detection
+EVENTS_SOURCE = "timestamp_preprocessing"
 BLOCK_NAMES = ("occ_ms", "occ_bin")
 VARIANTS = ("full", "no_origin", "mean_removed")
 
 
 # ---- helpers -----------------------------------------------------------------
-
-
-def _sample_period_ms(t_ms):
-    """Median positive sample interval (ms) of a full, unmasked time vector."""
-    t_ms = np.asarray(t_ms, dtype=float)
-    if t_ms.size < 2:
-        return 1.0
-    d = np.diff(t_ms)
-    pos = d[d > 0]
-    return float(np.median(pos)) if pos.size else 1.0
-
-
-def _sample_dt_seconds(t_ms, period_ms=None):
-    """Per-sample durations (s), each capped at the sample period, so gaps in
-    the masked timebase (saccades, blinks, unassigned fixations) contribute
-    nothing to dwell."""
-    t_ms = np.asarray(t_ms, dtype=float)
-    if t_ms.size == 0:
-        return np.empty(0, dtype=float)
-    if period_ms is None:
-        period_ms = _sample_period_ms(t_ms)
-    if t_ms.size == 1:
-        return np.array([period_ms / 1000.0])
-    dt = np.empty(t_ms.size, dtype=float)
-    dt[:-1] = np.diff(t_ms)
-    dt[-1] = period_ms
-    dt = np.clip(dt, 0.0, period_ms)
-    return np.where(dt > 0, dt, 0.0) / 1000.0
-
-
-def clip_fixation_spans(
-    event_rows, lo, hi, name_wanted=FIXATION_EVENT, min_duration_ms=FIXATION_MIN_DURATION_MS
-):
-    """`name_wanted` rows intersected with ``[lo, hi]`` and re-tested against
-    the minimum duration -- equivalent to re-running detection on the clipped
-    segment (see `classifier.features.clip_fixation_spans`)."""
-    out = []
-    for name, onset, offset in event_rows or ():
-        if str(name).lower() != name_wanted:
-            continue
-        o0, o1 = max(float(onset), lo), min(float(offset), hi)
-        if o1 - o0 >= min_duration_ms:
-            out.append((name, o0, o1))
-    return out
 
 
 # ---- helpers (also in data.builder) ------------------------------------------
@@ -213,54 +171,6 @@ def assign_by_rule(xy, assignment: AssignmentSpec, codebook_xy=CODEBOOK_XY):
     raise ValueError(f"unknown assignment rule {assignment.rule!r}")
 
 
-def fixation_event_spans(event_rows):
-    """Fixation `(onset, offset)` spans, earliest first."""
-    spans = []
-    for name, onset, offset in event_rows or ():
-        if str(name).lower() != FIXATION_EVENT:
-            continue
-        spans.append((float(onset), float(offset)))
-    spans.sort()
-    return spans
-
-
-def fixation_centroids(xy, t_ms, valid, event_rows):
-    """``(centroids (F, 2) float32, hit_masks)`` for the fixations with >= 1
-    valid sample. Returned instead of consumed so the per-fixation state can be
-    kept for diagnostics."""
-    valid = np.asarray(valid, dtype=bool)
-    t_ms = np.asarray(t_ms)
-    centroids, hits = [], []
-    if len(xy) == 0 or not valid.any():
-        return np.empty((0, 2), dtype=np.float32), hits
-    for onset, offset in fixation_event_spans(event_rows):
-        hit = valid & (t_ms >= onset) & (t_ms <= offset)
-        if not hit.any():
-            continue
-        centroids.append(np.asarray(xy[hit], dtype=np.float32).mean(axis=0))
-        hits.append(hit)
-    if not centroids:
-        return np.empty((0, 2), dtype=np.float32), hits
-    return np.stack(centroids).astype(np.float32), hits
-
-
-def assign_trial(xy, t_ms, valid, event_rows, codebook_xy, assignment: AssignmentSpec):
-    """``(state per sample, centroids, state per fixation)``.
-
-    Every valid sample of a fixation inherits its centroid's state; everything
-    else stays -1.
-    """
-    state = np.full(len(xy), -1, dtype=np.int16)
-    centroids, hits = fixation_centroids(xy, t_ms, valid, event_rows)
-    if not hits:
-        return state, centroids, np.empty(0, dtype=np.int16)
-    fix_state = assign_by_rule(centroids, assignment, codebook_xy)
-    for hit, sid in zip(hits, fix_state):
-        if sid >= 0:
-            state[hit] = sid
-    return state, centroids, fix_state
-
-
 # ---- extraction --------------------------------------------------------------
 
 
@@ -308,147 +218,59 @@ def _pack_feature_dict(
     out["radius_tag"] = np.asarray(assignment.tag)
     out["assign_radius"] = np.float64(assignment.radius)
     out["assignment_rule"] = np.asarray(assignment.rule)
+    out["events_source"] = np.asarray(EVENTS_SOURCE)
+    out["looks_schema"] = np.int64(LOOKS_SCHEMA)
+    out["looks_source_sha256"] = np.asarray(looks_source_sha256())
     return out
 
 
-def redetect_trace(t_s, x, y, h, pupil, lo, hi, *, experiment):
-    """Detect fixations and warp one trial inside ``[lo, hi]`` (ms from geo_present).
-
-    Returns None when the trial is unusable, else a dict with the warped trace
-    (``t_ms``, ``x``, ``y``, ``valid`` -- the detector's validity, whole trial),
-    ``valid_win`` (valid, in-window, finite) and the in-window fixation
-    ``spans``. Shared by the feature extraction and `msp.saccades`.
-    """
-    from data.builder import prepare_trial, trial_events
-
-    t_s = np.asarray(t_s, dtype=float)
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-    n = min(t_s.size, x.size, y.size)
-    t_s, x, y = t_s[:n], x[:n], y[:n]
-
-    lo_s, hi_s = lo / 1000.0, hi / 1000.0
-    keep = np.isfinite(t_s) & (t_s >= lo_s) & (t_s <= hi_s)
-    if keep.sum() < MIN_WINDOW_SAMPLES:
-        return None
-    pupil_win = pupil
-    if pupil is not None and np.asarray(pupil).ndim == 2 and len(pupil):
-        pu = np.asarray(pupil, dtype=float)
-        pk = np.isfinite(pu[:, 1]) & (pu[:, 1] >= lo_s) & (pu[:, 1] <= hi_s)
-        pupil_win = pu[pk] if pk.any() else np.empty((0, 2))
-
-    frame = trial_events(t_s[keep], x[keep], y[keep], pupil_win, experiment)
-    event_rows = (
-        []
-        if frame is None
-        else [
-            (str(name), float(on), float(off))
-            for name, on, off in frame.select("name", "onset", "offset").rows()
-        ]
-    )
-
-    p = prepare_trial(t_s, x, y, h, pupil, event_rows=event_rows)
-    if p is None:
-        return None
-    t_ms = np.asarray(p["t"], dtype=float) * 1000.0
-    wx = np.asarray(p["x"], dtype=float)
-    wy = np.asarray(p["y"], dtype=float)
-    valid = np.asarray(p["valid_orig"], dtype=bool)
-    m = min(t_ms.size, valid.size, wx.size, wy.size)
-    t_ms, valid, wx, wy = t_ms[:m], valid[:m], wx[:m], wy[:m]
-
-    in_window = np.isfinite(t_ms) & (t_ms >= lo) & (t_ms <= hi)
-    finite = np.isfinite(wx) & np.isfinite(wy)
-    on_screen = (np.abs(wx) <= MAZE_SCREEN_LIM) & (np.abs(wy) <= MAZE_SCREEN_LIM)
-    if (in_window & valid & finite & on_screen).sum() < 2:
-        return None
-    valid_win = valid & in_window & finite
-    if valid_win.sum() < 2:
-        return None
-    return dict(
-        t_ms=t_ms, x=wx, y=wy, valid=valid, valid_win=valid_win,
-        spans=clip_fixation_spans(event_rows, lo, hi),
-    )
-
-
-def _trial_redetect(t_s, x, y, h, pupil, lo, hi, *, experiment, assignment: AssignmentSpec):
-    """Detect, warp and assign one trial inside ``[lo, hi]`` (ms from geo_present).
-
-    Returns None when the trial is unusable, else
-    ``(occ_ms, centroids, fix_state)``.
-    """
-    tr = redetect_trace(t_s, x, y, h, pupil, lo, hi, experiment=experiment)
-    if tr is None:
-        return None
-    t_ms, valid_win = tr["t_ms"], tr["valid_win"]
-    xy = np.stack([tr["x"], tr["y"]], axis=1).astype(np.float32)
-    state, centroids, states_f = assign_trial(
-        xy, t_ms, valid_win, tr["spans"], CODEBOOK_XY, assignment
-    )
-    state = np.where(valid_win, state, -1).astype(int)
-    assigned = valid_win & (state >= 0) & (state < K)
-    if assigned.any():
-        dt = _sample_dt_seconds(t_ms[assigned], _sample_period_ms(t_ms))
-        occ_ms = np.bincount(state[assigned], weights=dt, minlength=K) * 1000.0
-    else:
-        occ_ms = np.zeros(K)
-    return occ_ms, centroids, states_f
-
-
-def _extract_redetect(monkey, assignment: AssignmentSpec):
-    """Re-detect and re-warp each trial from pooled ``*_eye_data``.
-
-    Restricted to the svm/top_ten sessions (the estimator's label scope). A
-    full-monkey re-detect would re-process every attractor session; those
-    extra rows never enter the 2x2. Uses ``load_eye_data`` rather than
-    per-session npzs so a laptop checkout that only has the pooled caches
-    still runs. Pupil (blink) data is optional -- empty when the per-session
-    eye file is absent, the same fallback ``clean_eye_data`` uses.
-    """
-    import pymovements as pm
-
-    from data.builder import EYE_SAMPLING_RATE_HZ, pupil_for_trial, unpack_eye
-    from data.loader import load_eye_data
+def _extract_looks(monkey, assignment: AssignmentSpec):
+    """Looks from the ``fix`` cache for the svm/top_ten sessions (the
+    estimator's label scope), assigned under `assignment`."""
     from msp.labels import top_ten_sessions
 
-    sessions_wanted = set(top_ten_sessions(monkey))
-    eye = load_eye_data(monkey)
+    sessions = tuple(top_ten_sessions(monkey))
+    looks = load_looks(monkey, "fix", sessions)
+    usable = usable_rows(looks)
     behavioral = load_eye_behavioral_data(monkey)
     beh = behavioral_lookup(behavioral)
-    experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
-    pupils_by_session = {}
 
     blocks = {name: [] for name in BLOCK_NAMES}
     rows_session, rows_trial, rows_maze = [], [], []
     rows_n_fix, rows_n_fix_assigned = [], []
     fix_xy, fix_state, fix_row = [], [], []
-    kept_by_session = {s: 0 for s in sorted(sessions_wanted)}
+    kept_by_session = {s: 0 for s in sorted(sessions)}
+    n_status = 0
+    wanted = set(sessions)
 
-    n_trials = len(eye["session"])
-    for i in range(n_trials):
-        t_s, x, y, session, trial_id = unpack_eye(eye, i)
-        if session not in sessions_wanted:
+    for r in range(len(looks["session"])):
+        session = str(looks["session"][r])
+        if session not in wanted:
             continue
+        trial_id = int(looks["trial_indices_all"][r])
         beh_i = beh.get((session, trial_id))
         if not trial_qc_ok(behavioral, beh_i):
             continue
-        maze = int(behavioral["geo_type"][beh_i])
+        maze = int(looks["maze_id"][r])
         if not 1 <= maze <= N_MAZES:
             continue
-        fix_ms = float(fix_start_ms(behavioral, beh_i))
+        fix_ms = float(looks["fix_ms"][r])
         if not np.isfinite(fix_ms) or fix_ms <= 0:
             continue
-        lo, hi = assignment.window_bounds(fix_ms)
-
-        pupil = pupil_for_trial(pupils_by_session, monkey, session, trial_id)
-        h = tuple(float(behavioral[f"h{k}"][beh_i]) for k in range(1, 7))
-        out = _trial_redetect(
-            t_s, x, y, h, pupil, lo, hi,
-            experiment=experiment, assignment=assignment,
-        )
-        if out is None:
+        if not usable[r]:
+            n_status += 1
             continue
-        occ_ms, centroids, states_f = out
+        sl = looks_of(looks, r)
+        xy = looks["look_xy_u"][sl].astype(np.float32).reshape(-1, 2)
+        stable = looks["look_stable_ms"][sl].astype(float)
+        on_maze = (np.abs(xy) <= MAZE_SCREEN_LIM).all(axis=1)
+        xy, stable = xy[on_maze], stable[on_maze]
+        states_f = assign_by_rule(xy, assignment).astype(np.int16)
+        assigned = states_f >= 0
+        occ_ms = (
+            np.bincount(states_f[assigned], weights=stable[assigned], minlength=K)
+            if assigned.any() else np.zeros(K)
+        )
 
         row = len(rows_session)
         blocks["occ_ms"].append(occ_ms)
@@ -457,15 +279,17 @@ def _extract_redetect(monkey, assignment: AssignmentSpec):
         rows_trial.append(trial_id)
         rows_maze.append(maze)
         rows_n_fix.append(int(states_f.size))
-        rows_n_fix_assigned.append(int((states_f >= 0).sum()))
+        rows_n_fix_assigned.append(int(assigned.sum()))
         if states_f.size:
-            fix_xy.append(centroids)
-            fix_state.append(states_f.astype(np.int16))
+            fix_xy.append(xy)
+            fix_state.append(states_f)
             fix_row.append(np.full(states_f.size, row, dtype=np.int64))
         kept_by_session[session] += 1
 
     for session, kept in kept_by_session.items():
         print(f"  {monkey} {session}: kept={kept}")
+    if n_status:
+        print(f"  {monkey}: {n_status} trial(s) dropped for a degenerate saccade threshold")
 
     print(
         f"  {monkey}: {len(rows_session)} usable trials; fixed K={K} codebook, "
@@ -493,17 +317,17 @@ def extract_monkey_features(monkey, *, radius=ASSIGN_RADIUS, assignment=None):
     """
     if assignment is None:
         assignment = resolve_assignment(radius=radius)
-    return _extract_redetect(monkey, assignment)
+    return _extract_looks(monkey, assignment)
 
 
 _RULE_SUFFIX = {BALLS_RULE: "", REGION_RULE: "_region", CAPSULE_RULE: "_capsule"}
 
 
 def cache_stem(monkey, radius=ASSIGN_RADIUS, *, tag=None, assignment=None):
-    """``<M>_msp_fixed5_r<radius>[_region|_capsule]``: codebooks sharing a rule share it."""
+    """``<M>_msp_looks5_r<radius>[_region|_capsule]``: codebooks sharing a rule share it."""
     if assignment is None:
         assignment = resolve_tag(tag) if tag is not None else resolve_assignment(radius=radius)
-    return f"{monkey}_msp_fixed{K}_r{float(assignment.radius):g}{_RULE_SUFFIX[assignment.rule]}"
+    return f"{monkey}_msp_looks{K}_r{float(assignment.radius):g}{_RULE_SUFFIX[assignment.rule]}"
 
 
 def _stored_rule(data):
@@ -531,6 +355,9 @@ def _cache_matches(data, assignment: AssignmentSpec):
             and tuple(np.asarray(data["state_names"]).astype(str)) == tuple(STATE_NAMES)
             and bool(np.isclose(float(stored[0]), float(assignment.radius)))
             and _stored_rule(data) == assignment.rule
+            and str(np.asarray(data["events_source"]).reshape(-1)[0]) == EVENTS_SOURCE
+            and int(data["looks_schema"]) == LOOKS_SCHEMA
+            and str(np.asarray(data["looks_source_sha256"]).reshape(-1)[0]) == looks_source_sha256()
         )
     except KeyError:
         return False

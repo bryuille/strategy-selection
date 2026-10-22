@@ -372,14 +372,19 @@ def check_codebook_relabelling():
            == [F.VARIANTS, F.VARIANTS, ("full", "mean_removed"), ("full", "mean_removed")])
     stems = [F.cache_stem("M", assignment=resolve_tag(t))
              for t in ("r0.5", "r0.5quads", "r0.5halves", "r0.5capsules")]
-    report("cache stems: balls unchanged, quads / halves share one",
-           stems == ["M_msp_fixed5_r0.5", "M_msp_fixed5_r0.5_region",
-                     "M_msp_fixed5_r0.5_region", "M_msp_fixed5_r0.5_capsule"], str(stems))
-    old_balls = {"assign_radius": np.float64(0.5), "fix_row": np.zeros(0), "codebook_k": 5,
-                 "codebook_xy": F.CODEBOOK_XY, "state_names": np.asarray(F.STATE_NAMES)}
-    report("pre-codebook balls caches still match; not as region",
-           F._cache_matches(old_balls, resolve_assignment(radius=0.5))
-           and not F._cache_matches(old_balls, resolve_assignment(radius=0.5, codebook="quads")))
+    report("cache stems: looks-based balls, quads / halves share one",
+           stems == ["M_msp_looks5_r0.5", "M_msp_looks5_r0.5_region",
+                     "M_msp_looks5_r0.5_region", "M_msp_looks5_r0.5_capsule"], str(stems))
+    from data.looks import LOOKS_SCHEMA, source_sha256
+    looks_balls = {"assign_radius": np.float64(0.5), "fix_row": np.zeros(0), "codebook_k": 5,
+                   "codebook_xy": F.CODEBOOK_XY, "state_names": np.asarray(F.STATE_NAMES),
+                   "events_source": np.asarray(F.EVENTS_SOURCE), "looks_schema": np.int64(LOOKS_SCHEMA),
+                   "looks_source_sha256": np.asarray(source_sha256())}
+    old_balls = {k: v for k, v in looks_balls.items() if not k.startswith(("events", "looks"))}
+    report("looks caches match their assignment; not as region; pre-looks (pymovements) caches never match",
+           F._cache_matches(looks_balls, resolve_assignment(radius=0.5))
+           and not F._cache_matches(looks_balls, resolve_assignment(radius=0.5, codebook="quads"))
+           and not F._cache_matches(old_balls, resolve_assignment(radius=0.5)))
 
 
 def main():

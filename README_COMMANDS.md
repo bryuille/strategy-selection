@@ -24,6 +24,35 @@ uv run python -m data.loader --monkey Faure
 uv run python -m data.loader --attractor        # also the attractor warp (msp.legacy.saccades only)
 ```
 
+### `data.looks`: look caches (the advisor's `timestamp_preprocessing`)
+
+Every analysis reads its eye events from here. `preprocess_trial` of the
+root-level `timestamp_preprocessing/` package (never edited) runs on the raw
+eye mats and the result is cached per monkey and epoch as
+`<Monkey>_looks_<epoch>.npz`: `fix` (maze onset to `fix_start`; msp,
+regression, classifier, msp.saccades) and `trial` (maze onset to `trial_end`;
+counterfactual). Needs the sessions' eye mats under `MAT_ROOT`.
+
+```bash
+uv run python -m data.looks --check                              # synthetic, no data
+uv run python -m data.looks --epoch fix trial                    # every session with a local eye mat, both monkeys
+uv run python -m data.looks --monkey Faure --epoch fix --sessions june_8_g0 june_24_g0
+uv run python -m data.looks --compare Oct_22_g0                  # looks vs the legacy pymovements fixations
+sbatch -J looks slurm/run_module.sbatch data.looks --epoch fix trial   # cluster
+```
+
+| Flag          | Meaning                                                                 |
+| ------------- | ----------------------------------------------------------------------- |
+| `--monkey`    | `Faure`, `Nielsen` (default both)                                       |
+| `--epoch`     | `fix`, `trial` (default both)                                           |
+| `--sessions`  | Subset (default: every session with an eye mat); missing ones are appended to the cache |
+| `--refresh`   | Rebuild the requested sessions                                          |
+| `--check`     | Synthetic adapter checks only                                           |
+| `--compare`   | Before/after report on one session                                      |
+
+A cache is rebuilt automatically when the package source (`core.py`,
+`current.py`, `stable_support.py`) or its config changes.
+
 ### `data.labels`: strategy labels
 
 ```bash
@@ -220,16 +249,17 @@ uv run python -m counts.build --source svm --monkey Faure --scope top_ten
 
 ## counterfactual
 
-Post-choice exit sequences for the publication sessions. The cache
-`<Monkey>_cf_exits.npz` builds on first use (needs pymovements and the pooled
-eye caches).
+Post-choice exit sequences and the counterfactual test for the top-two SNR
+sessions. The caches `<Monkey>_cf_exits.npz` (from the `trial` looks cache)
+and `<Monkey>_cf_models.npz` build on first use.
 
 ```bash
 uv run python -m counterfactual.checks                 # exit decoding + detector, synthetic, no data
 uv run python -m counterfactual.extract                # build the cache, both monkeys
 uv run python -m counterfactual.extract --monkey Faure --session june_24_g0 --refresh
-uv run python -m counterfactual.build --dry-run        # summary only
-uv run python -m counterfactual.build                  # exit_sequences.csv + summary.txt per monkey
+uv run python -m counterfactual.models                 # H/S exit probabilities per trial (Figure Five port)
+uv run python -m counterfactual.build --dry-run        # extraction + analysis summaries only
+uv run python -m counterfactual.build                  # exit_sequences.csv, trials.csv, results.csv, summary.txt, figures
 uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2 3   # one movie per trial
 uv run python -m counterfactual.movie --session Nov_3_g0 --batch --n-trials 15   # one video, 15 trials back to back
 uv run python -m counterfactual.movie --session june_8_g0 --batch --labelled --start 15   # next 15 labelled trials
@@ -250,7 +280,10 @@ the exit list growing as items are counted.
 | `--monkey`    | `Faure`, `Nielsen` (default both)                                   |
 | `--session`   | `extract` only: subset of the monkey's publication sessions         |
 | `--refresh`   | Rebuild the cache                                                   |
-| `--dry-run`   | `build` only: print the summary, write nothing                      |
+| `--dry-run`   | `build` only: print the summaries, write nothing                    |
+| `--n-perm`    | `build` only: label shuffles for the permutation test (default 10000) |
+| `--eps`       | `build` only: smoothing added before renormalising over the unchosen exits (default 1e-3) |
+| `--no-sensitivity` | `build` only: skip the eps / Weber-scalar sensitivity runs       |
 | `--out-root`  | `build` only: output directory (default `counterfactual/out`)       |
 | `--trial-id`  | `movie` only: trial ids (default: the first `--n-trials` cached trials) |
 | `--batch`     | `movie` only: all trials in one video (default 15 trials)           |
@@ -298,9 +331,17 @@ detector or QC constants, delete the derived eye and feature caches and rebuild:
 
 ```bash
 cd /path/to/your/PROCESSED_ROOT         # as set in data/config.py (default ./data/processed)
-rm -f *_clean_eye_data_s*.npz *_attractor_eye_data.npz \
-      *_msp_fixed5_*.npz *_msp_revised_fix*.npz *_reg_fixed5_*.npz
+rm -f *_looks_*.npz *_msp_looks5_*.npz *_reg_looks5_*.npz *_msp_revised_fix*.npz \
+      *_cf_exits.npz *_cf_models.npz *_clf_raw*.npz
 ```
+
+**Event source change, 2026-10-22.** Eye events now come from the advisor's
+`timestamp_preprocessing` through `data.looks`; the pymovements detector in
+`data.builder` is legacy (read only by `msp.legacy.saccades` through the
+`*_clean_eye_data_s1466_e0` / attractor caches). The `*_msp_fixed5_*` and
+`*_reg_fixed5_*` caches are orphaned (no code reads them; safe to delete). The
+classifier (SCHEMA 4), msp, regression and counterfactual caches record the
+package source hash and rebuild themselves when it changes.
 
 Never delete anything under `MAT_ROOT`; it is the only copy of the raw data.
 

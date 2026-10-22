@@ -40,17 +40,25 @@ ORIGIN_RADIUS_DEG = 3.0
 
 # ---- window -----------------------------------------------------------------
 # From the start of the choice saccade (first finite field in order) to the
-# end of the trial, both in ms from geo_present, clipped to the eye trace.
+# end of the `trial` looks epoch (trial_end), both in ms from geo_present.
 WINDOW_START_FIELDS = ("saccade_init", "answer_time", "fixation_off")
 WINDOW_END_FIELD = "trial_end"
-MIN_WINDOW_SAMPLES = 6
 
-# Pupil traces for blink masking: the per-session tables the classifier
-# package extracts on the cluster, else the eye mats, else none (warned).
-PUPIL_DIR = Path(__file__).resolve().parents[1] / "classifier" / "out" / "pupil"
+# ---- choice models (counterfactual.models) ------------------------------------
+# Published mean Weber fraction per monkey: `MR_AG_MJ/load_timing_scalar.m`
+# reading `Data/Pre_Physiology/Model_Results/Behavioral_Psychometrics/
+# timing_scalars.mat` (values read from that file on 2026-10-22). It is the
+# `scalar` of `D_likelihood_Physiology.m`: normpdf(measured, arm, arm * scalar).
+WEBER_SCALAR = {"Faure": 0.165, "Nielsen": 0.153}
+N_SAMPLES = 10_000  # noise draws per trial, as Figure Five
+MODEL_SEED = 45  # Figure Five's rng(45)
+# Smoothing added to each exit probability before renormalising over the
+# unchosen exits, so a model that never picks an exit still gives it a finite
+# log likelihood. Sensitivity-checked in the analysis.
+MODEL_EPS = 1e-3
 
 # ---- cache / output ---------------------------------------------------------
-SCHEMA = 2
+SCHEMA = 3  # looks-based (data.looks, timestamp_preprocessing)
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 

@@ -127,6 +127,29 @@ def read_eye_mat(path):
     return {"gaze": gaze, "pupil_size": pupil_size}
 
 
+def read_eye_mat_raw(path):
+    """Raw per-trial eye arrays, untouched: ``{"eye_x": [...], "eye_y": [...],
+    "pupil_size": [...] | None}``, each entry an (N, 2) float array
+    ``[value, seconds from geo_present]`` exactly as stored in the mat.
+
+    This is what `timestamp_preprocessing.current.preprocess_trial` consumes:
+    it matches y and pupil to x by their own timestamps, so nothing may be
+    truncated, re-timed or sentinel-replaced here (the pupil sentinel is
+    flagged by the package itself). `read_eye_mat` is the legacy reader that
+    drops the y time column and truncates to the shorter stream.
+    """
+    out = {}
+    with h5py.File(path, "r") as f:
+        eye = f["Eye_Data"]
+        for key in ("eye_x", "eye_y", "pupil_size"):
+            if key not in eye:
+                out[key] = None
+                continue
+            refs = eye[key][:].ravel()
+            out[key] = [np.asarray(f[r], dtype=float).reshape(-1, 2) for r in refs]
+    return out
+
+
 def read_single_trial_mat(path):
     data = {}
     with h5py.File(path, "r") as f:
@@ -156,6 +179,12 @@ def load_behavioral(monkey, session):
 def load_eye(monkey, session):
     """`{"gaze": [...], "pupil_size": [...]}`, one entry per trial."""
     return _as_object_arrays(read_eye_mat(eye_mat_path(monkey, session)))
+
+
+def load_eye_raw(monkey, session):
+    """Raw (N, 2) eye arrays per trial for `timestamp_preprocessing`; lists,
+    not object arrays, so ragged trials stay separate."""
+    return read_eye_mat_raw(eye_mat_path(monkey, session))
 
 
 def load_neural(monkey, session):

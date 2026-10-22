@@ -45,7 +45,6 @@ STATE_NAMES = ("origin", "LU", "LD", "RU", "RD")
 K = 5
 ASSIGN_RADIUS = 1.0
 MAZE_SCREEN_LIM = 3.0  # unit-H box; warped samples outside are off-maze
-MIN_WINDOW_SAMPLES = 6  # clean_eye_data's per-trial floor before detection
 
 assert CODEBOOK_XY.shape == (K, 2)
 assert len(STATE_NAMES) == K
@@ -85,5 +84,5 @@ def radius_tag(radius=ASSIGN_RADIUS):
 
 
 def cache_stem(monkey, radius=ASSIGN_RADIUS):
-    """Stem under ``data/processed/`` for the fixation table (msp-style)."""
-    return f"{monkey}_reg_fixed{K}_{radius_tag(radius)}"
+    """Stem under ``data/processed/`` for the look table (msp-style; looks from `data.looks`)."""
+    return f"{monkey}_reg_looks{K}_{radius_tag(radius)}"

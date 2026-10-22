@@ -70,7 +70,7 @@ after changing detector or QC constants, delete the derived caches
 | `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs region dwell, within-maze AUC; dendrogram or SVM scope |
 | `regression/` | Logistic regression of strategy on gaze, maze held fixed                 |
 | `scatter/`    | Mean gaze per maze between fixation and the flash                        |
-| `counterfactual/` | Post-choice exit sequences per trial (publication sessions); annotation only |
+| `counterfactual/` | Post-choice counterfactual saccades vs the H / S exit rankings (top-two SNR sessions) |
 | `slurm/`      | Batch scripts for Engaging                                               |
 
 Each package reads `data/` and writes only to its own `out/`. When a default
@@ -84,11 +84,13 @@ publication sessions, two per monkey). Gaze is warped to "unit H" (fixation poin
 origin, exits at (±1, ±1)), and each fixation is assigned to the nearest of
 five states (origin, LU, LD, RU, RD) within `--radius`, giving tags such as
 `r0.5`. Each trial is analysed from maze onset to fixation onset.
-Fixations come from `data.builder.trial_events`: saccades are pymovements'
-microsaccade detector, and a fixation ends only at a saccade or when gaze
-moves more than 2° from the fixation's anchored centroid (no other duration
-cap; I-DT was retired on 2026-10-16, see
-[README_COMMANDS.md](README_COMMANDS.md#clearing-derived-caches)).
+Eye events are *looks* from the advisor's `timestamp_preprocessing` package
+(repo root, consumed through `data.looks`, never edited here): samples keep
+their own timestamps, saccades are Engbert-style, and a look is a stable
+interval between saccades or data gaps with at least 75 ms of support within a
+2° pairwise spread; its position is the time-weighted raw centroid and its
+dwell the stable support (see `timestamp_preprocessing/HANDOFF.md`). The
+pymovements detector in `data.builder` is legacy (`msp/legacy` only).
 
 ### `counts/`
 
@@ -303,14 +305,19 @@ Output: `regression/out/`.
 
 ### `counterfactual/`
 
-After the choice, which exits does the monkey look at? Each trial becomes a
-list of exit codes (1 = LU, 2 = LD, 3 = RU, 4 = RD): the chosen exit, decoded
-from `trial_answer*` with `LR` / `LR2`, then every exit fixated from the
-choice saccade to `trial_end`, in order, repeats kept. Fixation centroids are
-assigned to the nearest exit within 3°; origin and elsewhere fixations are
-kept separately. Publication sessions only, no statistics yet. Output:
-`counterfactual/out/<Monkey>/exit_sequences.csv` and `summary.txt`; see
-[counterfactual/README.md](counterfactual/README.md).
+After the choice, do the saccades to the *unchosen* exits follow the exit
+ranking of the monkey's strategy? Each trial becomes a list of exit codes
+(1 = LU, 2 = LD, 3 = RU, 4 = RD): the chosen exit, decoded from `trial_answer*`
+with `LR` / `LR2`, then every exit looked at from the choice saccade to
+`trial_end`, in order. The Hierarchical and Sequential models of Figure Five
+(ported from the advisor's MATLAB, published Weber fractions 0.165 / 0.153)
+give each trial a probability over the exits; renormalised over the unchosen
+exits they predict the first counterfactual look, and the test is whether the
+neurally matched model explains it better than the mismatched one, with a
+within-maze label shuffle as the null and a spatial-proximity model as the
+confound control. Top-two SNR sessions per monkey, dendrogram labels. Output:
+`counterfactual/out/<Monkey>/` (`results.csv`, `summary.txt`, two figures);
+findings and caveats in [counterfactual/README.md](counterfactual/README.md).
 
 ### `scatter/`
 

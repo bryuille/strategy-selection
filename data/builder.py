@@ -1,7 +1,15 @@
-"""Derived arrays: neural trial tensors, eye-data assembly and QC, event
-detection, the unit-H warp, and the behavioral-table / state-run helpers the
-feature extractors share. Nothing here touches disk caches: every builder
-returns arrays, and `data.loader` owns the save-and-load of each one.
+"""Derived arrays: neural trial tensors, eye-data assembly and QC, the unit-H
+warp, and the behavioral-table / state-run helpers the feature extractors
+share. Nothing here touches disk caches: every builder returns arrays, and
+`data.loader` owns the save-and-load of each one.
+
+Eye events (looks, saccades) come from `data.looks`, which wraps the advisor's
+`timestamp_preprocessing` package. The pymovements-based detector below
+(`trial_events`, `fixation_spans`, `clean_eye_data`, `prepare_trial` and the
+attractor builders) is LEGACY: read only by `msp.legacy.saccades` through the
+``*_clean_eye_data_s1466_e0`` / attractor caches, and by
+`data.looks --compare` for the before/after report. pymovements and polars
+are imported lazily inside those functions only.
 """
 
 from __future__ import annotations
@@ -10,10 +18,6 @@ import warnings
 from collections import Counter
 
 import numpy as np
-import polars as pl
-import pymovements as pm
-from pymovements.events import blink as blink_fn
-from pymovements.events.detection import out_of_screen
 
 from data.config import PRE_FIX_END_MS, PRE_FIX_START_MS, eye_mat_path, mat_dir
 from data.mat import load_behavioral, load_eye
@@ -154,6 +158,9 @@ def trial_qc_ok(behavioral, i):
     )
 
 
+# ---- LEGACY pymovements event detection ---------------------------------------
+# Read only by msp.legacy.saccades (via the s1466 / attractor caches) and by
+# `data.looks --compare`. The current event source is data/looks.py.
 EYE_SAMPLING_RATE_HZ = 1000.0
 POSITION_LIMIT_DEG = 30.0
 BLINK_PADDING_MS = 5
@@ -320,6 +327,8 @@ def pupil_signal(pupil):
 
 def trial_blink_mask(time, pupil, padding_ms=BLINK_PADDING_MS):
     """True where gaze time falls inside a pymovements pupil-blink window."""
+    from pymovements.events import blink as blink_fn
+
     t = np.asarray(time, dtype=float)
     mask = np.zeros(t.size, dtype=bool)
     p_size, p_t_ms = pupil_signal(pupil)
@@ -343,6 +352,8 @@ def trial_blink_mask(time, pupil, padding_ms=BLINK_PADDING_MS):
 
 
 def drop_blink_overlaps(events, blinks):
+    import polars as pl
+
     if blinks.frame.height == 0 or events.frame.height == 0:
         return events
     kept = events.frame
@@ -373,7 +384,7 @@ def fixation_spans(
     radius=FIXATION_MAX_DISTANCE_DEG,
     min_duration=FIXATION_MIN_DURATION_MS,
 ):
-    """Inclusive ``(onsets, offsets)`` sample indices of fixations.
+    """LEGACY. Inclusive ``(onsets, offsets)`` sample indices of fixations.
 
     A fixation is a run of finite, unblocked samples (`blocked` marks saccade
     samples) that ends only where the run ends or where a sample lies more
@@ -413,8 +424,12 @@ def fixation_spans(
 
 
 def trial_events(time, eye_x, eye_y, pupil, experiment):
-    """Detect saccades, then fixations bounded by saccades and the distance
+    """LEGACY. Detect saccades, then fixations bounded by saccades and the distance
     rule (`fixation_spans`); drop events that overlap blinks."""
+    import polars as pl
+    import pymovements as pm
+    from pymovements.events import blink as blink_fn
+
     t = np.asarray(time, dtype=float)
     x = np.asarray(eye_x, dtype=float)
     y = np.asarray(eye_y, dtype=float)
@@ -529,7 +544,9 @@ def trial_events(time, eye_x, eye_y, pupil, experiment):
 
 
 def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
-    """True on samples inside a fixation and outside saccades/blinks."""
+    """LEGACY. True on samples inside a fixation and outside saccades/blinks."""
+    import pymovements as pm
+
     t = np.asarray(time, dtype=float)
     x = np.asarray(eye_x, dtype=float)
     y = np.asarray(eye_y, dtype=float)
@@ -556,7 +573,7 @@ def trial_fixation_mask(time, eye_x, eye_y, pupil, experiment=None):
 
 
 def clean_eye_data(eye_data, monkey="Faure", *, start_ms=None, end_ms=None):
-    """Saccade and fixation events; blink-overlapping events are dropped.
+    """LEGACY. Saccade and fixation events; blink-overlapping events are dropped.
 
     With `start_ms` given, each trial's samples are clipped to
     ``[fix_start - start_ms, fix_start - end_ms]`` *before* detection, so the
@@ -577,6 +594,9 @@ def clean_eye_data(eye_data, monkey="Faure", *, start_ms=None, end_ms=None):
     trial has events in this table and none can reach a downstream fit through
     it.
     """
+    import polars as pl
+    import pymovements as pm
+
     experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
     windowed = start_ms is not None
     # Behavioral is always loaded because `qc_mask` gates every trial. A trial
@@ -750,6 +770,8 @@ def events_mask(events, t_ms, n, padding_ms=0):
 
 
 def out_of_screen_mask(x, y, t_ms, x_min, x_max, y_min, y_max):
+    from pymovements.events.detection import out_of_screen
+
     xy = np.stack([np.asarray(x, dtype=float), np.asarray(y, dtype=float)], axis=1)
     xy = np.where(np.isfinite(xy), xy, 1e6)
     return events_mask(
@@ -814,7 +836,9 @@ def to_maze(x, y, h):
 def prepare_trial(
     t, x, y, h, pupil, event_rows=None, experiment=None, *, require_fixation=True
 ):
-    """Maze-normalize a trial; by default keep only on-screen fixation samples."""
+    """LEGACY. Maze-normalize a trial; by default keep only on-screen fixation samples."""
+    import pymovements as pm
+
     n = min(t.size, x.size, y.size)
     t = np.asarray(t[:n], dtype=np.float64)
     x = np.asarray(x[:n], dtype=np.float64)

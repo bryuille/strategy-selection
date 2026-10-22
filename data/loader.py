@@ -138,7 +138,9 @@ def load_eye_behavioral_data(monkey="Faure"):
 
 
 def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
-    """Saccade/fixation events for `monkey`, cached per detection window.
+    """LEGACY (pymovements detector; read by msp.legacy.saccades only). The
+    current event source is `data.looks`. Saccade/fixation events for
+    `monkey`, cached per detection window.
 
     `start_ms` clips each trial to ``[fix_start - start_ms, fix_start - end_ms]``
     *before* the detectors run, and the cache stem carries the window so the
@@ -168,7 +170,7 @@ def load_clean_eye_data(monkey="Faure", *, start_ms=None, end_ms=None):
 
 
 def load_attractor_eye_data(monkey="Faure"):
-    """Warped positions, validity and timebase. K-independent by construction --
+    """LEGACY (msp.legacy.saccades only). Warped positions, validity and timebase. K-independent by construction --
     state assignment happens in the consumer (`msp.features`), not here."""
     from data.builder import ATTRACTOR_EYE_DATA_KEYS, build_attractor_eye_data
 

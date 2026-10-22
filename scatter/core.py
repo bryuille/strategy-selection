@@ -8,7 +8,10 @@ appeared, so this is where the eyes sit once the pre-flash fixation is
 established but before anything happens.
 
 `collect_fix_start` reduces each trial to one (x, y): the mean gaze over that
-window. `maze_stats` then reduces each maze's trials to one mean and SD (per
+window, over the samples the advisor's `timestamp_preprocessing` marks valid
+(`data.looks.sample_quality`: matched timestamps, finite, on screen, outside
+blink padding); trials with fewer than `MIN_VALID_SAMPLES` valid samples in
+the window are skipped (needs the session's eye mat). `maze_stats` then reduces each maze's trials to one mean and SD (per
 axis), across trials, of that per-trial mean, plus the SD of each trial's own
 distance to that mean (`sd_r`). `maze_pvalues` compares those means pairwise,
 scaling the distance between two mazes' means by the reference maze's `sd_r`.
@@ -22,8 +25,10 @@ import numpy as np
 
 from data.builder import trial_qc_ok
 from data.loader import load_eye_behavioral_data, load_eye_data
+from data.looks import sample_quality
 
 MAZES = tuple(range(1, 7))
+MIN_VALID_SAMPLES = 100
 
 
 def _behavioral_lookup(behavioral):
@@ -42,6 +47,7 @@ def collect_fix_start(monkey):
     beh_index = _behavioral_lookup(behavioral)
 
     x, y, maze = [], [], []
+    skipped = {"no_quality": 0, "too_few_valid": 0}
     for eye_i in range(len(eye["session"])):
         session = str(eye["session"][eye_i])
         trial_id = int(eye["trial_indices_all"][eye_i])
@@ -52,15 +58,23 @@ def collect_fix_start(monkey):
         if this_maze not in MAZES:
             continue
 
-        t_ms = np.asarray(eye["time"][eye_i], dtype=float) * 1000
+        q = sample_quality(monkey, session, trial_id)
+        if q is None:
+            skipped["no_quality"] += 1
+            continue
         fix_ms = (behavioral["fix_start"][beh_i] - behavioral["geo_present"][beh_i]) * 1000
         flash_ms = (behavioral["flash_one"][beh_i] - behavioral["geo_present"][beh_i]) * 1000
-        window = (t_ms >= fix_ms) & (t_ms <= flash_ms)
+        window = q["valid"] & (q["t"] >= fix_ms) & (q["t"] <= flash_ms)
+        if window.sum() < MIN_VALID_SAMPLES:
+            skipped["too_few_valid"] += 1
+            continue
 
-        x.append(np.asarray(eye["eye_x"][eye_i], dtype=float)[window].mean())
-        y.append(np.asarray(eye["eye_y"][eye_i], dtype=float)[window].mean())
+        x.append(float(np.mean(q["x"][window])))
+        y.append(float(np.mean(q["y"][window])))
         maze.append(this_maze)
 
+    if any(skipped.values()):
+        print(f"  {monkey}: skipped {skipped} (no eye mat / pupil, or < {MIN_VALID_SAMPLES} valid samples)")
     return {"x": np.asarray(x), "y": np.asarray(y), "maze": np.asarray(maze, dtype=int)}
 
 

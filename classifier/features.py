@@ -17,6 +17,7 @@ import numpy as np
 from data.builder import behavioral_lookup, fix_start_ms, trial_qc_ok, unpack_eye
 from data.config import processed_npz
 from data.loader import load_eye_behavioral_data, load_eye_data, savez_atomic
+from data.looks import sample_quality
 from data.mat import load_npz
 from classifier.config import (
     BALLS_ORIGIN_DEG,
@@ -41,7 +42,7 @@ from classifier.config import (
     RAW_WINDOW_MS,
 )
 
-RAW_SCHEMA = 2  # traces stored un-interpolated at 1 kHz; widths derived on load
+RAW_SCHEMA = 3  # raw samples with timestamp_preprocessing validity; widths derived on load
 
 
 # ---- labels ------------------------------------------------------------------
@@ -173,12 +174,15 @@ def build_raw(monkey, sessions, bin_ms=1.0):
         fix_ms = float(fix_start_ms(beh, bi))
         if not np.isfinite(fix_ms) or fix_ms <= 0:
             continue
-        n = min(t_s.size, x.size, y.size)
-        t_ms = t_s[:n] * 1000.0
-        x, y = x[:n].copy(), y[:n].copy()
-        oob = ~np.isfinite(x) | ~np.isfinite(y) | (np.abs(x) > POSITION_LIMIT_DEG) | (np.abs(y) > POSITION_LIMIT_DEG)
-        x[oob] = np.nan
-        y[oob] = np.nan
+        # Validity from the advisor's timestamp_preprocessing (matched
+        # timestamps, finite, on screen, outside blink padding), on the raw
+        # samples; no event detection enters the raw branch.
+        q = sample_quality(monkey, session, trial)
+        if q is None:
+            continue
+        t_ms = np.asarray(q["t"], dtype=float)
+        x = np.where(q["valid"], q["x"], np.nan)
+        y = np.where(q["valid"], q["y"], np.nan)
         lo, hi = fix_ms - RAW_WINDOW_MS, fix_ms
         win = (t_ms >= lo) & (t_ms <= hi)
         if win.sum() < 100:

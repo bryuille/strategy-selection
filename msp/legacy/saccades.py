@@ -36,7 +36,7 @@ from data.loader import (
 )
 from msp import saccades
 from msp.config import CODEBOOK_XY, AssignmentSpec
-from msp.features import clip_fixation_spans
+from msp.legacy.assign import clip_fixation_spans  # legacy helper (was msp.features)
 
 WINDOW = "pre1466"
 RADII = (0.5, 1.0)

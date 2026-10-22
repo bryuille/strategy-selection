@@ -14,8 +14,9 @@ A fixation inside an exit ball is labelled "counted as <exit>" and the exit
 list on the right grows as the items are counted (the choice-saccade landing
 is item 0, see `counterfactual.extract`).
 
-Events are re-detected on the trial's window with `data.builder.trial_events`,
-the same call the cache used; the frame count is checked against the cache.
+Looks and saccades are read from the exit cache (`counterfactual.extract`),
+i.e. the advisor's `timestamp_preprocessing` looks the exit list was built
+from; nothing is re-detected here. Fixation blocks are the looks' envelopes.
 
     uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2
     uv run python -m counterfactual.movie --session Nov_3_g0 --batch --n-trials 15
@@ -41,11 +42,8 @@ from matplotlib.animation import FFMpegWriter  # noqa: E402
 from matplotlib.patches import Circle, Rectangle  # noqa: E402
 
 from data.builder import (  # noqa: E402
-    EYE_SAMPLING_RATE_HZ,
-    FIXATION_EVENT,
     STEM_DEG,
     behavioral_lookup,
-    trial_events,
     unpack_eye,
 )
 from data.config import monkey_for_session  # noqa: E402
@@ -60,7 +58,7 @@ from counterfactual.config import (  # noqa: E402
     SESSIONS,
     STATE_NAMES,
 )
-from counterfactual.exits import assign_states, exit_landmarks_deg  # noqa: E402
+from counterfactual.exits import exit_landmarks_deg  # noqa: E402
 from counterfactual.extract import load  # noqa: E402
 
 FRAME_STEP_MS = 10
@@ -83,34 +81,17 @@ GAZE_COLOUR = "k"
 # ---- events for one trial -------------------------------------------------------
 
 
-def window_events(t_s, x, y, lo, hi, h, *, experiment):
-    """Fixations ``(onset, offset, cx, cy, state)`` and saccades ``(onset,
-    offset)`` in ms from geo_present, detected on the samples inside
-    ``[lo, hi]`` exactly as `counterfactual.extract` does (no pupil here)."""
-    t_s = np.asarray(t_s, dtype=float)
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-    n = min(t_s.size, x.size, y.size)
-    t_s, x, y = t_s[:n], x[:n], y[:n]
-    keep = np.isfinite(t_s) & (t_s >= lo / 1000.0) & (t_s <= hi / 1000.0)
-    frame = trial_events(t_s[keep], x[keep], y[keep], np.empty((0, 2)), experiment)
-    t_ms = np.round(t_s[keep] * 1000.0)
-    xk, yk = x[keep], y[keep]
-    fin = np.isfinite(t_s)
-    samples = (np.round(t_s[fin] * 1000.0), x[fin], y[fin])  # whole trial, for display
-    fixations, saccades = [], []
-    if frame is not None:
-        for name, onset, offset in frame.select("name", "onset", "offset").rows():
-            if str(name) == FIXATION_EVENT:
-                hit = (t_ms >= onset) & (t_ms <= offset) & np.isfinite(xk) & np.isfinite(yk)
-                if hit.any():
-                    fixations.append([float(onset), float(offset), float(xk[hit].mean()), float(yk[hit].mean())])
-            elif "saccade" in str(name):
-                saccades.append((float(onset), float(offset)))
-    fixations.sort()
-    states = assign_states(np.array([f[2:] for f in fixations]).reshape(-1, 2), h)
-    fixations = [(*f, int(s)) for f, s in zip(fixations, states)]
-    return fixations, sorted(saccades), samples
+def window_events(cache, r):
+    """Looks ``(onset, offset, cx, cy, state)`` and saccades ``(onset, offset)``
+    of cached trial row `r` (ms from geo_present), straight from the exit
+    cache: the same looks the exit list was built from."""
+    fr = np.flatnonzero(cache["fix_row"] == r)
+    fixations = [(float(cache["fix_onset_ms"][k]), float(cache["fix_offset_ms"][k]),
+                  float(cache["fix_xy_d"][k][0]), float(cache["fix_xy_d"][k][1]), int(cache["fix_state"][k]))
+                 for k in fr]
+    sr = np.flatnonzero(cache["sac_row"] == r)
+    saccades = sorted((float(cache["sac_onset_ms"][k]), float(cache["sac_offset_ms"][k])) for k in sr)
+    return sorted(fixations), saccades
 
 
 def counted_items(fixations, chosen, landing):
@@ -307,8 +288,6 @@ def main():
     parser.add_argument("--out-root", type=Path, default=OUT_ROOT / "movies")
     args = parser.parse_args()
 
-    import pymovements as pm
-
     logging.getLogger("matplotlib.animation").setLevel(logging.WARNING)
     session = args.session
     monkey = monkey_for_session(session)
@@ -326,7 +305,6 @@ def main():
     behavioral = load_eye_behavioral_data(monkey)
     beh = behavioral_lookup(behavioral)
     eye_ix = {(str(s), int(t)): i for i, (s, t) in enumerate(zip(eye["session"], eye["trial_indices_all"]))}
-    experiment = pm.Experiment(sampling_rate=EYE_SAMPLING_RATE_HZ)
 
     fps = max(int(round(1000.0 / FRAME_STEP_MS * args.speed)), 1)
     out_dir = args.out_root / monkey / session
@@ -343,11 +321,9 @@ def main():
         t0 = (float(behavioral["flash_three"][bi]) - float(behavioral["geo_present"][bi])) * 1000.0
         if not np.isfinite(t0) or t0 > lo:
             t0 = lo
-        fixations, saccades, samples = window_events(t_s, x, y, lo, hi, h, experiment=experiment)
-        n_cached = int(cache["n_fix"][r])
-        if len(fixations) != n_cached:
-            print(f"trial {trial_id}: {len(fixations)} fixations re-detected vs {n_cached} cached "
-                  "(cache built with pupil blink masking?)")
+        fixations, saccades = window_events(cache, r)
+        fin = np.isfinite(t_s)
+        samples = (np.round(t_s[fin] * 1000.0), x[fin], y[fin])
         return dict(
             session=session, trial_id=trial_id, maze=int(cache["maze_id"][r]),
             strategy=float(cache["strategy"][r]), h=h,
