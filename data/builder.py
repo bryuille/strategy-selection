@@ -3,7 +3,7 @@ warp, and the behavioral-table / state-run helpers the feature extractors
 share. Nothing here touches disk caches: every builder returns arrays, and
 `data.loader` owns the save-and-load of each one.
 
-Eye events (looks, saccades) come from `data.looks`, which wraps the advisor's
+Eye events (looks, saccades) come from `data.looks`, which wraps the
 `timestamp_preprocessing` package. The pymovements-based detector below
 (`trial_events`, `fixation_spans`, `clean_eye_data`, `prepare_trial` and the
 attractor builders) is LEGACY: read only by `msp.legacy.saccades` through the

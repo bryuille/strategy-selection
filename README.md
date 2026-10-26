@@ -68,7 +68,6 @@ after changing detector or QC constants, delete the derived caches
 | `counts/`     | H/S trial census per session and maze                                    |
 | `msp/`        | **Main analysis**, maze-strategy pairs; also `msp.per_session`, `msp.saccades`, and `msp/legacy/` |
 | `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs region dwell, within-maze AUC; dendrogram or SVM scope |
-| `regression/` | Logistic regression of strategy on gaze, maze held fixed                 |
 | `scatter/`    | Mean gaze per maze between fixation and the flash                        |
 | `counterfactual/` | Post-choice counterfactual saccades vs the H / S exit rankings (top-two SNR sessions) |
 | `slurm/`      | Batch scripts for Engaging                                               |
@@ -84,7 +83,7 @@ publication sessions, two per monkey). Gaze is warped to "unit H" (fixation poin
 origin, exits at (±1, ±1)), and each fixation is assigned to the nearest of
 five states (origin, LU, LD, RU, RD) within `--radius`, giving tags such as
 `r0.5`. Each trial is analysed from maze onset to fixation onset.
-Eye events are *looks* from the advisor's `timestamp_preprocessing` package
+Eye events are *looks* from the `timestamp_preprocessing` package
 (repo root, consumed through `data.looks`, never edited here): samples keep
 their own timestamps, saccades are Engbert-style, and a look is a stable
 interval between saccades or data gaps with at least 75 ms of support within a
@@ -133,6 +132,27 @@ signal; on imbalanced mazes this hits the majority. Output:
 - `msp.saccades`: gaze traces per session, maze and trial (`msp/out/saccades/`).
 - `msp.legacy.saccades`: those plots under the retired
   `[fix_start − 1466 ms, fix_start]` window (`msp/legacy/out/`).
+
+**Findings (2026-10-22, looks-based caches).** Rerun of the `balls` codebook
+at `r1` (default) and `r0.5`, both monkeys, mazes 2–5, 1000 shuffles, after
+the switch from the pymovements detector to `data.looks`. The outputs from
+before the looks switch are under `msp/out/pre_looks_2026-10-22/`. Nothing
+changes: the looks QC admits a handful more trials per maze (Faure maze 2
+322 → 323 H / 210 → 211 S, Nielsen maze 4 351 → 352 / 388 → 390), and every
+z moves by less than one unit. `full` variant z, before → after the looks
+switch (p where either side is below 0.05):
+
+| Maze | Faure `r1` | Faure `r0.5` | Nielsen `r1` | Nielsen `r0.5` |
+| --- | --- | --- | --- | --- |
+| 2 | 3.2 → 3.8 (p 0.011 → 0.006) | 2.1 → 3.3 (p 0.042 → 0.014) | 0.3 → 0.9 | 3.2 → 3.3 (p 0.019 → 0.016) |
+| 3 | 1.1 → 0.1 | −0.6 → −0.6 | −1.1 → −0.8 | −1.2 → −0.9 |
+| 4 | 0.3 → 0.1 | 0.1 → −0.1 | 7.4 → 7.7 (p 0.001) | 9.0 → 8.8 (p 0.001) |
+| 5 | 0.5 → 0.4 | −0.3 → −0.6 | −0.3 → −0.2 | 0.0 → −0.1 |
+
+`no_origin` and `mean_removed` behave the same way: Nielsen maze 4 stays at
+z 8.6 → 8.6 (`no_origin`, `r1`), 7.8 → 7.7 (`r0.5`), 2.8 → 3.0 and 2.8 → 2.7
+(`mean_removed`); Faure maze 2 `mean_removed` is 2.0 → 2.2 (`r1`) and
+1.6 → 2.0 (`r0.5`, p 0.087 → 0.022), the one cell that crosses 0.05.
 
 **Earlier codebook search (2026-10-05; the `msp_revised` package, removed
 2026-10-06, is in git history).** 41 codebooks in unit H and degrees on the
@@ -213,7 +233,7 @@ variant `b<bin ms>` for raw, `both` / `dwell` / `binary` for regions, with
 `_p<n>` for a non-default shuffle count (the `_p1000` runs) and `_x_maze` for
 interactions. How each figure is built: [classifier/README.md](classifier/README.md).
 
-**Findings (2026-10-05, dendro scope).** Within-maze AUC, out of fold, with the shuffle
+**Findings (2026-10-05, dendro scope; before the looks switch).** Within-maze AUC, out of fold, with the shuffle
 null's mean ≈ 0.50 and sd ≈ 0.05 (200 shuffles). Empty gaze bins are kept as
 NaN (no interpolation). Counts below include the (later dropped) valid-gaze
 coverage channel:
@@ -246,14 +266,14 @@ null for Nielsen (maze 4 z ≈ 1.3). The `svm` scope runs the classifier on
 msp's sessions and labels to settle whether that group-mean difference is
 decodable trial by trial.
 
-**Findings (2026-10-06, regions branch, dendro scope).** Within-maze AUC,
+**Findings (2026-10-06, regions branch, dendro scope; before the looks switch).** Within-maze AUC,
 logistic / boosted trees: Faure 0.60 / 0.53 (`regions`), 0.61 / 0.53
 (dwell only), 0.56 / 0.55 (binary only); Nielsen 0.59 / 0.61, 0.56 / 0.61,
 0.56 / 0.54. The regions carry no pupil or latency terms, which carried
 Faure's raw-trace result.
 
 **Findings (2026-10-06, svm scope: ten sessions per monkey, SVM labels,
-mazes 2–5, pupil tables for every session).** Within-maze AUC, logistic /
+mazes 2–5, pupil tables for every session; before the looks switch).** Within-maze AUC, logistic /
 boosted trees; null sd ≈ 0.02, p from 200 shuffles; the leave-one-session-out
 pooled AUC sits within 0.01–0.04 of every entry:
 
@@ -286,22 +306,37 @@ monkey and scored on the other reaches only 0.49–0.54 within maze, against
 0.55–0.58 within monkey, so the shared part is a direction, not a decoder:
 the monkey-specific weights carry most of the magnitude.
 
-### `regression/`
+**Findings (2026-10-22, looks-based caches, both scopes).** The default
+branches (`raw`, 50 ms bins; `regions`, dwell + binary) rerun with eye events
+from `data.looks` (SCHEMA 4 fixation caches, RAW_SCHEMA 3 raw caches, 200
+shuffles, pupil tables rebuilt from the eye mats for all twenty sessions).
+The outputs from before the looks switch, the pymovements detector, are
+under `classifier/out/pre_looks_2026-10-22/`. Within-maze AUC, before →
+after, logistic / boosted trees:
 
-Does gaze predict strategy *within* a maze? One logistic regression per
-monkey (dendrogram labels):
+| Scope, branch | Faure | Nielsen |
+| --- | --- | --- |
+| dendro, raw (636 → 628 / 849 → 845 trials) | 0.63 → 0.65 (p 0.005) / 0.64† → 0.63 (p 0.010) | 0.48 → 0.47 (chance) / 0.49† → 0.48 (chance) |
+| dendro, regions (652 → 660 / 865 → 870) | 0.60 → 0.52 (p 0.020 → 0.29) / 0.53 → 0.56 (p 0.20 → 0.11) | 0.59 → 0.59 (p 0.035 → 0.030) / 0.61 → 0.55 (p 0.005 → 0.12) |
+| svm, raw (2,384 → 2,359 / 2,935 → 2,924) | 0.57 → 0.57 (p 0.015 → 0.010) / 0.61 → 0.63 (p 0.005) | 0.52 → 0.52 (p 0.075 → 0.14) / 0.55 → 0.55 (p 0.055 → 0.10) |
+| svm, regions (2,438 → 2,453 / 3,028 → 3,053) | 0.55 → 0.54 (p 0.015 → 0.040) / 0.54 → 0.53 (p 0.055 → 0.11) | 0.57 → 0.58 (p 0.005) / 0.60 → 0.60 (p 0.005) |
 
-```
-log-odds(S) = α[maze] + γ·log(window length) + Σ β·gaze feature
-```
+† the 2026-10-05 run with the coverage channel (156 features); the
+moved-aside tree has no later trees fit for the dendro raw branch.
 
-Maze offsets absorb everything constant within a maze; mazes with fewer than
-5 trials of either strategy are dropped. Gaze features, per state visited on
-5–95% of trials, are *occupied*, *visit count* and *mean fixation duration*,
-all z-scored. Unestimable columns are dropped and marked × in the figure. In
-the figure, solid bars have a 95% CI excluding 0, and ★ survives Holm
-correction. The result is associational, and its intervals are optimistic.
-Output: `regression/out/`.
+The raw branch reads the eye trace directly, so only its trial set changes
+with the looks QC, and its results are untouched: Faure decodes in both
+scopes (dendro leave-one-session-out 0.68 / 0.65; svm 0.57 / 0.60), Nielsen
+does not. The regions branch is where the detector enters, and on ten
+sessions it holds: Nielsen's dwell + binary stays at 0.58 / 0.60 (p 0.005,
+leave-one-session-out 0.57 / 0.59) and Faure's at 0.54 / 0.53, with the
+logistic p slipping from 0.015 to 0.040. On the two publication sessions,
+where the null sd is 0.05, the regions entries move by up to 1.5 null sd in
+both directions (Faure logistic 0.60 → 0.52, Nielsen trees 0.61 → 0.55), so
+the dendro-scope regions numbers above should be read as noise around 0.55
+rather than as a result either way; the svm scope carries the regions
+claim.
+
 
 ### `counterfactual/`
 
@@ -310,13 +345,15 @@ ranking of the monkey's strategy? Each trial becomes a list of exit codes
 (1 = LU, 2 = LD, 3 = RU, 4 = RD): the chosen exit, decoded from `trial_answer*`
 with `LR` / `LR2`, then every exit looked at from the choice saccade to
 `trial_end`, in order. The Hierarchical and Sequential models of Figure Five
-(ported from the advisor's MATLAB, published Weber fractions 0.165 / 0.153)
+(ported from the Figure Five MATLAB, published Weber fractions 0.165 / 0.153)
 give each trial a probability over the exits; renormalised over the unchosen
-exits they predict the first counterfactual look, and the test is whether the
-neurally matched model explains it better than the mismatched one, with a
-within-maze label shuffle as the null and a spatial-proximity model as the
-confound control. Top-two SNR sessions per monkey, dendrogram labels. Output:
-`counterfactual/out/<Monkey>/` (`results.csv`, `summary.txt`, two figures);
+exits they score the ordered counterfactual looks, and the test is a paired
+model comparison within each label group: do H-labelled trials' sequences
+have higher probability under H than under S, and S-labelled trials' under S
+than under H (one-sided paired t-test, as Figure Five). Top-two SNR sessions
+per monkey, dendrogram labels. Output: `counterfactual/out/<Monkey>/`
+(`compare_s_results.csv`, `_summary.txt`, four figures, plus the exit
+sequences);
 findings and caveats in [counterfactual/README.md](counterfactual/README.md).
 
 ### `scatter/`

@@ -27,7 +27,6 @@ MONKEYS = tuple(SESSIONS)
 ELSEWHERE = -1
 ORIGIN = 0
 LU, LD, RU, RD = 1, 2, 3, 4
-EXIT_CODES = (LU, LD, RU, RD)
 EXIT_NAMES = ("LU", "LD", "RU", "RD")
 STATE_NAMES = {ELSEWHERE: "elsewhere", ORIGIN: "origin", LU: "LU", LD: "LD", RU: "RU", RD: "RD"}
 
@@ -39,10 +38,9 @@ EXIT_RADIUS_DEG = 3.0
 ORIGIN_RADIUS_DEG = 3.0
 
 # ---- window -----------------------------------------------------------------
-# From the start of the choice saccade (first finite field in order) to the
-# end of the `trial` looks epoch (trial_end), both in ms from geo_present.
+# The window starts at the choice saccade (first finite field in order) and
+# runs to the end of the `trial` looks epoch (trial_end), in ms from geo_present.
 WINDOW_START_FIELDS = ("saccade_init", "answer_time", "fixation_off")
-WINDOW_END_FIELD = "trial_end"
 
 # ---- choice models (counterfactual.models) ------------------------------------
 # Published mean Weber fraction per monkey: `MR_AG_MJ/load_timing_scalar.m`
@@ -54,7 +52,7 @@ N_SAMPLES = 10_000  # noise draws per trial, as Figure Five
 MODEL_SEED = 45  # Figure Five's rng(45)
 # Smoothing added to each exit probability before renormalising over the
 # unchosen exits, so a model that never picks an exit still gives it a finite
-# log likelihood. Sensitivity-checked in the analysis.
+# log likelihood.
 MODEL_EPS = 1e-3
 
 # ---- cache / output ---------------------------------------------------------

@@ -174,7 +174,7 @@ def build_raw(monkey, sessions, bin_ms=1.0):
         fix_ms = float(fix_start_ms(beh, bi))
         if not np.isfinite(fix_ms) or fix_ms <= 0:
             continue
-        # Validity from the advisor's timestamp_preprocessing (matched
+        # Validity from the timestamp_preprocessing package (matched
         # timestamps, finite, on screen, outside blink padding), on the raw
         # samples; no event detection enters the raw branch.
         q = sample_quality(monkey, session, trial)

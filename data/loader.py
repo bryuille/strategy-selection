@@ -92,7 +92,7 @@ def load_svm_choices(session):
     """Maze-1-vs-6 SVM strategy labels and CV diagnostics for `session`.
 
     Mirrors `load_strategy_choices`'s cache convention (same key,
-    ``strategy_choices``, so `msp.labels` / `regression.labels` read either
+    ``strategy_choices``, so `msp.labels` reads either
     with only a stem change) but returns the full dict -- `svm_auc` and the
     rest of `build_svm_choices`'s diagnostics are cached alongside it, not
     thrown away.

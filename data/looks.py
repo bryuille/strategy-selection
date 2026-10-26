@@ -1,4 +1,4 @@
-"""Looks and saccades from the advisor's `timestamp_preprocessing` package,
+"""Looks and saccades from the `timestamp_preprocessing` package,
 cached per monkey and epoch. This is the eye-event source for every analysis
 package; `data.builder.trial_events` (pymovements) is legacy.
 
@@ -14,7 +14,7 @@ duration is the stable support. See timestamp_preprocessing/HANDOFF.md.
 Two epoch policies, each its own cache (`<Monkey>_looks_<epoch>.npz`):
 
 ``fix``    epoch = maze onset -> `fix_start`; the pre-fixation analyses
-           (msp, regression, classifier, msp.saccades).
+           (msp, classifier, msp.saccades).
 ``trial``  epoch = maze onset -> `trial_end`; post-choice (counterfactual) and
            whole-trial uses.
 
@@ -565,7 +565,7 @@ def compare_with_legacy(session, *, max_trials=None):
     print(f"{monkey} {session}: {len(rows)} QC trials | looks {sum(d['n_looks'][rows])} vs legacy fixations "
           f"{len(fix_ms)} | per-trial difference (looks - fixations): "
           f"{dict(zip(*np.unique(diffs, return_counts=True)))} | median stable {np.median(look_ms):.0f} ms vs "
-          f"median fixation {np.median(fix_ms):.0f} ms | advisor ROI {roi} | ambiguous "
+          f"median fixation {np.median(fix_ms):.0f} ms | package ROI {roi} | ambiguous "
           f"{int(d['look_ambiguous'][np.concatenate([np.arange(looks_of(d, r).start, looks_of(d, r).stop) for r in rows])].sum())} "
           f"| max |to_maze - normalized| {max(warp_err) if warp_err else float('nan'):.2e} | status {status} | "
           f"skipped {dict(zip(*np.unique(d['skip_reason'], return_counts=True))) if len(d['skip_reason']) else {}}")

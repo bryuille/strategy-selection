@@ -1,0 +1,20 @@
+monkey,branch,model,maze,auc,n_H,n_S,null_mean,null_sd,z,p,ordinary_auc,n_features,n_perm
+Faure,raw,gbm,1,0.6823529411764706,85,1,,,,,,,
+Faure,raw,gbm,2,0.6208955223880597,67,20,,,,,,,
+Faure,raw,gbm,3,0.7916666666666666,88,3,,,,,,,
+Faure,raw,gbm,4,0.598014888337469,13,93,,,,,,,
+Faure,raw,gbm,5,0.652046783625731,19,126,,,,,,,
+Faure,raw,gbm,6,0.5651709401709402,9,104,,,,,,,
+Faure,raw,gbm,held-out june_24_g0,0.6514879885263535,,,,,,,,,
+Faure,raw,gbm,held-out june_8_g0,0.6015037593984962,,,,,,,,,
+Faure,raw,gbm,leave-one-session-out pooled,0.6452321204516939,,,,,,,,,
+Faure,raw,gbm,within-maze pooled,0.628131021194605,281,347,0.5078267501605651,0.04782835904345594,2.5153334431719405,0.009950248756218905,0.9277795440327361,90,200
+Nielsen,raw,gbm,1,0.39473684210526316,114,2,,,,,,,
+Nielsen,raw,gbm,2,0.5378461538461539,125,13,,,,,,,
+Nielsen,raw,gbm,3,0.49343065693430654,137,10,,,,,,,
+Nielsen,raw,gbm,4,0.502576112412178,61,70,,,,,,,
+Nielsen,raw,gbm,5,0.08501118568232663,3,149,,,,,,,
+Nielsen,raw,gbm,held-out Nov_3_g0,0.508169014084507,,,,,,,,,
+Nielsen,raw,gbm,held-out Nov_6_g0,0.4989440337909187,,,,,,,,,
+Nielsen,raw,gbm,leave-one-session-out pooled,0.5034069228672663,,,,,,,,,
+Nielsen,raw,gbm,within-maze pooled,0.48161209068010075,440,405,0.5119389168765742,0.0498643826442685,-0.6081861358401737,0.736318407960199,0.9532210998877666,90,200

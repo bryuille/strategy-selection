@@ -1,13 +1,13 @@
 monkey,branch,model,feature,weight
-Faure,regions,gbm,dwell: origin LU,0.05525185206372816
-Faure,regions,gbm,dwell: origin LD,0.03767798403935816
-Faure,regions,gbm,dwell: origin RU,0.03717056148279514
-Faure,regions,gbm,dwell: origin RD,0.000763136065902037
-Faure,regions,gbm,dwell: exit LU,0.03836389119304371
-Faure,regions,gbm,dwell: exit LD,0.06595577929693089
-Faure,regions,gbm,dwell: exit RU,0.00182889505448931
-Faure,regions,gbm,dwell: exit RD,0.000584651468779529
-Faure,regions,gbm,dwell: elsewhere,0.04146391693601446
+Faure,regions,gbm,dwell: origin LU,0.0697257949015782
+Faure,regions,gbm,dwell: origin LD,0.00781904606172008
+Faure,regions,gbm,dwell: origin RU,0.05313365172625726
+Faure,regions,gbm,dwell: origin RD,0.004182149321394513
+Faure,regions,gbm,dwell: exit LU,0.03817162769454576
+Faure,regions,gbm,dwell: exit LD,0.05755487767058174
+Faure,regions,gbm,dwell: exit RU,0.004437577883156929
+Faure,regions,gbm,dwell: exit RD,0.0011908722349717404
+Faure,regions,gbm,dwell: elsewhere,0.06139081697669566
 Faure,regions,gbm,binary: origin LU,0.0
 Faure,regions,gbm,binary: origin LD,0.0
 Faure,regions,gbm,binary: origin RU,0.0
@@ -17,15 +17,15 @@ Faure,regions,gbm,binary: exit LD,0.0
 Faure,regions,gbm,binary: exit RU,0.0
 Faure,regions,gbm,binary: exit RD,0.0
 Faure,regions,gbm,binary: elsewhere,0.0
-Nielsen,regions,gbm,dwell: origin LU,0.06522517648271242
-Nielsen,regions,gbm,dwell: origin LD,0.015908563920234965
-Nielsen,regions,gbm,dwell: origin RU,0.03484406399752667
-Nielsen,regions,gbm,dwell: origin RD,0.021267132993249827
-Nielsen,regions,gbm,dwell: exit LU,0.03378452362549593
-Nielsen,regions,gbm,dwell: exit LD,0.002769619209563534
-Nielsen,regions,gbm,dwell: exit RU,0.025471157314371086
-Nielsen,regions,gbm,dwell: exit RD,0.03911088782398102
-Nielsen,regions,gbm,dwell: elsewhere,0.04610417632812902
+Nielsen,regions,gbm,dwell: origin LU,0.04403012991624242
+Nielsen,regions,gbm,dwell: origin LD,0.006926964119276957
+Nielsen,regions,gbm,dwell: origin RU,0.03239631745468152
+Nielsen,regions,gbm,dwell: origin RD,0.017342455157021798
+Nielsen,regions,gbm,dwell: exit LU,0.028266134912533224
+Nielsen,regions,gbm,dwell: exit LD,0.002198875200517403
+Nielsen,regions,gbm,dwell: exit RU,0.017966991510109897
+Nielsen,regions,gbm,dwell: exit RD,0.03298059181952484
+Nielsen,regions,gbm,dwell: elsewhere,0.0432886118807738
 Nielsen,regions,gbm,binary: origin LU,0.0
 Nielsen,regions,gbm,binary: origin LD,0.0
 Nielsen,regions,gbm,binary: origin RU,0.0

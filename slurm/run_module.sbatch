@@ -8,8 +8,7 @@
 #   sbatch -J fixtab    slurm/run_module.sbatch classifier.fixations
 #   sbatch -J scatter   slurm/run_module.sbatch scatter.build
 #
-# For packages with their own script (msp.build, regression.build) prefer
-# run_msp.sbatch / run_regression.sbatch, which check their inputs first.
+# For msp.build prefer run_msp.sbatch, which checks its inputs first.
 # Override the resources below on the command line (`--mem`, `-t`) when a
 # job needs more; keep `-c 1` unless the module itself runs parallel work.
 # MAT_ROOT / PROCESSED_ROOT come from data/config.py.

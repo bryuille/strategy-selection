@@ -31,12 +31,11 @@ published ranges are read from `Single_Trial_List/`.
 | `<Monkey>_msp_revised_fix[_svm]` (legacy name) | `classifier.fixations` | `classifier.fixations.load` |
 | `<Monkey>_looks_<epoch>` | `data.looks.build_looks` (timestamp_preprocessing) | `data.looks.load_looks` |
 | `<Monkey>_msp_looks5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
-| `<Monkey>_reg_looks5_<tag>` | `regression.features` | `regression.features.load_fixations` |
 | `<Monkey>_cf_exits` | `counterfactual.extract` | `counterfactual.extract.load` |
 | `<Monkey>_cf_models` | `counterfactual.models` | `counterfactual.models.load` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
-`<tag>` is a radius tag such as `r1` or `r0.5`. msp and regression analyse
+`<tag>` is a radius tag such as `r1` or `r0.5`. msp analyses
 `[geo_present, fix_start]` (maze onset to fixation onset), re-detected per
 trial. The fixed `s1466_e0` window (`PRE_FIX_START_MS` /
 `PRE_FIX_END_MS` in `data.config`) is read only by `msp.legacy.saccades`,
@@ -142,7 +141,7 @@ pre-fixation work. Every behavioral row of the built sessions is present
 | meta | `schema`, `epoch`, `monkey`, `sessions`, `config_json`, `source_sha256` (hash of the package source; a mismatch rebuilds) |
 
 Times are unrounded ms from `geo_present`. Consumers: `msp.features`,
-`regression.features`, `classifier.fixations` (`fix`), `counterfactual.extract`
+`classifier.fixations` (`fix`), `counterfactual.extract`
 (`trial`); `scatter` and the classifier raw branch use the sample-level
 `data.looks.sample_quality` instead.
 
@@ -165,7 +164,7 @@ first fixation anchor come from the segment, so the two are different analyses.
 | `session`, `trial_indices_all` | Trial join key |
 
 Trials that fail QC contribute no events. `msp.legacy.saccades` reads
-`s1466_e0`; msp and regression re-detect inside `[geo_present, fix_start]`
+`s1466_e0`; msp re-detects inside `[geo_present, fix_start]`
 instead.
 
 ### `<Monkey>_attractor_eye_data.npz`
@@ -182,7 +181,7 @@ the **whole-trial** (or default) events used at build time.
 
 State assignment is **not** stored here — the consumer
 (`msp.legacy.saccades`) assigns against its own codebook. Its validity mask
-is tied to the s1466 events, so msp and regression cannot reuse it.
+is tied to the s1466 events, so msp cannot reuse it.
 
 ---
 
@@ -225,44 +224,10 @@ are orphaned since that package was removed (2026-10-06) and can be deleted.
 State order: `origin`, `LU`, `LD`, `RU`, `RD`
 (coordinates `(0,0)`, `(±1,±1)` in unit H).
 
-### `<Monkey>_reg_fixed5_<tag>.npz`
-
-Regression fixation tables (`regression.features`). Example:
-`Faure_reg_fixed5_r1.npz`.
-
-Always built for the publication session set; session subsets are filtered on
-load.
-
-**Per-trial** (length `N`):
-
-| Key | Meaning |
-| --- | --- |
-| `session`, `trial_indices_all`, `maze_id` | Identity |
-| `fix_ms` | `fix_start − geo_present` (ms) |
-| `window_lo_ms`, `window_hi_ms` | Analysis clip for that trial |
-
-**Per-fixation** (length `F`):
-
-| Key | Meaning |
-| --- | --- |
-| `fix_row` | Index into per-trial tables |
-| `fix_state` | Assigned state, or `-1` |
-| `fix_dwell_ms` | Assigned dwell for that fixation (0 if unassigned) |
-| `fix_onset_ms` | Onset within the window |
-| `fix_xy` | Centroid `(F, 2)` |
-
-**Metadata:** `codebook_xy`, `state_names`, `assign_radius`,
-`sessions`, `drops_json` (per-session drop tallies), `schema_version`.
-
-Measures (`occ`, `visits`, `dur_ms`, …) are **not** cached — derived on load
-by `regression.features.trial_measures`.
-
----
-
 ## Legacy stems (zarchive)
 
 Older packages may still write into the same directory. They are not part of
-the current `data/` / `msp` / `regression` loaders:
+the current `data/` / `msp` loaders:
 
 | Pattern | Package |
 | --- | --- |

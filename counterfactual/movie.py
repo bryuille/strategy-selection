@@ -15,7 +15,7 @@ list on the right grows as the items are counted (the choice-saccade landing
 is item 0, see `counterfactual.extract`).
 
 Looks and saccades are read from the exit cache (`counterfactual.extract`),
-i.e. the advisor's `timestamp_preprocessing` looks the exit list was built
+i.e. the `timestamp_preprocessing` package looks the exit list was built
 from; nothing is re-detected here. Fixation blocks are the looks' envelopes.
 
     uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2

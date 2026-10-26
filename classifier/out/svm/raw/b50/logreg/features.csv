@@ -1,181 +1,181 @@
 monkey,branch,model,feature,weight
-Faure,raw,logreg,"gaze x, 1475 ms before fixation",-0.12212672679559025
-Faure,raw,logreg,"gaze x, 1425 ms before fixation",0.08895745793067786
-Faure,raw,logreg,"gaze x, 1375 ms before fixation",-0.001542962236018239
-Faure,raw,logreg,"gaze x, 1325 ms before fixation",-0.10656857318846934
-Faure,raw,logreg,"gaze x, 1275 ms before fixation",0.17824446894370893
-Faure,raw,logreg,"gaze x, 1225 ms before fixation",-0.10137971707007902
-Faure,raw,logreg,"gaze x, 1175 ms before fixation",-0.13466300737806144
-Faure,raw,logreg,"gaze x, 1125 ms before fixation",0.14539347558937518
-Faure,raw,logreg,"gaze x, 1075 ms before fixation",0.08717882475829893
-Faure,raw,logreg,"gaze x, 1025 ms before fixation",-0.04505975881048001
-Faure,raw,logreg,"gaze x, 975 ms before fixation",0.017179442255067828
-Faure,raw,logreg,"gaze x, 925 ms before fixation",0.00989900997825781
-Faure,raw,logreg,"gaze x, 875 ms before fixation",0.011973745821922935
-Faure,raw,logreg,"gaze x, 825 ms before fixation",-0.12770073367657425
-Faure,raw,logreg,"gaze x, 775 ms before fixation",-0.030200277930056845
-Faure,raw,logreg,"gaze x, 725 ms before fixation",0.11141443647469514
-Faure,raw,logreg,"gaze x, 675 ms before fixation",0.09278180377835701
-Faure,raw,logreg,"gaze x, 625 ms before fixation",-0.11446899762039518
-Faure,raw,logreg,"gaze x, 575 ms before fixation",0.11225392220620517
-Faure,raw,logreg,"gaze x, 525 ms before fixation",-0.1806384079690982
-Faure,raw,logreg,"gaze x, 475 ms before fixation",0.1382958765932939
-Faure,raw,logreg,"gaze x, 425 ms before fixation",-0.0008681465287241573
-Faure,raw,logreg,"gaze x, 375 ms before fixation",0.04139713524958265
-Faure,raw,logreg,"gaze x, 325 ms before fixation",0.1580689307814907
-Faure,raw,logreg,"gaze x, 275 ms before fixation",-0.1263339571400585
-Faure,raw,logreg,"gaze x, 225 ms before fixation",0.053467276871680944
-Faure,raw,logreg,"gaze x, 175 ms before fixation",0.16304281310948646
-Faure,raw,logreg,"gaze x, 125 ms before fixation",-0.03376390976744615
-Faure,raw,logreg,"gaze x, 75 ms before fixation",-0.19805920512980238
-Faure,raw,logreg,"gaze x, 25 ms before fixation",0.19338619654574804
-Faure,raw,logreg,"gaze y, 1475 ms before fixation",0.06699755106310486
-Faure,raw,logreg,"gaze y, 1425 ms before fixation",-0.0655781735697326
-Faure,raw,logreg,"gaze y, 1375 ms before fixation",-0.13576057547994003
-Faure,raw,logreg,"gaze y, 1325 ms before fixation",0.05487856652452111
-Faure,raw,logreg,"gaze y, 1275 ms before fixation",0.06065788533248518
-Faure,raw,logreg,"gaze y, 1225 ms before fixation",-0.08172964120949039
-Faure,raw,logreg,"gaze y, 1175 ms before fixation",0.08224831545831798
-Faure,raw,logreg,"gaze y, 1125 ms before fixation",0.11159256818601565
-Faure,raw,logreg,"gaze y, 1075 ms before fixation",-0.12054896961470311
-Faure,raw,logreg,"gaze y, 1025 ms before fixation",-0.023901640328625972
-Faure,raw,logreg,"gaze y, 975 ms before fixation",-0.08643318313122786
-Faure,raw,logreg,"gaze y, 925 ms before fixation",0.10917908023853101
-Faure,raw,logreg,"gaze y, 875 ms before fixation",0.05369674555363671
-Faure,raw,logreg,"gaze y, 825 ms before fixation",-0.06451056571845983
-Faure,raw,logreg,"gaze y, 775 ms before fixation",0.16920302455937694
-Faure,raw,logreg,"gaze y, 725 ms before fixation",-0.025767106537447675
-Faure,raw,logreg,"gaze y, 675 ms before fixation",-0.013162006783448118
-Faure,raw,logreg,"gaze y, 625 ms before fixation",-0.1807518164896056
-Faure,raw,logreg,"gaze y, 575 ms before fixation",0.011183031894224735
-Faure,raw,logreg,"gaze y, 525 ms before fixation",-0.07559052735557785
-Faure,raw,logreg,"gaze y, 475 ms before fixation",0.07510259900150335
-Faure,raw,logreg,"gaze y, 425 ms before fixation",-0.030586226442064275
-Faure,raw,logreg,"gaze y, 375 ms before fixation",-0.22150199369787504
-Faure,raw,logreg,"gaze y, 325 ms before fixation",0.2978192684814411
-Faure,raw,logreg,"gaze y, 275 ms before fixation",-0.2314481364734458
-Faure,raw,logreg,"gaze y, 225 ms before fixation",0.01235976155777257
-Faure,raw,logreg,"gaze y, 175 ms before fixation",-0.058540129938431655
-Faure,raw,logreg,"gaze y, 125 ms before fixation",0.12031065612311136
-Faure,raw,logreg,"gaze y, 75 ms before fixation",-0.06645621250794374
-Faure,raw,logreg,"gaze y, 25 ms before fixation",-0.11353866080444884
-Faure,raw,logreg,"pupil, 1475 ms before fixation",0.13302096147296139
-Faure,raw,logreg,"pupil, 1425 ms before fixation",-0.14262619110702424
-Faure,raw,logreg,"pupil, 1375 ms before fixation",0.0014654187201314306
-Faure,raw,logreg,"pupil, 1325 ms before fixation",-0.08366242174536012
-Faure,raw,logreg,"pupil, 1275 ms before fixation",-0.04550853156085453
-Faure,raw,logreg,"pupil, 1225 ms before fixation",0.18966222893348877
-Faure,raw,logreg,"pupil, 1175 ms before fixation",0.06430884743052873
-Faure,raw,logreg,"pupil, 1125 ms before fixation",-0.06669145556742143
-Faure,raw,logreg,"pupil, 1075 ms before fixation",0.14369839546737648
-Faure,raw,logreg,"pupil, 1025 ms before fixation",-0.0020513733614904847
-Faure,raw,logreg,"pupil, 975 ms before fixation",-0.15425317812176906
-Faure,raw,logreg,"pupil, 925 ms before fixation",0.13187163445519715
-Faure,raw,logreg,"pupil, 875 ms before fixation",-0.09555740460507602
-Faure,raw,logreg,"pupil, 825 ms before fixation",-0.09186773471715418
-Faure,raw,logreg,"pupil, 775 ms before fixation",-0.06556345131769571
-Faure,raw,logreg,"pupil, 725 ms before fixation",0.11255319240000387
-Faure,raw,logreg,"pupil, 675 ms before fixation",-0.11773304840203902
-Faure,raw,logreg,"pupil, 625 ms before fixation",-0.043572524242382296
-Faure,raw,logreg,"pupil, 575 ms before fixation",-0.05201608514915034
-Faure,raw,logreg,"pupil, 525 ms before fixation",0.21097461930828912
-Faure,raw,logreg,"pupil, 475 ms before fixation",-0.014028635540077501
-Faure,raw,logreg,"pupil, 425 ms before fixation",0.20887558889136665
-Faure,raw,logreg,"pupil, 375 ms before fixation",-0.0267729436542958
-Faure,raw,logreg,"pupil, 325 ms before fixation",-0.009150392230001764
-Faure,raw,logreg,"pupil, 275 ms before fixation",0.07460403488070626
-Faure,raw,logreg,"pupil, 225 ms before fixation",-0.008259770079779625
-Faure,raw,logreg,"pupil, 175 ms before fixation",0.08602948513175061
-Faure,raw,logreg,"pupil, 125 ms before fixation",-0.041049378018986275
-Faure,raw,logreg,"pupil, 75 ms before fixation",-0.020632401330395213
-Faure,raw,logreg,"pupil, 25 ms before fixation",0.07933022113520424
-Nielsen,raw,logreg,"gaze x, 1475 ms before fixation",0.09007872939277528
-Nielsen,raw,logreg,"gaze x, 1425 ms before fixation",-0.03826299076260773
-Nielsen,raw,logreg,"gaze x, 1375 ms before fixation",0.02872744517685163
-Nielsen,raw,logreg,"gaze x, 1325 ms before fixation",-0.07727285021947736
-Nielsen,raw,logreg,"gaze x, 1275 ms before fixation",0.11143980733358899
-Nielsen,raw,logreg,"gaze x, 1225 ms before fixation",0.10404934056832321
-Nielsen,raw,logreg,"gaze x, 1175 ms before fixation",0.06053933053130721
-Nielsen,raw,logreg,"gaze x, 1125 ms before fixation",-0.2557965539524716
-Nielsen,raw,logreg,"gaze x, 1075 ms before fixation",0.08489808745914862
-Nielsen,raw,logreg,"gaze x, 1025 ms before fixation",0.08597018166170586
-Nielsen,raw,logreg,"gaze x, 975 ms before fixation",-0.058993433442143965
-Nielsen,raw,logreg,"gaze x, 925 ms before fixation",-0.09708427405328465
-Nielsen,raw,logreg,"gaze x, 875 ms before fixation",0.200493591197357
-Nielsen,raw,logreg,"gaze x, 825 ms before fixation",-0.05552254937060055
-Nielsen,raw,logreg,"gaze x, 775 ms before fixation",0.1385261866695213
-Nielsen,raw,logreg,"gaze x, 725 ms before fixation",-0.2151571783207479
-Nielsen,raw,logreg,"gaze x, 675 ms before fixation",-0.24224137248820682
-Nielsen,raw,logreg,"gaze x, 625 ms before fixation",0.16803429177484425
-Nielsen,raw,logreg,"gaze x, 575 ms before fixation",0.06302106351843795
-Nielsen,raw,logreg,"gaze x, 525 ms before fixation",0.09503712452253316
-Nielsen,raw,logreg,"gaze x, 475 ms before fixation",0.06709339056212575
-Nielsen,raw,logreg,"gaze x, 425 ms before fixation",-0.14832906125853423
-Nielsen,raw,logreg,"gaze x, 375 ms before fixation",0.024164406293711384
-Nielsen,raw,logreg,"gaze x, 325 ms before fixation",-0.2732531664172966
-Nielsen,raw,logreg,"gaze x, 275 ms before fixation",0.2497102985306503
-Nielsen,raw,logreg,"gaze x, 225 ms before fixation",0.048610203649100334
-Nielsen,raw,logreg,"gaze x, 175 ms before fixation",-0.13532823813856276
-Nielsen,raw,logreg,"gaze x, 125 ms before fixation",0.0070635772431097915
-Nielsen,raw,logreg,"gaze x, 75 ms before fixation",0.07206236768354489
-Nielsen,raw,logreg,"gaze x, 25 ms before fixation",0.05252576392777196
-Nielsen,raw,logreg,"gaze y, 1475 ms before fixation",0.07640992799771494
-Nielsen,raw,logreg,"gaze y, 1425 ms before fixation",-0.09288546972345364
-Nielsen,raw,logreg,"gaze y, 1375 ms before fixation",0.05002894731959849
-Nielsen,raw,logreg,"gaze y, 1325 ms before fixation",-0.17188716146401256
-Nielsen,raw,logreg,"gaze y, 1275 ms before fixation",0.026993511075171308
-Nielsen,raw,logreg,"gaze y, 1225 ms before fixation",0.09104454014438722
-Nielsen,raw,logreg,"gaze y, 1175 ms before fixation",-0.10737273836433277
-Nielsen,raw,logreg,"gaze y, 1125 ms before fixation",0.009174179816408553
-Nielsen,raw,logreg,"gaze y, 1075 ms before fixation",-0.07865518586504595
-Nielsen,raw,logreg,"gaze y, 1025 ms before fixation",0.018427069069921004
-Nielsen,raw,logreg,"gaze y, 975 ms before fixation",0.09523877798727584
-Nielsen,raw,logreg,"gaze y, 925 ms before fixation",-0.12286392628715094
-Nielsen,raw,logreg,"gaze y, 875 ms before fixation",-0.06525196444942906
-Nielsen,raw,logreg,"gaze y, 825 ms before fixation",0.06460377804833736
-Nielsen,raw,logreg,"gaze y, 775 ms before fixation",-0.18917723051549126
-Nielsen,raw,logreg,"gaze y, 725 ms before fixation",0.010655330763367457
-Nielsen,raw,logreg,"gaze y, 675 ms before fixation",0.04665890427664727
-Nielsen,raw,logreg,"gaze y, 625 ms before fixation",-0.058288532412360795
-Nielsen,raw,logreg,"gaze y, 575 ms before fixation",0.03006094648176671
-Nielsen,raw,logreg,"gaze y, 525 ms before fixation",0.0642364311549756
-Nielsen,raw,logreg,"gaze y, 475 ms before fixation",-0.12965559448761999
-Nielsen,raw,logreg,"gaze y, 425 ms before fixation",0.077854266626325
-Nielsen,raw,logreg,"gaze y, 375 ms before fixation",0.0632279502864126
-Nielsen,raw,logreg,"gaze y, 325 ms before fixation",-0.11149552774060778
-Nielsen,raw,logreg,"gaze y, 275 ms before fixation",-0.06748326929860092
-Nielsen,raw,logreg,"gaze y, 225 ms before fixation",0.09880290939167376
-Nielsen,raw,logreg,"gaze y, 175 ms before fixation",0.043127867552538356
-Nielsen,raw,logreg,"gaze y, 125 ms before fixation",0.03228286472461527
-Nielsen,raw,logreg,"gaze y, 75 ms before fixation",-0.07180150280294875
-Nielsen,raw,logreg,"gaze y, 25 ms before fixation",-0.13214865519419045
-Nielsen,raw,logreg,"pupil, 1475 ms before fixation",0.1250632740197311
-Nielsen,raw,logreg,"pupil, 1425 ms before fixation",-0.10263402732255701
-Nielsen,raw,logreg,"pupil, 1375 ms before fixation",-0.2544199395305262
-Nielsen,raw,logreg,"pupil, 1325 ms before fixation",0.1700529344703429
-Nielsen,raw,logreg,"pupil, 1275 ms before fixation",0.07492979425329233
-Nielsen,raw,logreg,"pupil, 1225 ms before fixation",0.013549041943812382
-Nielsen,raw,logreg,"pupil, 1175 ms before fixation",-0.14718324273420683
-Nielsen,raw,logreg,"pupil, 1125 ms before fixation",-0.08210992270094301
-Nielsen,raw,logreg,"pupil, 1075 ms before fixation",0.05691696893081592
-Nielsen,raw,logreg,"pupil, 1025 ms before fixation",0.1278716287393576
-Nielsen,raw,logreg,"pupil, 975 ms before fixation",-0.10819596290850322
-Nielsen,raw,logreg,"pupil, 925 ms before fixation",0.03971983822358261
-Nielsen,raw,logreg,"pupil, 875 ms before fixation",0.01586218373787711
-Nielsen,raw,logreg,"pupil, 825 ms before fixation",-0.17158128319949398
-Nielsen,raw,logreg,"pupil, 775 ms before fixation",0.1520956544181163
-Nielsen,raw,logreg,"pupil, 725 ms before fixation",-0.3161662583284384
-Nielsen,raw,logreg,"pupil, 675 ms before fixation",0.21616884535685899
-Nielsen,raw,logreg,"pupil, 625 ms before fixation",0.0802902129876093
-Nielsen,raw,logreg,"pupil, 575 ms before fixation",-0.12987589402526623
-Nielsen,raw,logreg,"pupil, 525 ms before fixation",-0.12294068538935325
-Nielsen,raw,logreg,"pupil, 475 ms before fixation",0.12499531625801318
-Nielsen,raw,logreg,"pupil, 425 ms before fixation",-0.0682913960814327
-Nielsen,raw,logreg,"pupil, 375 ms before fixation",0.0395677104939564
-Nielsen,raw,logreg,"pupil, 325 ms before fixation",0.011240213941150322
-Nielsen,raw,logreg,"pupil, 275 ms before fixation",-0.0702063446294986
-Nielsen,raw,logreg,"pupil, 225 ms before fixation",0.05956617242214393
-Nielsen,raw,logreg,"pupil, 175 ms before fixation",0.030802848011669118
-Nielsen,raw,logreg,"pupil, 125 ms before fixation",0.024457971331398896
-Nielsen,raw,logreg,"pupil, 75 ms before fixation",0.055899562365094205
-Nielsen,raw,logreg,"pupil, 25 ms before fixation",0.12299314268389273
+Faure,raw,logreg,"gaze x, 1475 ms before fixation",-0.03698108551191882
+Faure,raw,logreg,"gaze x, 1425 ms before fixation",0.015899093076881924
+Faure,raw,logreg,"gaze x, 1375 ms before fixation",-0.07491797034227238
+Faure,raw,logreg,"gaze x, 1325 ms before fixation",-0.022029360719302928
+Faure,raw,logreg,"gaze x, 1275 ms before fixation",0.1375364597619577
+Faure,raw,logreg,"gaze x, 1225 ms before fixation",-0.029970013493029277
+Faure,raw,logreg,"gaze x, 1175 ms before fixation",-0.24029762946514074
+Faure,raw,logreg,"gaze x, 1125 ms before fixation",0.23368449142516642
+Faure,raw,logreg,"gaze x, 1075 ms before fixation",0.01177358896742815
+Faure,raw,logreg,"gaze x, 1025 ms before fixation",-0.05102627173050379
+Faure,raw,logreg,"gaze x, 975 ms before fixation",0.08532585680739414
+Faure,raw,logreg,"gaze x, 925 ms before fixation",0.038919660385547644
+Faure,raw,logreg,"gaze x, 875 ms before fixation",-0.05007055707053282
+Faure,raw,logreg,"gaze x, 825 ms before fixation",-0.1730186277819155
+Faure,raw,logreg,"gaze x, 775 ms before fixation",0.08093437226232876
+Faure,raw,logreg,"gaze x, 725 ms before fixation",0.046178000658529034
+Faure,raw,logreg,"gaze x, 675 ms before fixation",0.21774225361720628
+Faure,raw,logreg,"gaze x, 625 ms before fixation",-0.2542309047820118
+Faure,raw,logreg,"gaze x, 575 ms before fixation",0.16099564583267922
+Faure,raw,logreg,"gaze x, 525 ms before fixation",-0.17818668680734862
+Faure,raw,logreg,"gaze x, 475 ms before fixation",0.08180768433553194
+Faure,raw,logreg,"gaze x, 425 ms before fixation",0.0028129824935031636
+Faure,raw,logreg,"gaze x, 375 ms before fixation",0.05511558679173665
+Faure,raw,logreg,"gaze x, 325 ms before fixation",0.0976620502626566
+Faure,raw,logreg,"gaze x, 275 ms before fixation",-0.013912280189271308
+Faure,raw,logreg,"gaze x, 225 ms before fixation",-0.00746827076835362
+Faure,raw,logreg,"gaze x, 175 ms before fixation",0.1826468999154819
+Faure,raw,logreg,"gaze x, 125 ms before fixation",-0.05916592993426044
+Faure,raw,logreg,"gaze x, 75 ms before fixation",-0.18250105106212297
+Faure,raw,logreg,"gaze x, 25 ms before fixation",0.19901582331893908
+Faure,raw,logreg,"gaze y, 1475 ms before fixation",0.07845150475184666
+Faure,raw,logreg,"gaze y, 1425 ms before fixation",-0.05466262284561085
+Faure,raw,logreg,"gaze y, 1375 ms before fixation",-0.19047470885298595
+Faure,raw,logreg,"gaze y, 1325 ms before fixation",0.09018642644644403
+Faure,raw,logreg,"gaze y, 1275 ms before fixation",0.03460817676494493
+Faure,raw,logreg,"gaze y, 1225 ms before fixation",-0.022835178399381602
+Faure,raw,logreg,"gaze y, 1175 ms before fixation",0.06962795337836146
+Faure,raw,logreg,"gaze y, 1125 ms before fixation",0.057839904849720666
+Faure,raw,logreg,"gaze y, 1075 ms before fixation",-0.024650228404401744
+Faure,raw,logreg,"gaze y, 1025 ms before fixation",-0.044633414105312554
+Faure,raw,logreg,"gaze y, 975 ms before fixation",-0.13661597086504804
+Faure,raw,logreg,"gaze y, 925 ms before fixation",0.18218064884180563
+Faure,raw,logreg,"gaze y, 875 ms before fixation",0.0008561692451430003
+Faure,raw,logreg,"gaze y, 825 ms before fixation",-0.01817846301689092
+Faure,raw,logreg,"gaze y, 775 ms before fixation",0.04783239846498671
+Faure,raw,logreg,"gaze y, 725 ms before fixation",0.10613262274483179
+Faure,raw,logreg,"gaze y, 675 ms before fixation",-0.07825046988016042
+Faure,raw,logreg,"gaze y, 625 ms before fixation",-0.11124457711425204
+Faure,raw,logreg,"gaze y, 575 ms before fixation",0.006875914424610124
+Faure,raw,logreg,"gaze y, 525 ms before fixation",-0.18389083830363476
+Faure,raw,logreg,"gaze y, 475 ms before fixation",0.05664788425594488
+Faure,raw,logreg,"gaze y, 425 ms before fixation",0.05569395168551602
+Faure,raw,logreg,"gaze y, 375 ms before fixation",-0.2287944548438954
+Faure,raw,logreg,"gaze y, 325 ms before fixation",0.2999037111193656
+Faure,raw,logreg,"gaze y, 275 ms before fixation",-0.1671955498064993
+Faure,raw,logreg,"gaze y, 225 ms before fixation",-0.07059340989177845
+Faure,raw,logreg,"gaze y, 175 ms before fixation",-0.05842483018905085
+Faure,raw,logreg,"gaze y, 125 ms before fixation",0.14302461437731004
+Faure,raw,logreg,"gaze y, 75 ms before fixation",-0.06527654049232635
+Faure,raw,logreg,"gaze y, 25 ms before fixation",-0.10754857429045829
+Faure,raw,logreg,"pupil, 1475 ms before fixation",0.09653635764814456
+Faure,raw,logreg,"pupil, 1425 ms before fixation",-0.03626822641315048
+Faure,raw,logreg,"pupil, 1375 ms before fixation",-0.07314623868181838
+Faure,raw,logreg,"pupil, 1325 ms before fixation",-0.054673293944417424
+Faure,raw,logreg,"pupil, 1275 ms before fixation",-0.10926140464884411
+Faure,raw,logreg,"pupil, 1225 ms before fixation",0.21031287191553003
+Faure,raw,logreg,"pupil, 1175 ms before fixation",0.024918298069612533
+Faure,raw,logreg,"pupil, 1125 ms before fixation",-0.01769427556932367
+Faure,raw,logreg,"pupil, 1075 ms before fixation",0.14058103814273026
+Faure,raw,logreg,"pupil, 1025 ms before fixation",-0.049503367398722464
+Faure,raw,logreg,"pupil, 975 ms before fixation",-0.13984958300706046
+Faure,raw,logreg,"pupil, 925 ms before fixation",0.12796367070079878
+Faure,raw,logreg,"pupil, 875 ms before fixation",-0.08996659779915935
+Faure,raw,logreg,"pupil, 825 ms before fixation",-0.09157252017882014
+Faure,raw,logreg,"pupil, 775 ms before fixation",-0.08086439419228318
+Faure,raw,logreg,"pupil, 725 ms before fixation",0.10368220384633396
+Faure,raw,logreg,"pupil, 675 ms before fixation",-0.11506915718716851
+Faure,raw,logreg,"pupil, 625 ms before fixation",-0.025084693616664152
+Faure,raw,logreg,"pupil, 575 ms before fixation",-0.11539809594193118
+Faure,raw,logreg,"pupil, 525 ms before fixation",0.25884743397984383
+Faure,raw,logreg,"pupil, 475 ms before fixation",-0.013223267023304175
+Faure,raw,logreg,"pupil, 425 ms before fixation",0.22560784959568306
+Faure,raw,logreg,"pupil, 375 ms before fixation",0.034210574380196736
+Faure,raw,logreg,"pupil, 325 ms before fixation",-0.0875832274147635
+Faure,raw,logreg,"pupil, 275 ms before fixation",0.08014831754944192
+Faure,raw,logreg,"pupil, 225 ms before fixation",0.01948918868343172
+Faure,raw,logreg,"pupil, 175 ms before fixation",0.0826200176202645
+Faure,raw,logreg,"pupil, 125 ms before fixation",-0.0734060096448813
+Faure,raw,logreg,"pupil, 75 ms before fixation",-0.025709886331897667
+Faure,raw,logreg,"pupil, 25 ms before fixation",0.10509605207115115
+Nielsen,raw,logreg,"gaze x, 1475 ms before fixation",0.053524282179555675
+Nielsen,raw,logreg,"gaze x, 1425 ms before fixation",0.007880243592458553
+Nielsen,raw,logreg,"gaze x, 1375 ms before fixation",-0.0028444441440375412
+Nielsen,raw,logreg,"gaze x, 1325 ms before fixation",-0.027780698327076785
+Nielsen,raw,logreg,"gaze x, 1275 ms before fixation",0.09044814187976248
+Nielsen,raw,logreg,"gaze x, 1225 ms before fixation",0.06991256861550431
+Nielsen,raw,logreg,"gaze x, 1175 ms before fixation",0.0732584827641905
+Nielsen,raw,logreg,"gaze x, 1125 ms before fixation",-0.20389484231553137
+Nielsen,raw,logreg,"gaze x, 1075 ms before fixation",-0.00616498290246074
+Nielsen,raw,logreg,"gaze x, 1025 ms before fixation",0.11743650988883036
+Nielsen,raw,logreg,"gaze x, 975 ms before fixation",0.024854087631283873
+Nielsen,raw,logreg,"gaze x, 925 ms before fixation",-0.2016578669009772
+Nielsen,raw,logreg,"gaze x, 875 ms before fixation",0.28186051294764164
+Nielsen,raw,logreg,"gaze x, 825 ms before fixation",-0.09541832634649262
+Nielsen,raw,logreg,"gaze x, 775 ms before fixation",0.08578009814133573
+Nielsen,raw,logreg,"gaze x, 725 ms before fixation",-0.16916044169868508
+Nielsen,raw,logreg,"gaze x, 675 ms before fixation",-0.2058704854678615
+Nielsen,raw,logreg,"gaze x, 625 ms before fixation",0.1023177146429027
+Nielsen,raw,logreg,"gaze x, 575 ms before fixation",0.10434566638738232
+Nielsen,raw,logreg,"gaze x, 525 ms before fixation",0.11780344674374049
+Nielsen,raw,logreg,"gaze x, 475 ms before fixation",0.06742399985404757
+Nielsen,raw,logreg,"gaze x, 425 ms before fixation",-0.1484528934036201
+Nielsen,raw,logreg,"gaze x, 375 ms before fixation",-0.04075513756362493
+Nielsen,raw,logreg,"gaze x, 325 ms before fixation",-0.23496670617455312
+Nielsen,raw,logreg,"gaze x, 275 ms before fixation",0.27976543364647116
+Nielsen,raw,logreg,"gaze x, 225 ms before fixation",-0.015272200895456847
+Nielsen,raw,logreg,"gaze x, 175 ms before fixation",-0.10400496970234246
+Nielsen,raw,logreg,"gaze x, 125 ms before fixation",0.005135010528655226
+Nielsen,raw,logreg,"gaze x, 75 ms before fixation",0.06512521363812698
+Nielsen,raw,logreg,"gaze x, 25 ms before fixation",0.06270126939870345
+Nielsen,raw,logreg,"gaze y, 1475 ms before fixation",0.06050361957128333
+Nielsen,raw,logreg,"gaze y, 1425 ms before fixation",-0.027995078433979668
+Nielsen,raw,logreg,"gaze y, 1375 ms before fixation",-0.00031349905141568504
+Nielsen,raw,logreg,"gaze y, 1325 ms before fixation",-0.18195088284919314
+Nielsen,raw,logreg,"gaze y, 1275 ms before fixation",0.07091908556503322
+Nielsen,raw,logreg,"gaze y, 1225 ms before fixation",0.0903928593669882
+Nielsen,raw,logreg,"gaze y, 1175 ms before fixation",-0.13685593098226168
+Nielsen,raw,logreg,"gaze y, 1125 ms before fixation",0.05157367556860829
+Nielsen,raw,logreg,"gaze y, 1075 ms before fixation",-0.09795517130889933
+Nielsen,raw,logreg,"gaze y, 1025 ms before fixation",-0.03270523449352057
+Nielsen,raw,logreg,"gaze y, 975 ms before fixation",0.09861292728073776
+Nielsen,raw,logreg,"gaze y, 925 ms before fixation",-0.1833934994194742
+Nielsen,raw,logreg,"gaze y, 875 ms before fixation",0.1544066204953059
+Nielsen,raw,logreg,"gaze y, 825 ms before fixation",-0.07119855981836166
+Nielsen,raw,logreg,"gaze y, 775 ms before fixation",-0.18353655192880602
+Nielsen,raw,logreg,"gaze y, 725 ms before fixation",0.08062843648407676
+Nielsen,raw,logreg,"gaze y, 675 ms before fixation",0.002188831834559827
+Nielsen,raw,logreg,"gaze y, 625 ms before fixation",-0.09185490314098663
+Nielsen,raw,logreg,"gaze y, 575 ms before fixation",0.028675605266701005
+Nielsen,raw,logreg,"gaze y, 525 ms before fixation",0.0413962688560952
+Nielsen,raw,logreg,"gaze y, 475 ms before fixation",-0.13784888382378516
+Nielsen,raw,logreg,"gaze y, 425 ms before fixation",0.1963034169287012
+Nielsen,raw,logreg,"gaze y, 375 ms before fixation",0.03235353450716369
+Nielsen,raw,logreg,"gaze y, 325 ms before fixation",-0.15277591466754867
+Nielsen,raw,logreg,"gaze y, 275 ms before fixation",-0.1023862205802123
+Nielsen,raw,logreg,"gaze y, 225 ms before fixation",0.06818684052861898
+Nielsen,raw,logreg,"gaze y, 175 ms before fixation",0.08004646506382192
+Nielsen,raw,logreg,"gaze y, 125 ms before fixation",0.047911505959316744
+Nielsen,raw,logreg,"gaze y, 75 ms before fixation",-0.04088540680604855
+Nielsen,raw,logreg,"gaze y, 25 ms before fixation",-0.13751442590703952
+Nielsen,raw,logreg,"pupil, 1475 ms before fixation",0.12571922258149956
+Nielsen,raw,logreg,"pupil, 1425 ms before fixation",-0.09697470828783548
+Nielsen,raw,logreg,"pupil, 1375 ms before fixation",-0.25801057906307806
+Nielsen,raw,logreg,"pupil, 1325 ms before fixation",0.17134714806314555
+Nielsen,raw,logreg,"pupil, 1275 ms before fixation",0.08605961244704537
+Nielsen,raw,logreg,"pupil, 1225 ms before fixation",0.02248409932661618
+Nielsen,raw,logreg,"pupil, 1175 ms before fixation",-0.1477914659966893
+Nielsen,raw,logreg,"pupil, 1125 ms before fixation",-0.05833572320009677
+Nielsen,raw,logreg,"pupil, 1075 ms before fixation",0.029076831692951558
+Nielsen,raw,logreg,"pupil, 1025 ms before fixation",0.06971373648470518
+Nielsen,raw,logreg,"pupil, 975 ms before fixation",-0.08506708633274415
+Nielsen,raw,logreg,"pupil, 925 ms before fixation",0.05908071318638232
+Nielsen,raw,logreg,"pupil, 875 ms before fixation",0.07756029425775134
+Nielsen,raw,logreg,"pupil, 825 ms before fixation",-0.20983015940479907
+Nielsen,raw,logreg,"pupil, 775 ms before fixation",0.13239410512485764
+Nielsen,raw,logreg,"pupil, 725 ms before fixation",-0.27020912938357156
+Nielsen,raw,logreg,"pupil, 675 ms before fixation",0.20145486281512187
+Nielsen,raw,logreg,"pupil, 625 ms before fixation",0.05831493760333675
+Nielsen,raw,logreg,"pupil, 575 ms before fixation",-0.1216402446663888
+Nielsen,raw,logreg,"pupil, 525 ms before fixation",-0.142201977739465
+Nielsen,raw,logreg,"pupil, 475 ms before fixation",0.1268019411179715
+Nielsen,raw,logreg,"pupil, 425 ms before fixation",-0.015206158290727316
+Nielsen,raw,logreg,"pupil, 375 ms before fixation",0.022768916518566648
+Nielsen,raw,logreg,"pupil, 325 ms before fixation",-0.011849311205281312
+Nielsen,raw,logreg,"pupil, 275 ms before fixation",-0.07916336305245646
+Nielsen,raw,logreg,"pupil, 225 ms before fixation",0.0229202254648009
+Nielsen,raw,logreg,"pupil, 175 ms before fixation",0.06327797865488777
+Nielsen,raw,logreg,"pupil, 125 ms before fixation",0.05881887264292501
+Nielsen,raw,logreg,"pupil, 75 ms before fixation",0.04873674581777037
+Nielsen,raw,logreg,"pupil, 25 ms before fixation",0.10234656131998039

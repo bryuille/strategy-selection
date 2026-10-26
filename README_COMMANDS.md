@@ -10,7 +10,7 @@ Every `build` takes `--dry-run` (counts and coverage, no statistics) and
 `--refresh` (rebuild the feature cache). Always dry-run first.
 
 Contents: [Data](#data) · [msp](#msp) · [msp.per_session](#mspper_session) ·
-[classifier](#classifier) · [regression](#regression) · [scatter](#scatter) · [counts](#counts) ·
+[classifier](#classifier) · [scatter](#scatter) · [counts](#counts) ·
 [counterfactual](#counterfactual) ·
 [Slurm](#slurm) · [Clearing derived caches](#clearing-derived-caches)
 
@@ -24,13 +24,13 @@ uv run python -m data.loader --monkey Faure
 uv run python -m data.loader --attractor        # also the attractor warp (msp.legacy.saccades only)
 ```
 
-### `data.looks`: look caches (the advisor's `timestamp_preprocessing`)
+### `data.looks`: look caches (the `timestamp_preprocessing` package)
 
 Every analysis reads its eye events from here. `preprocess_trial` of the
 root-level `timestamp_preprocessing/` package (never edited) runs on the raw
 eye mats and the result is cached per monkey and epoch as
 `<Monkey>_looks_<epoch>.npz`: `fix` (maze onset to `fix_start`; msp,
-regression, classifier, msp.saccades) and `trial` (maze onset to `trial_end`;
+classifier, msp.saccades) and `trial` (maze onset to `trial_end`;
 counterfactual). Needs the sessions' eye mats under `MAT_ROOT`.
 
 ```bash
@@ -204,21 +204,6 @@ uv run python -m classifier.pupil_extract --session Oct_22_g0 Nov_18_g0   # clus
 | `--n-perm`  | Label shuffles for the within-maze AUC null (default 200; any other count adds `_p<n>` to the variant, so it never overwrites the default run) |
 | `--refresh` | Rebuild the raw-trace cache (and the svm fixation cache)           |
 
-## regression
-
-```bash
-uv run python -m regression.checks                  # synthetic invariants, seconds
-uv run python -m regression.build --dry-run         # mazes kept, visit rates, no fit
-uv run python -m regression.build                   # fit both monkeys, write CSVs + figure
-uv run python -m regression.build --monkey Faure --sessions june_24_g0
-```
-
-| Flag             | Meaning                                              |
-| ---------------- | ---------------------------------------------------- |
-| `--monkey`       | One or more monkeys (default: both)                  |
-| `--sessions`     | Subset of the publication sessions                   |
-| `--dry-run`      | Report only; fit nothing                             |
-| `--refresh`      | Rebuild the fixation caches                          |
 
 ## scatter
 
@@ -258,8 +243,11 @@ uv run python -m counterfactual.checks                 # exit decoding + detecto
 uv run python -m counterfactual.extract                # build the cache, both monkeys
 uv run python -m counterfactual.extract --monkey Faure --session june_24_g0 --refresh
 uv run python -m counterfactual.models                 # H/S exit probabilities per trial (Figure Five port)
-uv run python -m counterfactual.build --dry-run        # extraction + analysis summaries only
-uv run python -m counterfactual.build                  # exit_sequences.csv, trials.csv, results.csv, summary.txt, figures
+uv run python -m counterfactual.build --dry-run        # extraction summary only
+uv run python -m counterfactual.build                  # exit_sequences.csv + extraction summary per monkey
+uv run python -m counterfactual.compare                # paired H vs S comparison per label group (per monkey)
+uv run python -m counterfactual.compare --alt total optimal      # experiments (Total Time / Optimal as the comparator); outputs not kept
+uv run python -m counterfactual.logp                   # absolute fit: mean log P per trial under H, S and uniform (per monkey)
 uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2 3   # one movie per trial
 uv run python -m counterfactual.movie --session Nov_3_g0 --batch --n-trials 15   # one video, 15 trials back to back
 uv run python -m counterfactual.movie --session june_8_g0 --batch --labelled --start 15   # next 15 labelled trials
@@ -281,9 +269,9 @@ the exit list growing as items are counted.
 | `--session`   | `extract` only: subset of the monkey's publication sessions         |
 | `--refresh`   | Rebuild the cache                                                   |
 | `--dry-run`   | `build` only: print the summaries, write nothing                    |
-| `--n-perm`    | `build` only: label shuffles for the permutation test (default 10000) |
-| `--eps`       | `build` only: smoothing added before renormalising over the unchosen exits (default 1e-3) |
-| `--no-sensitivity` | `build` only: skip the eps / Weber-scalar sensitivity runs       |
+| `--alt`       | `compare` only: alternative(s) to H: `s` (default); `total`, `optimal` are experiments |
+| `--n-perm`    | `compare` only: sign flips for the permutation p (default 10000)      |
+| `--min-trials` | `compare` only: skip units / label groups with fewer trials (default 5) |
 | `--out-root`  | `build` only: output directory (default `counterfactual/out`)       |
 | `--trial-id`  | `movie` only: trial ids (default: the first `--n-trials` cached trials) |
 | `--batch`     | `movie` only: all trials in one video (default 15 trials)           |
@@ -303,7 +291,6 @@ Batch scripts live in `slurm/`. Submit from the repo root (logs go to
 | `run_labels.sbatch`    | `data.labels --sweep --with-svm`, one array task per `CLUSTERING_SESSIONS` entry (64 GB) |
 | `run_module.sbatch`    | Any `python -m <module> [args]` (32 GB, 4 h; override with `--mem` / `-t`) |
 | `run_msp.sbatch`       | `msp.build`, after checking the eye and SVM-label caches exist       |
-| `run_regression.sbatch`| `regression.checks`, then `regression.build`                         |
 
 ```bash
 mkdir -p logs
@@ -312,7 +299,6 @@ sbatch -J eyecaches --mem=64G slurm/run_module.sbatch data.loader
 sbatch slurm/run_msp.sbatch --radius 0.5
 sbatch -J persess slurm/run_module.sbatch msp.per_session --radius 0.5
 sbatch slurm/run_msp.sbatch --radius 0.5 --codebook capsules
-sbatch slurm/run_regression.sbatch
 sbatch -J scatter slurm/run_module.sbatch scatter.build
 sbatch -J counts  slurm/run_module.sbatch counts.build
 ```
@@ -331,16 +317,15 @@ detector or QC constants, delete the derived eye and feature caches and rebuild:
 
 ```bash
 cd /path/to/your/PROCESSED_ROOT         # as set in data/config.py (default ./data/processed)
-rm -f *_looks_*.npz *_msp_looks5_*.npz *_reg_looks5_*.npz *_msp_revised_fix*.npz \
+rm -f *_looks_*.npz *_msp_looks5_*.npz *_msp_revised_fix*.npz \
       *_cf_exits.npz *_cf_models.npz *_clf_raw*.npz
 ```
 
-**Event source change, 2026-10-22.** Eye events now come from the advisor's
+**Event source change, 2026-10-22.** Eye events now come from the
 `timestamp_preprocessing` through `data.looks`; the pymovements detector in
 `data.builder` is legacy (read only by `msp.legacy.saccades` through the
-`*_clean_eye_data_s1466_e0` / attractor caches). The `*_msp_fixed5_*` and
-`*_reg_fixed5_*` caches are orphaned (no code reads them; safe to delete). The
-classifier (SCHEMA 4), msp, regression and counterfactual caches record the
+`*_clean_eye_data_s1466_e0` / attractor caches). The `*_msp_fixed5_*` caches are orphaned (no code reads them; safe to delete). The
+classifier (SCHEMA 4), msp and counterfactual caches record the
 package source hash and rebuild themselves when it changes.
 
 Never delete anything under `MAT_ROOT`; it is the only copy of the raw data.
@@ -350,7 +335,7 @@ Never delete anything under `MAT_ROOT`; it is the only copy of the raw data.
 detected saccade or when gaze moves more than 2° from the fixation's anchored
 centroid, and the event name is `fixation` (was `fixation_idt`). Every cache
 in the `rm` line above that was built before this date encodes the old
-detector and must be deleted before msp, classifier or regression are rerun
-(`classifier.fixations` self-invalidates through its `schema`; the msp and
-regression caches do not). `*_clf_raw*` bins raw gaze around `fix_start` and
+detector and must be deleted before msp or classifier are rerun
+(`classifier.fixations` self-invalidates through its `schema`; the msp
+caches do not). `*_clf_raw*` bins raw gaze around `fix_start` and
 is unaffected. The caches were deliberately **not** rebuilt with the change.

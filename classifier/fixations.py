@@ -1,6 +1,6 @@
 """Look table per monkey and label scope.
 
-Looks come from `data.looks` (the advisor's `timestamp_preprocessing`, epoch
+Looks come from `data.looks` (the `timestamp_preprocessing` package, epoch
 ``fix`` = maze onset -> fixation onset): qualified looks with >= 75 ms of
 stable support, each kept with its centroid in unit H *and* in degrees, its
 onset / offset and its stable duration (``fix_valid_ms``). No codebook /

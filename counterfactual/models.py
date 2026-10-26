@@ -1,10 +1,10 @@
-"""Hierarchical and Sequential choice models, ported from Figure Five.
+"""Choice models ported from Figure Five: Hierarchical, Sequential, and the
+two experimental comparators Total Time and Optimal.
 
-Source: `zarchive/Figure_Five/03_Likelihood_Analysis/` (copy of the advisor's
-`MR_AG_MJ/Figure_Five/`), the per-trial simulation `simulate_hs_models` in
+Source: `zarchive/MR_AG_MJ/Figure_Five/03_Likelihood_Analysis/`, the per-trial
+simulation `simulate_hs_models` in
 `Run_Canonical_Neural_Strategy_vs_Trialwise_Opposite.m` and the helpers
-`Model_Helpers/Hierarchical_Model_Physiology.m`,
-`Model_Helpers/Sequential_Model_Physiology.m`,
+`Model_Helpers/{Hierarchical,Sequential,Total_Time,Optimal}_Model_Physiology.m`,
 `Model_Helpers/D_likelihood_Physiology.m`.
 
 Per trial the monkey is assumed to measure the two interval durations of the
@@ -19,6 +19,12 @@ likewise ``two``. Each model then scores arms with the Gaussian
 ``S`` (sequential)    the paper's "second-only" heuristic: compare ``two``
                       against all four vertical arms h2, h3, h5, h6; ties
                       uniform. h1 and h4 are never consulted.
+``total`` (Total Time) an independent noisy measurement of the whole travel
+                      time, ``total = (t1 + t2)(1 + scalar * N)``, compared
+                      against the four arm sums h1+h2, h1+h3, h4+h5, h4+h6.
+``optimal``           the two intervals scored independently and multiplied,
+                      ``L(one | horizontal arm) * L(two | vertical arm)`` for
+                      each exit; like H without the initial commitment.
 
 `N_SAMPLES` noise draws per trial give the choice probability of each exit
 (LU, LD, RU, RD = codes 1-4). `scalar` is the published mean Weber fraction
@@ -28,7 +34,8 @@ per monkey (`WEBER_SCALAR`, from `MR_AG_MJ/load_timing_scalar.m` reading
 The counterfactual distribution of a trial is the model's probability
 renormalised over the three *unchosen* exits (`counterfactual_dist`).
 
-Cache: ``<PROCESSED_ROOT>/<Monkey>_cf_models.npz``.
+Cache: ``<PROCESSED_ROOT>/<Monkey>_cf_models.npz`` (``prob_h``, ``prob_s``,
+``prob_total``, ``prob_optimal``).
 
     uv run python -m counterfactual.models [--monkey ...] [--refresh]
 """
@@ -45,7 +52,6 @@ from data.config import processed_npz
 from data.loader import load_eye_behavioral_data, savez_atomic
 from data.mat import load_npz
 from counterfactual.config import (
-    EXIT_CODES,
     MONKEYS,
     MODEL_EPS,
     MODEL_SEED,
@@ -55,11 +61,8 @@ from counterfactual.config import (
 )
 from counterfactual.exits import chosen_exit, correct_exit
 
-MODELS_SCHEMA = 1
-MODEL_NAMES = ("H", "S")
-# Exit order LU, LD, RU, RD: (horizontal arm index, vertical arm index) into h1..h6 (0-based).
-EXIT_ARMS = ((0, 1), (0, 2), (3, 4), (3, 5))
-
+MODELS_SCHEMA = 2
+MODEL_NAMES = ("h", "s", "total", "optimal")
 
 def _gauss(measured, arm, scalar):
     """`D_likelihood_Physiology`: normpdf(measured, arm, arm * scalar)."""
@@ -87,59 +90,58 @@ def true_intervals(h_sec, lr, lr2):
     return t1, t2
 
 
-def simulate_hs(h_sec, lr, lr2, scalar, *, n_samples=N_SAMPLES, seed=MODEL_SEED, batch=500):
-    """``(prob_h, prob_s)``, each (n_trials, 4) over LU, LD, RU, RD.
-
-    Vectorised port of `simulate_hs_models`: `n_samples` noise draws per trial,
-    processed in batches of `batch` draws.
+def simulate_models(h_sec, lr, lr2, scalar, *, n_samples=N_SAMPLES, seed=MODEL_SEED, batch=500):
+    """``{"h", "s", "total", "optimal"}`` -> (n_trials, 4) choice probabilities
+    over LU, LD, RU, RD. Vectorised port of `simulate_hs_models` extended with
+    the Total Time and Optimal helpers; `n_samples` noise draws per trial,
+    processed in batches of `batch` draws, all four models on the same draws.
     """
     h_sec = np.asarray(h_sec, dtype=float).reshape(-1, 6)
     n = h_sec.shape[0]
     if n == 0:
-        return np.empty((0, 4)), np.empty((0, 4))
+        return {k: np.empty((0, 4)) for k in MODEL_NAMES}
     if not np.all(np.isfinite(h_sec)) or np.any(h_sec <= 0):
         raise ValueError("arm durations must be finite and positive")
     rng = np.random.default_rng(seed)
     t1, t2 = true_intervals(h_sec, lr, lr2)
-    counts_h = np.zeros((n, 4))
-    counts_s = np.zeros((n, 4))
+    t_total = t1 + t2
+    counts = {k: np.zeros((n, 4)) for k in MODEL_NAMES}
     h1, h2, h3, h4, h5, h6 = (h_sec[:, k][None, :] for k in range(6))
+    horizontal = (h1, h1, h4, h4)
+    vertical_arms = (h2, h3, h5, h6)
     same_side = (h_sec[:, 0] == h_sec[:, 3])[None, :]
+    eps = np.finfo(float).eps
     done = 0
     while done < n_samples:
         m = min(batch, n_samples - done)
-        one = np.maximum(t1[None, :] + rng.standard_normal((m, n)) * scalar * t1[None, :], np.finfo(float).eps)
-        two = np.maximum(t2[None, :] + rng.standard_normal((m, n)) * scalar * t2[None, :], np.finfo(float).eps)
-        vertical = np.stack([_gauss(two, h2, scalar), _gauss(two, h3, scalar),
-                             _gauss(two, h5, scalar), _gauss(two, h6, scalar)], axis=-1)  # (m, n, 4)
+        one = np.maximum(t1[None, :] + rng.standard_normal((m, n)) * scalar * t1[None, :], eps)
+        two = np.maximum(t2[None, :] + rng.standard_normal((m, n)) * scalar * t2[None, :], eps)
+        total = np.maximum(t_total[None, :] + rng.standard_normal((m, n)) * scalar * t_total[None, :], eps)
+        vertical = np.stack([_gauss(two, hv, scalar) for hv in vertical_arms], axis=-1)  # (m, n, 4)
         # ---- Hierarchical: side first, then the two vertical arms on that side.
-        left_score = _gauss(one, h1, scalar)
-        right_score = _gauss(one, h4, scalar)
-        go_left = left_score > right_score
+        go_left = _gauss(one, h1, scalar) > _gauss(one, h4, scalar)
         coin = rng.random((m, n)) >= 0.5  # `compute_likelihoods`: fair coin when h1 == h4
         go_left = np.where(same_side, coin, go_left)
         masked = vertical.copy()
-        masked[..., 2:][go_left] = 0.0   # left side chosen: RU, RD out
-        masked[..., :2][~go_left] = 0.0  # right side chosen: LU, LD out
-        pick_h = _argmax_random_ties(masked, rng)
-        # ---- Sequential: all four vertical arms.
-        pick_s = _argmax_random_ties(vertical, rng)
-        for k in range(4):
-            counts_h[:, k] += (pick_h == k).sum(axis=0)
-            counts_s[:, k] += (pick_s == k).sum(axis=0)
+        masked[..., 2:][go_left] = 0.0
+        masked[..., :2][~go_left] = 0.0
+        picks = {"h": _argmax_random_ties(masked, rng)}
+        # ---- Sequential: all four vertical arms on the second interval.
+        picks["s"] = _argmax_random_ties(vertical, rng)
+        # ---- Total Time: the whole travel time against the four arm sums.
+        sums = np.stack([_gauss(total, hh + hv, scalar) for hh, hv in zip(horizontal, vertical_arms)], axis=-1)
+        picks["total"] = _argmax_random_ties(sums, rng)
+        # ---- Optimal: both intervals, independently, no commitment.
+        joint = np.stack([_gauss(one, hh, scalar) for hh in horizontal], axis=-1) * vertical
+        picks["optimal"] = _argmax_random_ties(joint, rng)
+        for name, pick in picks.items():
+            for k in range(4):
+                counts[name][:, k] += (pick == k).sum(axis=0)
         done += m
-    prob_h = counts_h / n_samples
-    prob_s = counts_s / n_samples
-    for p in (prob_h, prob_s):
+    prob = {k: c / n_samples for k, c in counts.items()}
+    for p in prob.values():
         assert np.all(np.isfinite(p)) and np.all(p >= 0) and np.allclose(p.sum(axis=1), 1.0)
-    return prob_h, prob_s
-
-
-def exit_ranking(prob):
-    """Exit codes (1-4) ordered by decreasing probability, per trial; ties by code."""
-    prob = np.asarray(prob, dtype=float).reshape(-1, 4)
-    order = np.lexsort((np.arange(4)[None, :].repeat(prob.shape[0], 0), -prob), axis=1)
-    return order + 1
+    return prob
 
 
 def counterfactual_dist(prob, chosen, *, eps=MODEL_EPS):
@@ -205,7 +207,7 @@ def extract(monkey, sessions, *, scalar=None, n_samples=N_SAMPLES, seed=MODEL_SE
             out["chosen"].append(chosen)
             out["correct"].append(correct_exit(float(behavioral["path_type"][i])) or -1)
     h_sec = np.asarray(out["h_sec"], dtype=float).reshape(-1, 6)
-    prob_h, prob_s = simulate_hs(h_sec, out["lr"], out["lr2"], scalar, n_samples=n_samples, seed=seed)
+    prob = simulate_models(h_sec, out["lr"], out["lr2"], scalar, n_samples=n_samples, seed=seed)
     return {
         "session": np.asarray(out["session"], dtype=str),
         "trial_indices_all": np.asarray(out["trial"], dtype=int),
@@ -216,8 +218,10 @@ def extract(monkey, sessions, *, scalar=None, n_samples=N_SAMPLES, seed=MODEL_SE
         "lr2": np.asarray(out["lr2"], dtype=int),
         "chosen_exit": np.asarray(out["chosen"], dtype=int),
         "correct_exit": np.asarray(out["correct"], dtype=int),
-        "prob_h": prob_h.astype(np.float32),
-        "prob_s": prob_s.astype(np.float32),
+        "prob_h": prob["h"].astype(np.float32),
+        "prob_s": prob["s"].astype(np.float32),
+        "prob_total": prob["total"].astype(np.float32),
+        "prob_optimal": prob["optimal"].astype(np.float32),
         "scalar": np.float64(scalar),
         "n_samples": np.int64(n_samples),
         "seed": np.int64(seed),
@@ -244,21 +248,16 @@ def load(monkey, *, sessions=None, refresh=False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Per-trial H/S exit probabilities (Figure Five port).")
+    parser = argparse.ArgumentParser(description="Per-trial exit probabilities under the choice models (Figure Five port).")
     parser.add_argument("--monkey", nargs="*", default=list(MONKEYS), choices=list(MONKEYS))
     parser.add_argument("--refresh", action="store_true")
     args = parser.parse_args()
     for monkey in args.monkey:
         d = load(monkey, refresh=args.refresh)
-        ph, ps = d["prob_h"].astype(float), d["prob_s"].astype(float)
         ch = d["chosen_exit"]
         idx = np.arange(len(ch))
-        top_h, top_s = exit_ranking(ph)[:, 0], exit_ranking(ps)[:, 0]
-        print(f"{monkey}: {len(ch)} trials; mean p(chosen | H) {ph[idx, ch - 1].mean():.3f}, "
-              f"p(chosen | S) {ps[idx, ch - 1].mean():.3f}; model top exit == chosen: "
-              f"H {np.mean(top_h == ch):.0%}, S {np.mean(top_s == ch):.0%}; "
-              f"H and S disagree on the top unchosen exit on "
-              f"{np.mean(exit_ranking(counterfactual_dist(ph, ch))[:, 0] != exit_ranking(counterfactual_dist(ps, ch))[:, 0]):.0%} of trials")
+        parts = [f"p(chosen | {m}) {d[f'prob_{m}'].astype(float)[idx, ch - 1].mean():.3f}" for m in MODEL_NAMES]
+        print(f"{monkey}: {len(ch)} trials; mean " + ", ".join(parts))
 
 
 if __name__ == "__main__":

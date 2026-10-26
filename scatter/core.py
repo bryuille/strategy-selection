@@ -8,7 +8,7 @@ appeared, so this is where the eyes sit once the pre-flash fixation is
 established but before anything happens.
 
 `collect_fix_start` reduces each trial to one (x, y): the mean gaze over that
-window, over the samples the advisor's `timestamp_preprocessing` marks valid
+window, over the samples the `timestamp_preprocessing` package marks valid
 (`data.looks.sample_quality`: matched timestamps, finite, on screen, outside
 blink padding); trials with fewer than `MIN_VALID_SAMPLES` valid samples in
 the window are skipped (needs the session's eye mat). `maze_stats` then reduces each maze's trials to one mean and SD (per

@@ -11,30 +11,3 @@ trials whose list visits an exit other than the chosen one: 825
 chosen == correct: 913/1190
 post-choice look states: elsewhere=6150, origin=401, LU=842, LD=778, RU=737, RD=1268
 strategy label present: 870/1190 (0 = H, 1 = S)
-
-Nielsen: counterfactual saccades vs the H / S exit rankings
-
-labelled trials 870 (H 453, S 417); with >= 1 counterfactual exit look: H 71%, S 69%
-
-PRIMARY  delta = log q_matched(e1) - log q_mismatched(e1), first counterfactual exit
-  mean +0.134  95% CI [+0.008, +0.269]  n 608  permutation (labels shuffled within session x maze): one-sided p 0.1136, two-sided p 0.1136, null mean +0.095, null sd 0.032
-  (labels are nearly a function of maze, so the within-maze null sits near the observed value:
-   the CI tests delta against 0 across all trials; the permutation tests the label effect beyond maze)
-  H-labelled trials (n 322): log q_H - log q_S = +0.470 [+0.291, +0.649]; mean log q: H -1.965, S -2.435, proximity -1.219, uniform -1.099; e1 on the chosen side 41%
-  S-labelled trials (n 286): log q_S - log q_H = -0.244 [-0.422, -0.079]; mean log q: H -1.825, S -2.069, proximity -1.333, uniform -1.099; e1 on the chosen side 38%
-
-MIXED STRATA (session x maze with >= 10 trials of each label): Nov_3_g0:4, Nov_6_g0:2, Nov_6_g0:3, Nov_6_g0:4
-  delta +0.245 [+0.019, +0.459]  n 172  permutation one-sided p 0.1135 (null mean +0.119, sd 0.104); by label: H +0.419 (n 111), S -0.073 (n 61)
-  top counterfactual on disagreement trials: H-labelled (n 47) e1 == H's top 43%, == S's top 23%; S-labelled (n 18) e1 == H's top 39%, == S's top 28%
-
-TOP COUNTERFACTUAL on the 292 trials where H and S rank a different unchosen exit first
-  H-labelled (n 169): e1 == H's top 36%, == S's top 28%
-  S-labelled (n 123): e1 == H's top 37%, == S's top 32%
-
-SEQUENCE (Plackett-Luce over the ordered distinct unchosen exits; 146 trials with >= 2): delta +0.186 [+0.048, +0.327], one-sided p 0.2482
-
-CORRECT vs ERROR: delta +0.202 (n 471) vs -0.100 (n 137)
-SENSITIVITY: delta_eps_0.0001 +0.041, delta_eps_0.01 +0.144, delta_scalar_x0.7 +0.291, delta_scalar_x1.3 +0.014
-
-A positive delta means the matched strategy's ranking explains the first counterfactual saccade better.
-Caveat: H predicts the same-side exit, which is also the nearest; compare with the proximity row.

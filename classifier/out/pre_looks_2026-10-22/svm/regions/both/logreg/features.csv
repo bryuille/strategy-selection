@@ -1,0 +1,37 @@
+monkey,branch,model,feature,weight
+Faure,regions,logreg,dwell: origin LU,0.17788536696772414
+Faure,regions,logreg,dwell: origin LD,-0.02121350692974721
+Faure,regions,logreg,dwell: origin RU,-0.020828834841893715
+Faure,regions,logreg,dwell: origin RD,-0.010978681032038884
+Faure,regions,logreg,dwell: exit LU,0.0584186357239512
+Faure,regions,logreg,dwell: exit LD,-0.15083446328859876
+Faure,regions,logreg,dwell: exit RU,-0.03890084677484723
+Faure,regions,logreg,dwell: exit RD,0.1041153038445141
+Faure,regions,logreg,dwell: elsewhere,-0.054796873176272534
+Faure,regions,logreg,binary: origin LU,0.0705019132628782
+Faure,regions,logreg,binary: origin LD,-0.0058409220168918925
+Faure,regions,logreg,binary: origin RU,0.13369108497768942
+Faure,regions,logreg,binary: origin RD,0.03569742323767754
+Faure,regions,logreg,binary: exit LU,-0.1473056878075996
+Faure,regions,logreg,binary: exit LD,0.09707242779757896
+Faure,regions,logreg,binary: exit RU,0.050034578146954216
+Faure,regions,logreg,binary: exit RD,-0.025872843187368568
+Faure,regions,logreg,binary: elsewhere,-0.042735971694026605
+Nielsen,regions,logreg,dwell: origin LU,-0.1622892334249915
+Nielsen,regions,logreg,dwell: origin LD,-0.10951020657349013
+Nielsen,regions,logreg,dwell: origin RU,0.11171233614760272
+Nielsen,regions,logreg,dwell: origin RD,0.03783040111272941
+Nielsen,regions,logreg,dwell: exit LU,-0.04268931511047534
+Nielsen,regions,logreg,dwell: exit LD,-0.12467116962421292
+Nielsen,regions,logreg,dwell: exit RU,0.055340452807636026
+Nielsen,regions,logreg,dwell: exit RD,0.14922550457788963
+Nielsen,regions,logreg,dwell: elsewhere,0.027959322748729525
+Nielsen,regions,logreg,binary: origin LU,0.15045800566424658
+Nielsen,regions,logreg,binary: origin LD,0.16430761587868697
+Nielsen,regions,logreg,binary: origin RU,-0.009016604562717544
+Nielsen,regions,logreg,binary: origin RD,0.026049561369591686
+Nielsen,regions,logreg,binary: exit LU,-0.09010319535412285
+Nielsen,regions,logreg,binary: exit LD,0.10861251608340422
+Nielsen,regions,logreg,binary: exit RU,0.09380024516424663
+Nielsen,regions,logreg,binary: exit RD,0.05240492560395745
+Nielsen,regions,logreg,binary: elsewhere,0.015616687389206622

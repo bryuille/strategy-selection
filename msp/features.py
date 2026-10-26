@@ -2,7 +2,7 @@
 
 Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
 
-1. **Looks** from `data.looks` (the advisor's `timestamp_preprocessing`,
+1. **Looks** from `data.looks` (the `timestamp_preprocessing` package,
    epoch ``fix`` = maze onset -> `fix_start`): qualified looks with >= 75 ms of
    stable support, bounded by detected saccades and data gaps, with their
    time-weighted centroid in unit H and their stable duration.
@@ -15,8 +15,8 @@ Pipeline (no k-means; the codebook is `config.CODEBOOK_XY`):
    `codebook_fix_state`): ``halves`` merges the quadrants, ``capsules`` has
    no origin column.
 
-Covers the svm/top_ten sessions only. `regression.features` and
-`classifier.fixations` read the same looks cache.
+Covers the svm/top_ten sessions only. `classifier.fixations` reads the same
+looks cache.
 
 Blocks (one row per usable trial, ``float32``):
 

@@ -1,6 +1,6 @@
 """Post-choice look table and exit sequences, one cache per monkey.
 
-Looks come from `data.looks` (the advisor's `timestamp_preprocessing`, whole
+Looks come from `data.looks` (the `timestamp_preprocessing` package, whole
 trial: epoch ``trial`` = maze onset -> `trial_end`). Per trial of the
 publication sessions (`config.SESSIONS`) that passes `data.builder.trial_qc_ok`
 and has a usable saccade threshold:

@@ -1,0 +1,78 @@
+Faure: do the counterfactual saccades favour the label's model? H vs S
+mean per-trial log P(label's model) - log P(other) with 95% bootstrap CI; p = one-sided paired t-test against 0 (Figure Five's test), sign-flip permutation p (10000 flips) in brackets;
+'favour' = share of trials where the label's model wins
+
+ALL COUNTERFACTUAL SACCADES
+  monkey   Faure                  H-labelled: H - S              n   89  mean +1.025 [+0.691, +1.361]  p 0.0000 [0.0001]  favour 71%  sum log ratio +91.2
+  monkey   Faure                  S-labelled: S - H              n  135  mean +0.307 [+0.096, +0.504]  p 0.0015 [0.0012]  favour 74%  sum log ratio +41.4
+  monkey   Faure                  all: matched - mismatched      n  224  mean +0.592 [+0.417, +0.783]  p 0.0000 [0.0001]  favour 73%  sum log ratio +132.6
+  session  june_24_g0             H-labelled: H - S              n   50  mean +0.951 [+0.507, +1.395]  p 0.0001 [0.0001]  favour 68%  sum log ratio +47.5
+  session  june_24_g0             S-labelled: S - H              n   72  mean +0.187 [-0.127, +0.486]  p 0.1137 [0.1148]  favour 67%  sum log ratio +13.4
+  session  june_24_g0             all: matched - mismatched      n  122  mean +0.500 [+0.235, +0.753]  p 0.0002 [0.0001]  favour 67%  sum log ratio +61.0
+  session  june_8_g0              H-labelled: H - S              n   39  mean +1.121 [+0.667, +1.623]  p 0.0000 [0.0001]  favour 74%  sum log ratio +43.7
+  session  june_8_g0              S-labelled: S - H              n   63  mean +0.444 [+0.188, +0.691]  p 0.0004 [0.0005]  favour 83%  sum log ratio +28.0
+  session  june_8_g0              all: matched - mismatched      n  102  mean +0.703 [+0.451, +0.964]  p 0.0000 [0.0001]  favour 79%  sum log ratio +71.7
+  stratum  june_24_g0 maze 1      H-labelled: H - S              n   16  mean +1.872 [+0.816, +2.885]  p 0.0016 [0.0024]  favour 81%  sum log ratio +30.0
+  stratum  june_24_g0 maze 1      all: matched - mismatched      n   17  mean +1.717 [+0.630, +2.679]  p 0.0024 [0.0035]  favour 76%  sum log ratio +29.2
+  stratum  june_24_g0 maze 2      H-labelled: H - S              n    9  mean +0.163 [-0.092, +0.428]  p 0.1386 [0.1380]  favour 56%  sum log ratio +1.5
+  stratum  june_24_g0 maze 2      S-labelled: S - H              n    9  mean -0.091 [-0.955, +0.575]  p 0.5819 [0.5708]  favour 56%  sum log ratio -0.8
+  stratum  june_24_g0 maze 2      all: matched - mismatched      n   18  mean +0.036 [-0.448, +0.404]  p 0.4356 [0.4552]  favour 56%  sum log ratio +0.7
+  stratum  june_24_g0 maze 3      H-labelled: H - S              n   10  mean +1.942 [+1.389, +2.532]  p 0.0001 [0.0014]  favour 100%  sum log ratio +19.4
+  stratum  june_24_g0 maze 3      all: matched - mismatched      n   11  mean +1.794 [+1.228, +2.411]  p 0.0001 [0.0006]  favour 100%  sum log ratio +19.7
+  stratum  june_24_g0 maze 4      S-labelled: S - H              n    9  mean +0.280 [+0.023, +0.635]  p 0.0647 [0.0203]  favour 78%  sum log ratio +2.5
+  stratum  june_24_g0 maze 4      all: matched - mismatched      n   12  mean +0.123 [-0.155, +0.481]  p 0.2279 [0.1522]  favour 58%  sum log ratio +1.5
+  stratum  june_24_g0 maze 5      H-labelled: H - S              n    8  mean +0.328 [+0.061, +0.576]  p 0.0325 [0.0456]  favour 75%  sum log ratio +2.6
+  stratum  june_24_g0 maze 5      S-labelled: S - H              n   26  mean -0.504 [-0.777, -0.230]  p 0.9990 [0.9990]  favour 38%  sum log ratio -13.1
+  stratum  june_24_g0 maze 5      all: matched - mismatched      n   34  mean -0.308 [-0.567, -0.061]  p 0.9876 [0.9870]  favour 47%  sum log ratio -10.5
+  stratum  june_24_g0 maze 6      S-labelled: S - H              n   26  mean +0.972 [+0.289, +1.431]  p 0.0020 [0.0016]  favour 96%  sum log ratio +25.3
+  stratum  june_24_g0 maze 6      all: matched - mismatched      n   30  mean +0.679 [+0.038, +1.190]  p 0.0154 [0.0138]  favour 83%  sum log ratio +20.4
+  stratum  june_8_g0 maze 1       H-labelled: H - S              n   15  mean +2.124 [+1.578, +2.727]  p 0.0000 [0.0001]  favour 100%  sum log ratio +31.9
+  stratum  june_8_g0 maze 1       all: matched - mismatched      n   15  mean +2.124 [+1.581, +2.746]  p 0.0000 [0.0002]  favour 100%  sum log ratio +31.9
+  stratum  june_8_g0 maze 2       H-labelled: H - S              n   10  mean -0.223 [-0.538, +0.035]  p 0.9003 [0.8714]  favour 50%  sum log ratio -2.2
+  stratum  june_8_g0 maze 2       all: matched - mismatched      n   13  mean -0.436 [-0.963, -0.044]  p 0.9413 [0.9591]  favour 38%  sum log ratio -5.7
+  stratum  june_8_g0 maze 3       H-labelled: H - S              n   12  mean +1.315 [+0.460, +2.086]  p 0.0050 [0.0074]  favour 75%  sum log ratio +15.8
+  stratum  june_8_g0 maze 3       all: matched - mismatched      n   12  mean +1.315 [+0.519, +2.109]  p 0.0050 [0.0064]  favour 75%  sum log ratio +15.8
+  stratum  june_8_g0 maze 4       S-labelled: S - H              n   17  mean +0.275 [+0.102, +0.454]  p 0.0038 [0.0001]  favour 94%  sum log ratio +4.7
+  stratum  june_8_g0 maze 4       all: matched - mismatched      n   18  mean +0.249 [+0.082, +0.424]  p 0.0061 [0.0047]  favour 89%  sum log ratio +4.5
+  stratum  june_8_g0 maze 5       S-labelled: S - H              n   22  mean -0.091 [-0.369, +0.169]  p 0.7355 [0.7338]  favour 73%  sum log ratio -2.0
+  stratum  june_8_g0 maze 5       all: matched - mismatched      n   23  mean -0.153 [-0.447, +0.109]  p 0.8413 [0.8364]  favour 70%  sum log ratio -3.5
+  stratum  june_8_g0 maze 6       S-labelled: S - H              n   21  mean +1.369 [+1.011, +1.703]  p 0.0000 [0.0001]  favour 95%  sum log ratio +28.7
+  stratum  june_8_g0 maze 6       all: matched - mismatched      n   21  mean +1.369 [+1.019, +1.700]  p 0.0000 [0.0002]  favour 95%  sum log ratio +28.7
+
+FIRST COUNTERFACTUAL SACCADE ONLY
+  monkey   Faure                  H-labelled: H - S              n   89  mean +1.024 [+0.685, +1.352]  p 0.0000 [0.0001]  favour 71%  sum log ratio +91.1
+  monkey   Faure                  S-labelled: S - H              n  135  mean +0.321 [+0.114, +0.523]  p 0.0011 [0.0017]  favour 74%  sum log ratio +43.3
+  monkey   Faure                  all: matched - mismatched      n  224  mean +0.600 [+0.418, +0.779]  p 0.0000 [0.0001]  favour 73%  sum log ratio +134.4
+  session  june_24_g0             H-labelled: H - S              n   50  mean +0.949 [+0.489, +1.421]  p 0.0001 [0.0001]  favour 68%  sum log ratio +47.4
+  session  june_24_g0             S-labelled: S - H              n   72  mean +0.204 [-0.102, +0.484]  p 0.0977 [0.1005]  favour 67%  sum log ratio +14.7
+  session  june_24_g0             all: matched - mismatched      n  122  mean +0.509 [+0.249, +0.778]  p 0.0002 [0.0003]  favour 67%  sum log ratio +62.1
+  session  june_8_g0              H-labelled: H - S              n   39  mean +1.121 [+0.637, +1.605]  p 0.0000 [0.0001]  favour 74%  sum log ratio +43.7
+  session  june_8_g0              S-labelled: S - H              n   63  mean +0.454 [+0.192, +0.681]  p 0.0004 [0.0005]  favour 83%  sum log ratio +28.6
+  session  june_8_g0              all: matched - mismatched      n  102  mean +0.709 [+0.469, +0.955]  p 0.0000 [0.0001]  favour 79%  sum log ratio +72.3
+  stratum  june_24_g0 maze 1      H-labelled: H - S              n   16  mean +1.872 [+0.846, +2.850]  p 0.0016 [0.0030]  favour 81%  sum log ratio +30.0
+  stratum  june_24_g0 maze 1      all: matched - mismatched      n   17  mean +1.717 [+0.691, +2.701]  p 0.0024 [0.0032]  favour 76%  sum log ratio +29.2
+  stratum  june_24_g0 maze 2      H-labelled: H - S              n    9  mean +0.153 [-0.116, +0.429]  p 0.1586 [0.1542]  favour 56%  sum log ratio +1.4
+  stratum  june_24_g0 maze 2      S-labelled: S - H              n    9  mean -0.091 [-0.902, +0.578]  p 0.5819 [0.5762]  favour 56%  sum log ratio -0.8
+  stratum  june_24_g0 maze 2      all: matched - mismatched      n   18  mean +0.031 [-0.433, +0.386]  p 0.4445 [0.4649]  favour 56%  sum log ratio +0.6
+  stratum  june_24_g0 maze 3      H-labelled: H - S              n   10  mean +1.942 [+1.394, +2.586]  p 0.0001 [0.0017]  favour 100%  sum log ratio +19.4
+  stratum  june_24_g0 maze 3      all: matched - mismatched      n   11  mean +1.794 [+1.243, +2.391]  p 0.0001 [0.0004]  favour 100%  sum log ratio +19.7
+  stratum  june_24_g0 maze 4      S-labelled: S - H              n    9  mean +0.281 [+0.020, +0.651]  p 0.0637 [0.0232]  favour 78%  sum log ratio +2.5
+  stratum  june_24_g0 maze 4      all: matched - mismatched      n   12  mean +0.124 [-0.162, +0.435]  p 0.2261 [0.1561]  favour 58%  sum log ratio +1.5
+  stratum  june_24_g0 maze 5      H-labelled: H - S              n    8  mean +0.328 [+0.044, +0.577]  p 0.0325 [0.0425]  favour 75%  sum log ratio +2.6
+  stratum  june_24_g0 maze 5      S-labelled: S - H              n   26  mean -0.504 [-0.787, -0.244]  p 0.9991 [0.9989]  favour 38%  sum log ratio -13.1
+  stratum  june_24_g0 maze 5      all: matched - mismatched      n   34  mean -0.308 [-0.556, -0.066]  p 0.9877 [0.9878]  favour 47%  sum log ratio -10.5
+  stratum  june_24_g0 maze 6      S-labelled: S - H              n   26  mean +1.020 [+0.319, +1.493]  p 0.0016 [0.0008]  favour 96%  sum log ratio +26.5
+  stratum  june_24_g0 maze 6      all: matched - mismatched      n   30  mean +0.721 [+0.036, +1.243]  p 0.0125 [0.0094]  favour 83%  sum log ratio +21.6
+  stratum  june_8_g0 maze 1       H-labelled: H - S              n   15  mean +2.124 [+1.586, +2.722]  p 0.0000 [0.0001]  favour 100%  sum log ratio +31.9
+  stratum  june_8_g0 maze 1       all: matched - mismatched      n   15  mean +2.124 [+1.571, +2.711]  p 0.0000 [0.0001]  favour 100%  sum log ratio +31.9
+  stratum  june_8_g0 maze 2       H-labelled: H - S              n   10  mean -0.223 [-0.550, +0.064]  p 0.9003 [0.8765]  favour 50%  sum log ratio -2.2
+  stratum  june_8_g0 maze 2       all: matched - mismatched      n   13  mean -0.436 [-0.981, -0.035]  p 0.9413 [0.9618]  favour 38%  sum log ratio -5.7
+  stratum  june_8_g0 maze 3       H-labelled: H - S              n   12  mean +1.315 [+0.503, +2.082]  p 0.0050 [0.0094]  favour 75%  sum log ratio +15.8
+  stratum  june_8_g0 maze 3       all: matched - mismatched      n   12  mean +1.315 [+0.518, +2.051]  p 0.0050 [0.0065]  favour 75%  sum log ratio +15.8
+  stratum  june_8_g0 maze 4       S-labelled: S - H              n   17  mean +0.275 [+0.124, +0.463]  p 0.0038 [0.0001]  favour 94%  sum log ratio +4.7
+  stratum  june_8_g0 maze 4       all: matched - mismatched      n   18  mean +0.249 [+0.091, +0.432]  p 0.0061 [0.0042]  favour 89%  sum log ratio +4.5
+  stratum  june_8_g0 maze 5       S-labelled: S - H              n   22  mean -0.091 [-0.377, +0.159]  p 0.7355 [0.7353]  favour 73%  sum log ratio -2.0
+  stratum  june_8_g0 maze 5       all: matched - mismatched      n   23  mean -0.153 [-0.451, +0.143]  p 0.8413 [0.8466]  favour 70%  sum log ratio -3.5
+  stratum  june_8_g0 maze 6       S-labelled: S - H              n   21  mean +1.398 [+1.065, +1.750]  p 0.0000 [0.0001]  favour 95%  sum log ratio +29.4
+  stratum  june_8_g0 maze 6       all: matched - mismatched      n   21  mean +1.398 [+1.058, +1.713]  p 0.0000 [0.0001]  favour 95%  sum log ratio +29.4
+

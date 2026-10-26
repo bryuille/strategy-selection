@@ -55,7 +55,7 @@ Findings: [README.md](../README.md#classifier).
 - `classifier.codebook` draws any of `regions`, `exits`, `lor`, `balls` over
   the six mazes with every fixation centroid coloured by its region
   (`out/<scope>/<branch>/<branch>_by_maze.png`), to check a codebook against the data.
-- Fixations are looks from `data.looks` (the advisor's `timestamp_preprocessing`): >= 75 ms stable support, bounded by saccades and gaps; dwell = stable support. Regions are measured in degrees around
+- Fixations are looks from `data.looks` (the `timestamp_preprocessing` package): >= 75 ms stable support, bounded by saccades and gaps; dwell = stable support. Regions are measured in degrees around
   maze-specific exit locations.
 
 ## What is trained and what is tested
