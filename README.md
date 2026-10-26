@@ -69,7 +69,7 @@ after changing detector or QC constants, delete the derived caches
 | `msp/`        | **Main analysis**, maze-strategy pairs; also `msp.per_session`, `msp.saccades`, and `msp/legacy/` |
 | `classifier/`  | Predict the strategy label from pre-fixation gaze: raw traces vs region dwell, within-maze AUC; dendrogram or SVM scope |
 | `scatter/`    | Mean gaze per maze between fixation and the flash                        |
-| `counterfactual/` | Post-choice counterfactual saccades vs the H / S exit rankings (top-two SNR sessions) |
+| `counterfactual/` | Post-choice looks at the unchosen exits vs each strategy's choice-conditioned belief (top-two SNR sessions) |
 | `slurm/`      | Batch scripts for Engaging                                               |
 
 Each package reads `data/` and writes only to its own `out/`. When a default
@@ -340,21 +340,19 @@ claim.
 
 ### `counterfactual/`
 
-After the choice, do the saccades to the *unchosen* exits follow the exit
-ranking of the monkey's strategy? Each trial becomes a list of exit codes
-(1 = LU, 2 = LD, 3 = RU, 4 = RD): the chosen exit, decoded from `trial_answer*`
-with `LR` / `LR2`, then every exit looked at from the choice saccade to
-`trial_end`, in order. The Hierarchical and Sequential models of Figure Five
-(ported from the Figure Five MATLAB, published Weber fractions 0.165 / 0.153)
-give each trial a probability over the exits; renormalised over the unchosen
-exits they score the ordered counterfactual looks, and the test is a paired
-model comparison within each label group: do H-labelled trials' sequences
-have higher probability under H than under S, and S-labelled trials' under S
-than under H (one-sided paired t-test, as Figure Five). Top-two SNR sessions
-per monkey, dendrogram labels. Output: `counterfactual/out/<Monkey>/`
-(`compare_s_results.csv`, `_summary.txt`, four figures, plus the exit
-sequences);
-findings and caveats in [counterfactual/README.md](counterfactual/README.md).
+After the choice, do the looks at the *unchosen* exits follow what the
+monkey's strategy believes? Each behavioral model (Hierarchical, Second-only
+and the other Figure One models; published Weber fractions 0.165 / 0.153)
+stores one row per (maze, chosen exit): its belief over the other three
+exits, from noise draws on the chosen exit's path kept when the model's rule
+picks that exit. The looks from `flash_three` to `trial_end`
+(`timestamp_preprocessing` via `data.looks`) are scored with Plackett–Luce:
+a relative metric (H − S within each label group, one-sided paired t-test)
+and an absolute one (gain over chance). Top-two SNR sessions per monkey,
+dendrogram labels. Output: `counterfactual/out/<Monkey>/`; method, results
+and the descriptive models of the looks in
+[counterfactual/README.md](counterfactual/README.md) and
+[counterfactual/DESCRIPTIVE.md](counterfactual/DESCRIPTIVE.md).
 
 ### `scatter/`
 

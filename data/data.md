@@ -31,8 +31,8 @@ published ranges are read from `Single_Trial_List/`.
 | `<Monkey>_msp_revised_fix[_svm]` (legacy name) | `classifier.fixations` | `classifier.fixations.load` |
 | `<Monkey>_looks_<epoch>` | `data.looks.build_looks` (timestamp_preprocessing) | `data.looks.load_looks` |
 | `<Monkey>_msp_looks5_r<radius>[_region\|_capsule]` | `msp.features` | `msp.features.load_features` |
-| `<Monkey>_cf_exits` | `counterfactual.extract` | `counterfactual.extract.load` |
-| `<Monkey>_cf_models` | `counterfactual.models` | `counterfactual.models.load` |
+| `<Monkey>_cfv2_trials` | `counterfactual.extract` (trials + window looks) | `counterfactual.extract.load` |
+| `<Monkey>_cfv2_q` | `counterfactual.beliefs` (per-maze model tables per trial) | `counterfactual.beliefs.load` |
 
 `<Monkey>` is `Faure` or `Nielsen`. `<session>` is e.g. `june_24_g0`.
 `<tag>` is a radius tag such as `r1` or `r0.5`. msp analyses

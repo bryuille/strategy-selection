@@ -234,51 +234,31 @@ uv run python -m counts.build --source svm --monkey Faure --scope top_ten
 
 ## counterfactual
 
-Post-choice exit sequences and the counterfactual test for the top-two SNR
-sessions. The caches `<Monkey>_cf_exits.npz` (from the `trial` looks cache)
-and `<Monkey>_cf_models.npz` build on first use.
+Counterfactual looks (looks at the unchosen exits after the choice) scored
+against each strategy's choice-conditioned belief, top-two SNR sessions per
+monkey, looks from the `trial` looks cache. Method and results:
+[counterfactual/README.md](counterfactual/README.md).
 
 ```bash
-uv run python -m counterfactual.checks                 # exit decoding + detector, synthetic, no data
-uv run python -m counterfactual.extract                # build the cache, both monkeys
-uv run python -m counterfactual.extract --monkey Faure --session june_24_g0 --refresh
-uv run python -m counterfactual.models                 # H/S exit probabilities per trial (Figure Five port)
-uv run python -m counterfactual.build --dry-run        # extraction summary only
-uv run python -m counterfactual.build                  # exit_sequences.csv + extraction summary per monkey
-uv run python -m counterfactual.compare                # paired H vs S comparison per label group (per monkey)
-uv run python -m counterfactual.compare --alt total optimal      # experiments (Total Time / Optimal as the comparator); outputs not kept
-uv run python -m counterfactual.logp                   # absolute fit: mean log P per trial under H, S and uniform (per monkey)
-uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2 3   # one movie per trial
-uv run python -m counterfactual.movie --session Nov_3_g0 --batch --n-trials 15   # one video, 15 trials back to back
-uv run python -m counterfactual.movie --session june_8_g0 --batch --labelled --start 15   # next 15 labelled trials
+uv run python -m counterfactual.checks                 # synthetic, no data
+uv run python -m counterfactual.extract [--refresh]    # trial / look cache
+uv run python -m counterfactual.beliefs [--refresh]    # per-maze tables (chosen exit x exit looked at), assigned to trials
+uv run python -m counterfactual.compare                # relative metric -> counterfactual/out/<Monkey>/compare_sessions.png
+uv run python -m counterfactual.logp                   # absolute metric -> counterfactual/out/<Monkey>/logp_sessions.png
+uv run python -m counterfactual.compare --uncond       # both metrics with unconditioned (Figure Five) q -> uncond_* (also counterfactual.logp --uncond)
+uv run python -m counterfactual.best_model             # all behavioral models ranked by gain over chance -> best_model_summary.md
+uv run python -m counterfactual.tables                 # the tables next to the observed first looks -> belief_tables.md
+uv run python -m counterfactual.descriptive            # descriptive models of the first look (counterfactual/DESCRIPTIVE.md) -> descriptive_results.csv
+uv run python -m counterfactual.movie --session june_24_g0 --trial-id 1 2      # one movie per trial
+uv run python -m counterfactual.movie --session june_8_g0 june_24_g0 Nov_3_g0 Nov_6_g0 --batch --start 50 --n-trials 20
 ```
 
-`counterfactual.movie` writes `counterfactual/out/movies/<Monkey>/<session>/trial_<id>.mp4`
-or, with `--batch`, one `batch_<first>-<last>.mp4` of the trials back to back with a
-one-second hold at each trial start (needs ffmpeg; `*.mp4` under `out/` is
-gitignored). The clock runs from `flash_three`, with the analysed window's start
-(`saccade_init`) marked on the timeline: gaze on the maze with the
-3° exit / origin circles, the active fixation's centroid marker and label for
-its whole duration, an expanding ring plus "NEW FIXATION" banner for the first
-150 ms of every fixation, saccades in orange, a numbered fixation timeline and
-the exit list growing as items are counted.
+`counterfactual.movie` writes `counterfactual/out/movies/<Monkey>/<session>/trial_<id>.mp4`, or with
+`--batch` one `batch_<first>-<last>.mp4` per session (`--labelled` keeps labelled trials only, `--speed`
+sets playback, default 0.25). Gaze is the `timestamp_preprocessing` sample record; looks and saccades come
+from the same caches the analysis uses.
 
-| Flag          | Meaning                                                             |
-| ------------- | ------------------------------------------------------------------- |
-| `--monkey`    | `Faure`, `Nielsen` (default both)                                   |
-| `--session`   | `extract` only: subset of the monkey's publication sessions         |
-| `--refresh`   | Rebuild the cache                                                   |
-| `--dry-run`   | `build` only: print the summaries, write nothing                    |
-| `--alt`       | `compare` only: alternative(s) to H: `s` (default); `total`, `optimal` are experiments |
-| `--n-perm`    | `compare` only: sign flips for the permutation p (default 10000)      |
-| `--min-trials` | `compare` only: skip units / label groups with fewer trials (default 5) |
-| `--out-root`  | `build` only: output directory (default `counterfactual/out`)       |
-| `--trial-id`  | `movie` only: trial ids (default: the first `--n-trials` cached trials) |
-| `--batch`     | `movie` only: all trials in one video (default 15 trials)           |
-| `--labelled`  | `movie` only: only trials with a dendrogram strategy label           |
-| `--start`     | `movie` only: skip the first N eligible trials (a different batch)   |
-| `--speed`     | `movie` only: playback speed, 1 = real time (default 0.25)          |
-| `--dpi`       | `movie` only: frame resolution (default 120)                         |
+Every command except `movie` takes `--monkey` (`Faure`, `Nielsen`; default both).
 
 ## Slurm
 
@@ -318,7 +298,7 @@ detector or QC constants, delete the derived eye and feature caches and rebuild:
 ```bash
 cd /path/to/your/PROCESSED_ROOT         # as set in data/config.py (default ./data/processed)
 rm -f *_looks_*.npz *_msp_looks5_*.npz *_msp_revised_fix*.npz \
-      *_cf_exits.npz *_cf_models.npz *_clf_raw*.npz
+      *_cfv2_trials.npz *_cfv2_q.npz *_clf_raw*.npz
 ```
 
 **Event source change, 2026-10-22.** Eye events now come from the

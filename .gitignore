@@ -33,8 +33,25 @@ logs/
 **/out/**/*.pdf
 **/out/**/*.svg
 
-# Retired packages
-zarchive/
+# Retired packages, except the MATLAB the counterfactual package ports or
+# cites: the Figure Five likelihood analysis (H / S simulation, model
+# helpers), the Figure One behavioral model helpers (Postdictive, First-only,
+# Total Time, ...) and the Weber-fraction loader. Git cannot re-include a
+# file under an ignored directory, so each level is re-opened in turn.
+zarchive/*
+!zarchive/MR_AG_MJ/
+zarchive/MR_AG_MJ/*
+!zarchive/MR_AG_MJ/load_timing_scalar.m
+!zarchive/MR_AG_MJ/Figure_Five/
+zarchive/MR_AG_MJ/Figure_Five/*
+!zarchive/MR_AG_MJ/Figure_Five/03_Likelihood_Analysis/
+!zarchive/MR_AG_MJ/Figure_One/
+zarchive/MR_AG_MJ/Figure_One/*
+!zarchive/MR_AG_MJ/Figure_One/H_Maze_Behavioral_Analysis/
+zarchive/MR_AG_MJ/Figure_One/H_Maze_Behavioral_Analysis/*
+!zarchive/MR_AG_MJ/Figure_One/H_Maze_Behavioral_Analysis/Model_Results/
+zarchive/MR_AG_MJ/Figure_One/H_Maze_Behavioral_Analysis/Model_Results/*
+!zarchive/MR_AG_MJ/Figure_One/H_Maze_Behavioral_Analysis/Model_Results/Models/
 
 # Cluster-specific notes
 cloud.md

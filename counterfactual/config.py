@@ -1,14 +1,7 @@
-"""counterfactual: post-choice exit sequences per trial.
+"""counterfactual: counterfactual looks scored against choice-conditioned strategy beliefs.
 
-After the monkey commits to an exit, where does it look next? Each trial is
-reduced to a list of exit codes: item 0 is the chosen exit (decoded from the
-behavioral record), every later item is an exit the monkey fixated afterwards,
-in time order, repeats kept. Likelihoods against the strategy label are not
-defined yet; this package only annotates the data.
-
-Scope: the four publication sessions (two per monkey), the dendrogram-label
-sessions. Codes follow DATA_DICTIONARY.md: 1 = LU, 2 = LD, 3 = RU, 4 = RD;
-0 is the origin (fixation point) and -1 everything else.
+See README.md. Codes follow DATA_DICTIONARY.md: 1 = LU, 2 = LD, 3 = RU,
+4 = RD; 0 is the origin and -1 everything else.
 """
 
 from __future__ import annotations
@@ -22,43 +15,48 @@ SESSIONS = {
     "Nielsen": ("Nov_3_g0", "Nov_6_g0"),
 }
 MONKEYS = tuple(SESSIONS)
+MODELS = ("H", "S")  # the two strategies compared against the labels (compare, logp)
+# Every behavioral model ranked by counterfactual.best_model (counterfactual.noise defines each); the
+# revision and lapse variants of v1's best-model table (commit 09e6fea) are left out.
+ALL_MODELS = ("H", "S", "O", "P", "T", "C", "F")
+MODEL_NAMES = {"H": "Hierarchical", "S": "Second-only (Sequential)", "O": "Optimal", "P": "Postdictive",
+               "T": "Total Time", "C": "Total Time (convolution)", "F": "First-only"}
+H_LABEL, S_LABEL = 0, 1  # dendrogram label codes
 
-# ---- states -----------------------------------------------------------------
-ELSEWHERE = -1
-ORIGIN = 0
-LU, LD, RU, RD = 1, 2, 3, 4
+# ---- looks ------------------------------------------------------------------
+ELSEWHERE, ORIGIN = -1, 0
 EXIT_NAMES = ("LU", "LD", "RU", "RD")
-STATE_NAMES = {ELSEWHERE: "elsewhere", ORIGIN: "origin", LU: "LU", LD: "LD", RU: "RU", RD: "RD"}
-
-# Assignment in degrees, fixation point at the origin: a fixation centroid
-# within EXIT_RADIUS_DEG of an exit is that exit (nearest wins), else within
-# ORIGIN_RADIUS_DEG of the origin is the origin, else elsewhere. 3 deg is the
-# exit-ball radius the classifier package uses.
-EXIT_RADIUS_DEG = 3.0
+EXIT_RADIUS_DEG = 3.0  # nearest exit within this radius (the classifier's exit-ball radius)
 ORIGIN_RADIUS_DEG = 3.0
+# Looks overlapping [flash_three, trial_end], ms from geo_present.
+WINDOW_START_FIELD = "flash_three"
+CHOICE_FIELD = "saccade_init"
+LOOKS_EPOCH = "trial"
 
-# ---- window -----------------------------------------------------------------
-# The window starts at the choice saccade (first finite field in order) and
-# runs to the end of the `trial` looks epoch (trial_end), in ms from geo_present.
-WINDOW_START_FIELDS = ("saccade_init", "answer_time", "fixation_off")
+# ---- beliefs (counterfactual.beliefs) ----------------------------------------------------------
+# Published mean Weber fraction per monkey (Figure One panel G, stored in
+# Data/Pre_Physiology/Model_Results/Behavioral_Psychometrics/timing_scalars.mat).
+WEBER = {"Faure": 0.165, "Nielsen": 0.153}
+N_DRAWS = 100_000  # per (maze, chosen exit) cell
+SEED = 45
+EPS = 1e-3  # added to each unchosen-exit probability before renormalising
 
-# ---- choice models (counterfactual.models) ------------------------------------
-# Published mean Weber fraction per monkey: `MR_AG_MJ/load_timing_scalar.m`
-# reading `Data/Pre_Physiology/Model_Results/Behavioral_Psychometrics/
-# timing_scalars.mat` (values read from that file on 2026-10-22). It is the
-# `scalar` of `D_likelihood_Physiology.m`: normpdf(measured, arm, arm * scalar).
-WEBER_SCALAR = {"Faure": 0.165, "Nielsen": 0.153}
-N_SAMPLES = 10_000  # noise draws per trial, as Figure Five
-MODEL_SEED = 45  # Figure Five's rng(45)
-# Smoothing added to each exit probability before renormalising over the
-# unchosen exits, so a model that never picks an exit still gives it a finite
-# log likelihood.
-MODEL_EPS = 1e-3
+# ---- statistics -------------------------------------------------------------------
+N_BOOT = 2_000
 
-# ---- cache / output ---------------------------------------------------------
-SCHEMA = 3  # looks-based (data.looks, timestamp_preprocessing)
+SCHEMA = 3
 OUT_ROOT = Path(__file__).resolve().parent / "out"
 
 
-def cache_path(monkey):
-    return processed_npz(f"{monkey}_cf_exits")
+def trials_cache(monkey):
+    return processed_npz(f"{monkey}_cfv2_trials")
+
+
+def q_cache(monkey):
+    return processed_npz(f"{monkey}_cfv2_q")
+
+
+def out_dir(monkey):
+    d = OUT_ROOT / monkey
+    d.mkdir(parents=True, exist_ok=True)
+    return d
